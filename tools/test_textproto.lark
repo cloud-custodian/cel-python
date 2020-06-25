@@ -63,7 +63,7 @@ test_description : "description" ":" value
 test_expr : "expr" ":" value
 test_disable_macros : "disable_macros" ":" value
 test_disable_check : "disable_check" ":" value
-test_type_env : "type_env" ":"? "{" type_env+ "}"
+test_type_env : "type_env" ":"? "{" type_env_name type_env_ident "}"
 test_container : "container" ":" value
 test_bindings : "bindings" ":"? "{" bindings+ "}"
 test_value : "value" ":"? "{" value_clause "}"
@@ -122,7 +122,7 @@ type_env_ident : "ident" ":"? "{" type_name "}"
 // message Type
 type_name : "type" ":"? "{" type_spec "}"
 
-// TODO: Expand these, they have some unique structures.
+// TODO: Expand these into separate rules for each case.
 type_spec : "primitive" ":" TYPE
     | "message_type" ":" STRING
     | "null" ":" TYPE  // NULL_VALUE

@@ -26,10 +26,16 @@ Status
 
 **Work In Process**
 
-Current status is about 447 scenarios passed, 504 failed, 0 skipped.
-This is based on the CEL-Spec Simple test suite.
+Current Status:
 
-Unit test coverage is barely 81%.
+  11 features passed, 4 failed, 5 skipped
+  512 scenarios passed, 95 failed, 344 skipped
+  1159 steps passed, 95 failed, 1086 skipped, 0 undefined
+  Took 0m1.227s
+
+This is based on the CEL-Spec Simple test suite plus a few other tests.
+
+Unit test coverage is barely 88%.
 
 Installation
 =============

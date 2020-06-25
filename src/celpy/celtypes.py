@@ -39,12 +39,12 @@ We don't need to make special :func:`isinstance` checks for this situation.
       File "<input>", line 1, in <module>
     TypeError: unsupported operand type(s) for +: 'int' and 'ZeroDivisionError'
 
-Type Provider
+Types
 =============
 
 See https://github.com/google/cel-go/tree/master/common/types
 
-This is a type provider. These are the Go type definitions that are built-in to CEL.
+These are the Go type definitions that are built-in to CEL:
 
 -   BoolType
 -   BytesType
@@ -66,7 +66,9 @@ We provide matching Python class names for each of these types. The Python type 
 are subclasses of Python native types, allowing a client to transparently work with
 CEL results and provide values to CEL that *should* be tolerated.
 
-CEL also supports protobuf types.
+A type hint of ``Value`` unifies these into a common hint.
+
+CEL also supports protobuf types:
 
 -   dpb.Duration
 -   tpb.Timestamp
@@ -90,21 +92,39 @@ This involve expressions like the following::
 
 In this case, the well-known protobuf name is directly available to CEL.
 
+Type Provider
+==============================
+
 A type provider can be bound to the environment, this will support additional types.
+This appears to be a factory to map names of types to type classes.
+
+
 Run-time type binding is shown by a CEL expression like the following::
 
     TestAllTypes{single_uint32_wrapper: 432u}
 
-These are examples of the ``member "{" [fieldinits] "}"`` rule. The ``member`` is part of
-a type provider library, either a standard protobuf definition or an extension.
+The ``TestAllTypes`` is a protobuf type added to the CEL run-time. The syntax
+is defined by this syntax rule::
+
+    member_object  : member "{" [fieldinits] "}"
+
+The ``member`` is part of a type provider library,
+either a standard protobuf definition or an extension. The field inits build
+values for the protobuf object.
 
 See https://github.com/google/cel-go/blob/master/test/proto3pb/test_all_types.proto
-for the TestAllTypes protobuf definition that is registered as a type provider.
+for the ``TestAllTypes`` protobuf definition that is registered as a type provider.
 
-Both of these expressions will build a Protobuf uint32 object.
-The type adapter will map this to CEL's internal IntType.
+This expression will describes a Protobuf ``uint32`` object.
 
-Numeric Changes
+Type Adapter
+=============
+
+So far, it appears that a type adapter wraps existing Go or C++ types
+with CEL-required methods. This seems like it does not need to be implemented
+in Python.
+
+Numeric Details
 ===============
 
 Integer division truncates toward zero.
@@ -136,7 +156,7 @@ Python definition::
 
 Here's the essential rule::
 
-    x//y * y + x%y == x.
+    x//y * y + x%y == x
 
 However. Python ``//`` truncates toward negative infinity. Go ``/`` truncates toward zero.
 
@@ -150,7 +170,10 @@ To get Go-like behavior, we need to use absolute values and restore the signs la
 """
 from functools import wraps
 import logging
-from typing import Any, cast, NoReturn
+from typing import (
+    Any, cast, NoReturn, Mapping, Union, Sequence, Tuple, Optional, Iterable,
+    Type
+)
 
 
 logger = logging.getLogger("celtypes")
@@ -175,13 +198,32 @@ class BoolType(int):
     For CEL, We need to prevent -false from working.
     """
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({super().__repr__()})"
+        return f"{self.__class__.__name__}({bool(self)})"
 
     def __neg__(self) -> NoReturn:
         raise TypeError("no such overload")
 
     def __hash__(self) -> int:
         return super().__hash__()
+
+
+class BytesType(bytes):
+    """Python's bytes semantics are close to CEL."""
+    def __new__(
+            cls: Type,
+            source: Union[str, bytes, Iterable[int], 'BytesType', 'StringType'], *args, **kwargs
+    ) -> 'BytesType':
+        if isinstance(source, (bytes, BytesType)):
+            return super().__new__(cls, source)  # type: ignore[call-arg]
+        elif isinstance(source, (str, StringType)):
+            return super().__new__(cls, source.encode('utf-8'))  # type: ignore[call-arg]
+        elif isinstance(source, Iterable):
+            return super().__new__(cls, source)  # type: ignore[call-arg]
+        else:
+            raise TypeError(f"Invalid initial value type: {type(source)}")
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({super().__repr__()})"
 
 
 class DoubleType(float):
@@ -192,6 +234,10 @@ class DoubleType(float):
     """
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
+
+    def __str__(self) -> str:
+        text = str(float(self))
+        return text
 
     def __neg__(self) -> 'DoubleType':
         return DoubleType(super().__neg__())
@@ -251,20 +297,41 @@ class IntType(int):
     >>> 2**63
     9223372036854775808
 
-      features/integer_math.feature:285  "int64_overflow_negative"
+    features/integer_math.feature:285  "int64_overflow_negative"
 
     >>> -IntType(9223372036854775808) - IntType(1)
     Traceback (most recent call last):
     ...
     ValueError: overflow
 
+    >>> IntType(DoubleType(1.9))
+    IntType(2)
+    >>> IntType(DoubleType(-123.456))
+    IntType(-123)
     """
+    def __new__(
+            cls: Type,
+            source: Any, *args, **kwargs
+    ) -> 'IntType':
+        if isinstance(source, IntType):
+            return source
+        elif isinstance(source, (float, DoubleType)):
+            convert = int64(round)
+        else:
+            # Must tolerate "-" as part of the literal.
+            # See https://github.com/google/cel-spec/issues/126
+            convert = int64(int)
+        return super().__new__(cls, convert(source))  # type: ignore[call-arg]
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
 
+    def __str__(self) -> str:
+        text = str(int(self))
+        return text
+
     @int64
     def __neg__(self) -> 'IntType':
-        logger.info(f"Using __neg__ on {self!r}")
         return IntType(super().__neg__())
 
     @int64
@@ -380,7 +447,7 @@ class UintType(int):
     >>> -UintType(42)
     Traceback (most recent call last):
     ...
-    NotImplementedError
+    TypeError: no such overload
 
     uint64_overflow_positive
 
@@ -399,10 +466,26 @@ class UintType(int):
     >>> - UintType(5)
     Traceback (most recent call last):
     ...
-    NotImplementedError
+    TypeError: no such overload
     """
+    def __new__(
+            cls: Type,
+            source: Any, *args, **kwargs
+    ) -> 'UintType':
+        if isinstance(source, UintType):
+            return source
+        if isinstance(source, (float, DoubleType)):
+            convert = uint64(round)
+        else:
+            convert = uint64(int)
+        return super().__new__(cls, convert(source))  # type: ignore[call-arg]
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
+
+    def __str__(self) -> str:
+        text = str(int(self))
+        return text
 
     def __neg__(self) -> NoReturn:
         raise TypeError("no such overload")
@@ -465,9 +548,9 @@ class UintType(int):
 
 class ListType(list):
     """
-    Native Python compares list objects.
+    Native Python implements comparison operations between list objects.
 
-    For CEL, we need to prevent list comparison operators from working.
+    For CEL, we prevent list comparison operators from working.
     """
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
@@ -485,12 +568,70 @@ class ListType(list):
         raise TypeError("no such overload")
 
 
+BaseMapTypes = Union[Mapping[Any, Any], Sequence[Tuple[Any, Any]]]
+
+
+class MapType(dict):
+    """
+    Native Python allows mapping updates and any hashable type as a kay.
+
+    CEL prevents mapping updates and has a limited domain of key types.
+        int, uint, bool, or string keys
+    """
+    def __init__(
+            self,
+            base: Optional[BaseMapTypes] = None) -> None:
+        super().__init__()
+        if base is None:
+            pass
+        elif isinstance(base, Sequence):
+            for name, value in base:
+                self[name] = value
+        elif isinstance(base, Mapping):
+            for name, value in base.items():
+                self[name] = value
+        else:
+            raise TypeError(f"Invalid initial value type: {type(base)}")
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({super().__repr__()})"
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        if not valid_key_type(key):
+            raise TypeError(f"unsupported key type: {type(key)}")
+        if key in self:
+            raise ValueError(f"repeated key: {key}")
+        return super().__setitem__(key, value)
+
+    def __getitem__(self, key: Any) -> Any:
+        if not valid_key_type(key):
+            raise TypeError(f"unsupported key type: {type(key)}")
+        return super().__getitem__(key)
+
+
 class NullType:
     """TBD. May not be needed. Python's None semantics appear to match CEL perfectly."""
     pass
 
 
 class StringType(str):
-    """Python's str semantics appear to match CEL perfectly."""
+    """Python's str semantics are close to CEL."""
+    def __new__(
+            cls: Type,
+            source: Union[str, bytes, 'BytesType', 'StringType'], *args, **kwargs
+    ) -> 'StringType':
+        if isinstance(source, (bytes, BytesType)):
+            return super().__new__(cls, source.decode('utf-8'))  # type: ignore[call-arg]
+        elif isinstance(source, (str, StringType)):
+            # TODO: Consider returning the original StringType object.
+            return super().__new__(cls, source)  # type: ignore[call-arg]
+        else:
+            return super().__new__(cls, source)  # type: ignore[call-arg]
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
+
+
+def valid_key_type(key: Any) -> bool:
+    """Valid CEL key types. Plus native str for tokens in the source when evaluating ``e.f``"""
+    return isinstance(key, (IntType, UintType, BoolType, StringType, str))

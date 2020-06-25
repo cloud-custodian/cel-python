@@ -99,6 +99,7 @@ Scenario: "string_exp_neg_neg"
 Scenario: "dyn_heterogeneous_list"
           "No need to disable type checking."
  When CEL expression "type(dyn([1, 'one']))" is evaluated
+ Then value is Value(value_type='type', value='list')
 
 
 # "int" -- "Conversions to int."
@@ -143,6 +144,7 @@ Scenario: "string"
  When CEL expression "int('987')" is evaluated
  Then value is Value(value_type='int64_value', value=987)
 
+@wip
 Scenario: "timestamp"
  When CEL expression "int(timestamp('2004-09-16T23:59:59Z'))" is evaluated
  Then value is Value(value_type='int64_value', value=1095379199)
@@ -187,9 +189,11 @@ Scenario: "bytes_invalid"
 
 Scenario: "bool"
  When CEL expression "type(true)" is evaluated
+ Then value is Value(value_type='type', value='bool')
 
 Scenario: "bool_denotation"
  When CEL expression "bool" is evaluated
+ Then value is Value(value_type='type', value='bool')
 
 Scenario: "dyn_no_denotation"
 Given disable_check parameter is true
@@ -198,9 +202,11 @@ Given disable_check parameter is true
 
 Scenario: "int"
  When CEL expression "type(0)" is evaluated
+ Then value is Value(value_type='type', value='int')
 
 Scenario: "int_denotation"
  When CEL expression "int" is evaluated
+ Then value is Value(value_type='type', value='int')
 
 Scenario: "eq_same"
  When CEL expression "type(true) == type(false)" is evaluated
@@ -208,39 +214,51 @@ Scenario: "eq_same"
 
 Scenario: "uint"
  When CEL expression "type(64u)" is evaluated
+ Then value is Value(value_type='type', value='uint')
 
 Scenario: "uint_denotation"
  When CEL expression "uint" is evaluated
+ Then value is Value(value_type='type', value='uint')
 
 Scenario: "double"
  When CEL expression "type(3.14)" is evaluated
+ Then value is Value(value_type='type', value='double')
 
 Scenario: "double_denotation"
  When CEL expression "double" is evaluated
+ Then value is Value(value_type='type', value='double')
 
 Scenario: "null_type"
  When CEL expression "type(null)" is evaluated
+ Then value is Value(value_type='type', value='null_type')
 
 Scenario: "null_type_denotation"
  When CEL expression "null_type" is evaluated
+ Then value is Value(value_type='type', value='null_type')
 
 Scenario: "string"
  When CEL expression "type('foo')" is evaluated
+ Then value is Value(value_type='type', value='string')
 
 Scenario: "string_denotation"
  When CEL expression "string" is evaluated
+ Then value is Value(value_type='type', value='string')
 
 Scenario: "bytes"
  When CEL expression "type(b'\xff')" is evaluated
+ Then value is Value(value_type='type', value='bytes')
 
 Scenario: "bytes_denotation"
  When CEL expression "bytes" is evaluated
+ Then value is Value(value_type='type', value='bytes')
 
 Scenario: "list"
  When CEL expression "type([1, 2, 3])" is evaluated
+ Then value is Value(value_type='type', value='list')
 
 Scenario: "list_denotation"
  When CEL expression "list" is evaluated
+ Then value is Value(value_type='type', value='list')
 
 Scenario: "lists_monomorphic"
  When CEL expression "type([1, 2, 3]) == type(['one', 'two', 'three'])" is evaluated
@@ -248,9 +266,11 @@ Scenario: "lists_monomorphic"
 
 Scenario: "map"
  When CEL expression "type({4: 16})" is evaluated
+ Then value is Value(value_type='type', value='map')
 
 Scenario: "map_denotation"
  When CEL expression "map" is evaluated
+ Then value is Value(value_type='type', value='map')
 
 Scenario: "map_monomorphic"
  When CEL expression "type({'one': 1}) == type({1: 'one'})" is evaluated
@@ -274,12 +294,15 @@ Scenario: "meta"
 
 Scenario: "type"
  When CEL expression "type(int)" is evaluated
+ Then value is Value(value_type='type', value='type')
 
 Scenario: "type_denotation"
  When CEL expression "type" is evaluated
+ Then value is Value(value_type='type', value='type')
 
 Scenario: "type_type"
  When CEL expression "type(type)" is evaluated
+ Then value is Value(value_type='type', value='type')
 
 
 # "uint" -- "Conversions to uint."

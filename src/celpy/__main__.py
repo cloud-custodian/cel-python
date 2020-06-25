@@ -18,13 +18,60 @@ Pure Python implementation of CEL.
 
 This provides a few jq-like, bc-like, and shell expr-like features.
 
--   jq can handle lists using ``.[5]``. We can't handle lists. We can only handle top-level objects
-    or a string.
+-   ``jq`` uses ``.`` to refer the current document. By setting a package
+    name of ``"jq"`` and placing the JSON object in the package, we achieve
+    similar syntax.
 
--   bc has complex function definitions and other programming support.
-    We can only evaluate bc-like expressions.
+-   ``bc`` has complex function definitions and other programming support.
+    CEL can only evaluate bc-like expressions.
 
--   This does everything expr does, but the syntax is slightly different.
+-   This does everything ``expr`` does, but the syntax is slightly different.
+
+SYNOPSIS
+========
+
+::
+
+    python -m celpy [--arg name:type=value ...] [--null-input] expr
+
+Options:
+
+:--arg:
+    Provides argument names, types and optional values.
+    If the value is not provided, the name is expected to be an environment
+    variable, and the value of the environment variable is converted and used.
+
+:--null-input:
+    Normally, JSON documents are read from stdin. If no JSON documents are
+    provided, the ``--null-input`` option skips trying to read them.
+
+:expr:
+    A CEL expression to evaluate.
+
+JSON documents are read from stdin in NDJSON format (http://jsonlines.org/, http://ndjson.org/).
+For each JSON document, the expression is evaluated with the
+
+..  todo:: CLI slurp
+
+    Add a --slurp option to read a single multiline document.
+
+Arguments, Types, and Namespaces
+================================
+
+CEL objects rely on the celtypes definitions.
+
+Because of the close association between CEL and protobuf, protobuf types
+are also supported.
+
+..  todo:: CLI type environment
+
+    Permit name.name:type=value to create namespace bindings.
+
+Further, type providers can be bound to CEL. This means an extended CEL
+may have additional types beyond those defined by the :py:class:`Activation` class.
+
+Design
+=======
 
 See https://github.com/google/cel-go/blob/master/examples/simple_test.go
 
@@ -56,8 +103,8 @@ The model Go we're sticking close to::
 Here's the Pythonic approach, using concept patterned after the Go implementation::
 
     >>> from celpy import *
-    >>> decls = [TypeAnnotation("name", str)]
-    >>> env = Environment(decls)
+    >>> decls = [TypeAnnotation("name", "primitive", "STRING")]
+    >>> env = Environment(annotations=decls)
     >>> ast = env.compile('"Hello world! I\\'m " + name + "."')
     >>> out = env.program(ast).evaluate({"name": "CEL"})
     >>> print(out)
@@ -72,9 +119,10 @@ import logging
 import os
 import re
 import sys
-from typing import List, Tuple, Callable, Any, Dict
+from typing import List, Tuple, Callable, Any, Dict, Union
 from . import Environment
 from . import celtypes
+from .evaluation import Value
 
 
 logger = logging.getLogger("celpy")
@@ -90,7 +138,7 @@ CLI_ARG_TYPES: Dict[str, Callable] = {
     "bytes": bytes,
     "list": ast.literal_eval,
     "map": ast.literal_eval,
-    "null_type": (lambda x: None),
+    "null_type": type(None),
 
     "int64_value": celtypes.IntType,
     "uint64_value": celtypes.UintType,
@@ -101,6 +149,44 @@ CLI_ARG_TYPES: Dict[str, Callable] = {
     "number_value": celtypes.DoubleType,  # Ambiguous; can somtimes be integer.
     "null_value": (lambda x: None),
 }
+
+
+JSON = Union[Dict[str, Any], List[Any], bool, float, int, str, None]
+
+
+def json_to_cel(document: JSON) -> Value:
+    """Convert parsed JSON object to CEL.
+
+    ::
+
+        >>> from pprint import pprint
+        >>> from celpy import __main__
+        >>> doc = json.loads('["str", 42, 3.14, null, true, {"hello": "world"}]')
+        >>> cel = json_to_cel(doc)
+        >>> pprint(cel)
+        ListType([StringType('str'), IntType(42), DoubleType(3.14), None, BoolType(True), \
+MapType({StringType('hello'): StringType('world')})])
+    """
+    if isinstance(document, bool):
+        return celtypes.BoolType(document)
+    elif isinstance(document, float):
+        return celtypes.DoubleType(document)
+    elif isinstance(document, int):
+        return celtypes.IntType(document)
+    elif isinstance(document, str):
+        return celtypes.StringType(document)
+    elif document is None:
+        return None
+    elif isinstance(document, List):
+        return celtypes.ListType(
+            [json_to_cel(item) for item in document]
+        )
+    elif isinstance(document, Dict):
+        return celtypes.MapType(
+            {json_to_cel(key): json_to_cel(value) for key, value in document.items()}
+        )
+    else:
+        raise ValueError(f"unexpected type {type(document)} in JSON structure {document!r}")
 
 
 def arg_type_value(text: str) -> Tuple[str, Any]:
@@ -125,6 +211,7 @@ def arg_type_value(text: str) -> Tuple[str, Any]:
         | "single_bool" | "single_string" | "single_bytes"
         | "single_duration" | "single_timestamp"
 
+    ..  todo:: names can include `.` to support namespacing.
 
     :param text: Argument value
     :return: Tuple with name, and resulting object.
@@ -152,25 +239,41 @@ def arg_type_value(text: str) -> Tuple[str, Any]:
     return name, value
 
 
-def get_options(argv: List[str] = sys.argv[1:]) -> argparse.Namespace:
+def get_options(argv: List[str] = None) -> argparse.Namespace:
+    """Parses command-line arguments."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-a", "--arg", nargs='*', action='store', type=arg_type_value)
     parser.add_argument(
         "-n", "--null-input", dest='null_input', default=False, action='store_true')
     parser.add_argument(
-        "-v", "--verbose", default=logging.WARNING, action='store_const', const=logging.DEBUG)
+        "-v", "--verbose", default=0, action='count')
     parser.add_argument("expr")
     options = parser.parse_args(argv)
     return options
 
 
-if __name__ == "__main__":
-    options = get_options()
-    logging.basicConfig(stream=sys.stderr, level=options.verbose)
+def main(argv: List[str] = None) -> None:
+    """
+    Given options from the command-line, execute the CEL expression.
+
+    With --null-input option, only --arg and expr matter.
+
+    Without --null-input, JSON documents are read from STDIN, following ndjson format.
+    """
+    options = get_options(argv)
+    if options.verbose == 1:
+        logging.getLogger().setLevel(logging.INFO)
+    elif options.verbose > 1:
+        logging.getLogger().setLevel(logging.DEBUG)
+    logger.debug(options)
     logger.info("Expr: %r", options.expr)
 
-    env = Environment()
+    # TODO: Extract name:type annotations from options.arg
+    env = Environment(
+        package=None if options.null_input else "jq",
+        # annotations=[]
+    )
     expr = env.compile(options.expr)
     prgm = env.program(expr)
 
@@ -183,12 +286,19 @@ if __name__ == "__main__":
         activation = {}
 
     if options.null_input:
-        # Don't read stdin
+        # Don't read stdin, evaluate with a minimal activation context.
         result = prgm.evaluate(activation)
         print(json.dumps(result))
     else:
-        # Each line is a JSON doc. We give it the name "." in the activation context.
+        # Each line is a JSON doc. We repackage it into celtypes objects.
+        # It is in the "jq" package in the activation context.
         for document in sys.stdin:
-            activation['.'] = json.loads(document)
+            activation['jq'] = json_to_cel(json.loads(document))
             result = prgm.evaluate(activation)
             print(json.dumps(result))
+
+
+if __name__ == "__main__":  # pragma: no cover
+    logging.basicConfig(level=logging.WARNING)
+    main(sys.argv[1:])
+    logging.shutdown()

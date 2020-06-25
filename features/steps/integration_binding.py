@@ -57,7 +57,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from typing import List, Dict, Any, NamedTuple
+from typing import List, Dict, Any, NamedTuple, Type
 
 from celpy import Environment, EvalError, TypeAnnotation
 import celpy.celtypes
@@ -89,15 +89,38 @@ class Value(NamedTuple):
             else:
                 return celpy.celtypes.DoubleType(self.value)
         elif self.value_type == "string_value":
-            return self.value
+            return celpy.celtypes.StringType(self.value)
         elif self.value_type == "bytes_value":
-            return self.value
+            return celpy.celtypes.BytesType(self.value)
         elif self.value_type == "bool_value":
             return celpy.celtypes.BoolType(self.value)
         elif self.value_type == "null_value":
             return None
+        elif self.value_type == "type":
+            return self.type_mapping(self.value)
         else:
             raise ValueError(f"what is {self}?")
+
+    def type_mapping(self, name: str) -> Type:
+        """
+        Convert type_value names to implementation types.
+        The names aren't quite the same as type names.
+        """
+        name_to_cel = {
+            "bool": celpy.celtypes.BoolType,
+            "bytes": celpy.celtypes.BytesType,
+            "double": celpy.celtypes.DoubleType,
+            # duration
+            "int": celpy.celtypes.IntType,
+            "list": celpy.celtypes.ListType,
+            "map": celpy.celtypes.MapType,
+            "null_type": type(None),
+            "string": celpy.celtypes.StringType,
+            # timestamp
+            "uint": celpy.celtypes.UintType,
+            "type": type,
+        }
+        return name_to_cel[name]
 
 
 class Entries(NamedTuple):
@@ -109,9 +132,12 @@ class MapValue(NamedTuple):
 
     @property
     def cel_value(self) -> Any:
-        return {
-            e["key"].cel_value: e["value"].cel_value for d in self.items for e in d.key_value
-        }
+        """Translate Gherkin MapValue to a CEL dict"""
+        return celpy.celtypes.MapType(
+            {
+               e["key"].cel_value: e["value"].cel_value for d in self.items for e in d.key_value
+            }
+        )
 
 
 class ListValue(NamedTuple):
@@ -119,7 +145,8 @@ class ListValue(NamedTuple):
 
     @property
     def cel_value(self) -> Any:
-        return [item.cel_value for item in self.items]
+        """Translate Gherkin ListValue to a CEL list"""
+        return celpy.celtypes.ListType(item.cel_value for item in self.items)
 
 
 class TypeEnv(NamedTuple):
@@ -129,7 +156,8 @@ class TypeEnv(NamedTuple):
 
     @property
     def annotation(self) -> TypeAnnotation:
-        return TypeAnnotation(self.name, self.type_ident)
+        """Translate Gherkin TypeEnv to a CEL TypeAnnotation"""
+        return TypeAnnotation(self.name, self.kind, self.type_ident)
 
 
 class Bindings(NamedTuple):
@@ -145,17 +173,21 @@ def step_impl(context, disable_check):
 def step_impl(context, type_env):
     """type_env has name, kind, and type information used to create the environment."""
     # type_env is a TypeEnv literal value
-    context.data['type_env'] = eval(type_env)
+    raw_type_env = eval(type_env)
+    context.data['type_env'].append(raw_type_env)
 
 
 @given(u'bindings parameter is {bindings}')
 def step_impl(context, bindings):
     # Bindings is a Bindings literal value
-    context.data['raw_bindings'] = eval(bindings)
-    if context.data['raw_bindings']:
-        context.data['bindings'] = {b['key']: b['value'].cel_value for b in context.data['raw_bindings'].bindings}
-    else:
-        context.data['bindings'] = {}
+    raw_bindings = eval(bindings)
+    new_bindings = {b['key']: b['value'].cel_value for b in raw_bindings.bindings}
+    context.data['bindings'].update(new_bindings)
+
+
+@given(u'container is "{container}"')
+def step_impl(context, container):
+    context.data['container'] = container
 
 
 def expand_textproto_escapes(expr_text: str) -> str:
@@ -168,12 +200,17 @@ def expand_textproto_escapes(expr_text: str) -> str:
 
 
 def cel(context):
-    """TODO: include disable_check in environment."""
+    """
+    Run the CEL expression.
+
+    TODO: include disable_macros and disable_check in environment.
+    """
     types = []
-    if "type_env" in context.data and context.data['type_env']:
-        types = [context.data['type_env'].annotation]
+    if "type_env" in context.data:
+        types = [te.annotation for te in context.data['type_env']]
 
     env = Environment(types)
+    env.package = context.data['container']
     ast = env.compile(context.data['expr'])
     prgm = env.program(ast)
 
@@ -183,7 +220,7 @@ def cel(context):
         context.data['result'] = result
         context.data['error'] = None
     except EvalError as ex:
-        context.data['result'] = None
+        # No 'result' to distinguish from an expected None value.
         context.data['error'] = ex.args[0]
 
 
@@ -201,12 +238,14 @@ def step_impl(context, expr):
 
 @then(u'value is {value}')
 def step_impl(context, value):
-    # value is a Value literal
+    # value is a "Value(...)" literal, interpret it to create a Value object.
     expected = eval(value)
     context.data['expected'] = expected
+    assert 'result'  in context.data, f"Expected {expected.cel_value!r} in {context.data}"
     result = context.data['result']
     if expected:
-        assert result == expected.cel_value, f"{result!r} != {expected.cel_value!r} in {context.data}"
+        assert result == expected.cel_value, \
+            f"{result!r} != {expected.cel_value!r} in {context.data}"
     else:
         assert result is None, f"{result!r} is not None in {context.data}"
 
@@ -249,8 +288,8 @@ def step_impl(context, text):
     Use -D match=exact to enable this
 
     """
+    actual_ec = error_category(context.data['error'] or "")
     expected_ec = error_category(text)
-    actual_ec = error_category(context.data['error'])
     if context.config.userdata.get("match", "any") == "exact":
         assert expected_ec == actual_ec, f"{expected_ec} != {actual_ec} in {context.data}"
     else:

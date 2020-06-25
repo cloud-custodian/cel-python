@@ -45,19 +45,13 @@ Pure Python implementation of CEL.
 
 """
 import logging
-from typing import Any, Type, Optional, Iterable, NamedTuple
+from typing import Any, Type, Optional, Iterable, List
 import lark  # type: ignore[import]
 from .parser import get_parser
-from .evaluation import Evaluator, Context, EvalError  # noqa: F401
+from .evaluation import Evaluator, Context, EvalError, TypeAnnotation  # noqa: F401
 
 
 Expression = Type[lark.Tree]
-
-
-class TypeAnnotation(NamedTuple):
-    """Name and type bindings."""
-    name: str
-    type: Type
 
 
 class Runner:
@@ -67,8 +61,9 @@ class Runner:
 
     ..  todo:: add type adapter and type provider registries.
     """
-    def __init__(self, ast: Expression) -> None:
+    def __init__(self, environment: 'Environment', ast: Expression) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.environment = environment
         self.ast = ast
 
     def evaluate(self, activation: Context) -> Any:  # pragma: no cover
@@ -82,7 +77,11 @@ class InterpretedRunner(Runner):
     Given an AST, this evauates the AST in the context of a specific activation.
     """
     def evaluate(self, activation: Context) -> Any:
-        e = Evaluator(activation)
+        e = Evaluator(
+            annotations=self.environment.annotations,
+            activation=activation,
+            package=self.environment.package
+        )
         e.visit(self.ast)
         return e.result
 
@@ -96,8 +95,8 @@ class CompiledRunner(Runner):
     Transform the AST into Python, uses :py:func:`compile` to create a code object.
     Uses :py:func:`eval` to evaluate.
     """
-    def __init__(self, ast: Expression) -> None:
-        super().__init__(ast)
+    def __init__(self, environment: 'Environment', ast: Expression) -> None:
+        super().__init__(environment, ast)
         # Transform to Python.
         # compile()
         # cache executable code object.
@@ -110,24 +109,30 @@ class CompiledRunner(Runner):
 class Environment:
     """Compiles CEL text to create an Expression object.
 
-    From the Go implementation, there are two other things here:
+    From the Go implementation, there are things to work with the type annotations:
 
     -   type adapters registry make other native types available for CEL.
 
     -   type providers registry make ProtoBuf types available for CEL.
 
-    ..  todo:: Add adapter and provider registries.
+    ..  todo:: Add adapter and provider registries to the Environment.
     """
-    def __init__(self, annotations: Optional[Iterable[TypeAnnotation]] = None) -> None:
+    def __init__(
+            self,
+            package: Optional[str] = None,
+            annotations: Optional[Iterable[TypeAnnotation]] = None
+    ) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.annotations = annotations
-        self.logger.info(f"Type Annotations {annotations}")
+        self.annotations: List[TypeAnnotation] = list(annotations or [])
+        self.logger.info(f"Type Annotations {self.annotations!r}")
+        self.package: Optional[str] = package
+        self.cel_parser = get_parser()
 
     def compile(self, text: str) -> Expression:
-        cel_parser = get_parser()
-        ast = cel_parser.parse(text)
+        ast = self.cel_parser.parse(text)
         return ast
 
     def program(self, expr: Expression) -> Runner:
-        return InterpretedRunner(expr)
-        # return CompiledRunner(expr)
+        self.logger.info(f"Package {self.package!r}")
+        return InterpretedRunner(self, expr)
+        # return CompiledRunner(self, expr)

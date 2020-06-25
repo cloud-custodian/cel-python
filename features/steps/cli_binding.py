@@ -53,6 +53,7 @@ def step_impl(context, expr):
             stderr=subprocess.PIPE,
             **extra
         )
+    temp.unlink()
 
     if sys.version_info.minor <= 6:
         context.data['stdout'] = result.stdout.decode('utf-8')
@@ -61,7 +62,11 @@ def step_impl(context, expr):
         context.data['stdout'] = result.stdout
         context.data['stderr'] = result.stderr
 
-    temp.unlink()
+    if "debug" in context.config.userdata:
+        for line in context.data['stdout'].splitlines():
+            print(f"OUT: {line}", file=sys.stderr)
+        for line in context.data['stderr'].splitlines():
+            print(f"ERR: {line}", file=sys.stderr)
 
 
 @when(u'celpy -n \'{expr}\' is run')
@@ -92,6 +97,12 @@ def step_impl(context, expr):
         context.data['stdout'] = result.stdout
         context.data['stderr'] = result.stderr
 
+    if "debug" in context.config.userdata:
+        for line in context.data['stdout'].splitlines():
+            print(f"OUT: {line}", file=sys.stderr)
+        for line in context.data['stderr'].splitlines():
+            print(f"ERR: {line}", file=sys.stderr)
+
 
 @then(u'stdout matches "{regex}"')
 def step_impl(context, regex):
@@ -101,9 +112,9 @@ def step_impl(context, regex):
 
 @then(u'stdout is "{text}"')
 def step_impl(context, text):
-    assert text == context.data['stdout'], f"{context.data}"
+    assert text == context.data['stdout'].rstrip(), f"{text!r} != {context.data!r}['stdout']"
 
 
 @then(u'stderr is ""')
 def step_impl(context):
-    assert context.data['stderr'] == "", f"{context.data}"
+    assert context.data['stderr'].rstrip() == "", f"{context.data}"

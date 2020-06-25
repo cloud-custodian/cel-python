@@ -22,7 +22,7 @@
 // - Terminals reordered to reflect priorities better.
 
 // A number of rules used ! annotation to capture tokens.
-// These were rewritten to expand into specific, named rules and avoid the "!" construct.
+// These were rewritten to expand into specific, named rules and avoid a need for the Lark "!" construct.
 
 expr           : conditionalor ["?" conditionalor ":" expr]
 
@@ -34,7 +34,7 @@ conditionaland : [conditionaland "&&"] relation
 // !relation       : [relation relop] addition
 // !relop          : "<" | "<=" | ">=" | ">" | "==" | "!=" | "in"
 
-// Revision to expose operators in the AST.
+// Expose operators in the AST.
 relation       : [relation_lt | relation_le | relation_ge | relation_gt | relation_eq | relation_ne | relation_in] addition
 relation_lt    : relation "<"
 relation_le    : relation "<="
@@ -47,7 +47,7 @@ relation_in    : relation "in"
 // Original...
 // !addition      : [addition ("+" | "-")] multiplication
 
-// Revision to expose operators in the AST.
+// Expose operators in the AST.
 addition       : [addition_add | addition_sub] multiplication
 addition_add   : addition "+"
 addition_sub   : addition "-"
@@ -55,7 +55,7 @@ addition_sub   : addition "-"
 // Original...
 // !multiplication: [multiplication ("*" | "/" | "%")] unary
 
-// Revision to expose operators in the AST.
+// Expose operators in the AST.
 multiplication : [multiplication_mul | multiplication_div | multiplication_mod] unary
 multiplication_mul : multiplication "*"
 multiplication_div : multiplication "/"
@@ -66,7 +66,7 @@ multiplication_mod : multiplication "%"
 //                | "!" "!"* member
 //                | "-" "-"* member
 
-// Revision to expose operators in the AST.
+// Expose operators in the AST.
 unary          : [unary_not | unary_neg] member
 unary_not      : "!"
 unary_neg      : "-"
@@ -78,11 +78,11 @@ unary_neg      : "-"
 //                | member "[" expr "]"
 //                | member "{" [fieldinits] "}"
 
-// Revision to expose constructs in the AST.
+// Expose constructs in the AST.
 member         : member_dot | member_dot_arg | member_index | member_object | primary
 member_dot     : member "." IDENT
 member_dot_arg : member "." IDENT "(" [exprlist] ")"
-member_index    : member "[" expr "]"
+member_index   : member "[" expr "]"
 member_object  : member "{" [fieldinits] "}"
 
 
@@ -93,9 +93,9 @@ member_object  : member "{" [fieldinits] "}"
 //                | "{" [mapinits] "}"
 //                | literal
 
-// Revision to expose constructs in the AST.
-primary        : dot_ident_arg | dot_ident | ident_arg | ident
-               | paren_expr | list_lit | map_lit | literal
+// Expose constructs in the AST.
+primary        : literal | dot_ident_arg | dot_ident | ident_arg
+               | paren_expr | list_lit | map_lit | ident
 dot_ident_arg  : "." IDENT "(" [exprlist] ")"
 dot_ident      : "." IDENT
 ident_arg      : IDENT "(" [exprlist] ")"
@@ -116,17 +116,16 @@ literal        : UINT_LIT | FLOAT_LIT | INT_LIT | MLSTRING_LIT | STRING_LIT | BY
 
 // Terminals. Order of some definitions altered to help lark.
 
-IDENT.0        : /[_a-zA-Z][_a-zA-Z0-9]*/
-
-INT_LIT        : /0x/ HEXDIGIT+ | DIGIT+
+// Signs added (see https://github.com/google/cel-spec/issues/126)
+INT_LIT        : /-?/ /0x/ HEXDIGIT+ | /-?/ DIGIT+
 
 UINT_LIT       : INT_LIT /[uU]/
 
 // Original...
 // FLOAT_LIT      : DIGIT* . DIGIT+ EXPONENT? | DIGIT+ EXPONENT
 
-// Expanded...
-FLOAT_LIT      : DIGIT+ "." DIGIT* EXPONENT? | DIGIT* "." DIGIT+ EXPONENT? | DIGIT+ EXPONENT
+// Expanded and signs added (see  https://github.com/google/cel-spec/issues/126)
+FLOAT_LIT      : /-?/ DIGIT+ "." DIGIT* EXPONENT? | /-?/ DIGIT* "." DIGIT+ EXPONENT? | /-?/ DIGIT+ EXPONENT
 
 DIGIT          : /[0-9]/
 
@@ -134,7 +133,7 @@ HEXDIGIT       : /[0-9abcdefABCDEF]/
 
 EXPONENT       : /[eE]/ /[+-]?/ DIGIT+
 
-// Rewritten into REGEX and also to explicitly support escapes
+// Rewritten into REGEX; explicitly list the escapes
 
 STRING_LIT     : /[rR]?"(?:\\[bfnrt"'\\]|\\\d{3}|\\x[0-9abcdefABCDEF]{2}|\\u[0-9abcdefABCDEF]{4}|.)*?"/
                | /[rR]?'(?:\\[bfnrt"'\\]|\\\d{3}|\\x[0-9abcdefABCDEF]{2}|\\u[0-9abcdefABCDEF]{4}|.)*?'/
@@ -157,9 +156,13 @@ BOOL_LIT       : "true" | "false"
 
 NULL_LIT       : "null"
 
-RESERVED.2     : BOOL_LIT | NULL_LIT | "in"
-                 | "for" | "if" | "function" | "return" | "void"
-                 | "import" | "package" | "as" | "let" | "const"
+IDENT          : /[_a-zA-Z][_a-zA-Z0-9]*/
+
+RESERVED.0       : "as" | "break" | "const" | "continue" | "else"
+               | "for" | "function" | "if" | "import" | "let"
+               | "loop" | "package" | "namespace" | "return"
+               | "var" | "void" | "while"
+
 
 WHITESPACE     : /[\t\n\f\r ]+/
 

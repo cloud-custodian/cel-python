@@ -28,13 +28,54 @@ Builds a parser from the supplied cel.lark grammar.
 
     This means fixing a LOT of \\'s. But it also eliminates a data file from the installation.
 
+Example::
+
+    >>> p = get_parser()
+    >>> text2 = 'type(null)'
+    >>> ast2 = p.parse(text2)
+    >>> print(ast2.pretty().replace("\t","   "))  # doctest: +NORMALIZE_WHITESPACE
+    expr
+      conditionalor
+        conditionaland
+          relation
+            addition
+              multiplication
+                unary
+                  member
+                    primary
+                      ident_arg
+                        type
+                        exprlist
+                          expr
+                            conditionalor
+                              conditionaland
+                                relation
+                                  addition
+                                    multiplication
+                                      unary
+                                        member
+                                          primary
+                                            literal    null
+
+
 """
 from pathlib import Path
 import re
-from lark import Lark  # type: ignore
+from lark import Lark, Token, Tree  # type: ignore  # noqa: F401
 
 
 CEL_PARSER = None
+
+
+def ambiguous_literals(t: Token) -> Token:
+    """Resolve a grammar ambiguity between identifiers and literals"""
+    if t.value == "null":
+        return Token("NULL_LIT", t.value)
+    elif t.value == "true":
+        return Token("BOOL_LIT", t.value)
+    elif t.value == "false":
+        return Token("BOOL_LIT", t.value)
+    return t
 
 
 def get_parser() -> Lark:
@@ -52,11 +93,12 @@ def get_parser() -> Lark:
             parser="lalr",
             start="expr",
             debug=True,
-            g_regex_flags=re.M)
+            g_regex_flags=re.M,
+            lexer_callbacks={'IDENT': ambiguous_literals})
     return CEL_PARSER
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # A minimal sanity check.
     # This is a smoke test for the grammar to expose shift/reduce or reduce/reduce conflicts.
     text = """
@@ -67,3 +109,7 @@ if __name__ == "__main__":
     p = get_parser()
     ast = p.parse(text)
     print(ast)
+
+    text2 = """type(null)"""
+    ast2 = p.parse(text2)
+    print(ast2)
