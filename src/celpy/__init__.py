@@ -20,35 +20,80 @@ Pure Python implementation of CEL.
 
 ::
 
-    from celpy import Environment, EvalError, TypeAnnotation
+    >>> import celpy
 
     # A list of type names and class bindings used to create an environment.
-    types = []
-    env = Environment(types)
+    >>> types = []
+    >>> env = celpy.Environment(types)
 
     # The CEL AST.
-    ast = env.compile(context.data['expr'])
+    >>> ast = env.compile("355. / 113.")
 
     # The executable program.
-    prgm = env.program(ast)
+    >>> prgm = env.program(ast)
 
     # Variable bindings.
-    activation = {}
+    >>> activation = {}
 
     # Final evaluation.
-    try:
-        result = prgm.evaluate(activation)
-        error = None
-    except EvalError as ex:
-        result = None
-        error = ex.args[0]
+    >>> try:
+    ...    result = prgm.evaluate(activation)
+    ...    error = None
+    ... except EvalError as ex:
+    ...    result = None
+    ...    error = ex.args[0]
+
+    >>> result  # doctest: +ELLIPSIS
+    DoubleType(3.14159...)
 
 """
+import json  # noqa: F401
 import logging
-from typing import Any, Type, Optional, Iterable, List
+from typing import Any, Type, Optional, Iterable, List, Dict, Union
 import lark  # type: ignore[import]
 from .parser import get_parser
-from .evaluation import Evaluator, Context, EvalError, TypeAnnotation  # noqa: F401
+from .evaluation import (  # noqa: F401
+    Evaluator, Context, EvalError, TypeAnnotation, Value, Activation
+)
+from . import celtypes
+
+
+JSON = Union[Dict[str, Any], List[Any], bool, float, int, str, None]
+
+
+def json_to_cel(document: JSON) -> Value:
+    """Convert parsed JSON object to CEL.
+
+    ::
+
+        >>> from pprint import pprint
+        >>> from celpy import __main__
+        >>> doc = json.loads('["str", 42, 3.14, null, true, {"hello": "world"}]')
+        >>> cel = json_to_cel(doc)
+        >>> pprint(cel)
+        ListType([StringType('str'), IntType(42), DoubleType(3.14), None, BoolType(True), \
+MapType({StringType('hello'): StringType('world')})])
+    """
+    if isinstance(document, bool):
+        return celtypes.BoolType(document)
+    elif isinstance(document, float):
+        return celtypes.DoubleType(document)
+    elif isinstance(document, int):
+        return celtypes.IntType(document)
+    elif isinstance(document, str):
+        return celtypes.StringType(document)
+    elif document is None:
+        return None
+    elif isinstance(document, List):
+        return celtypes.ListType(
+            [json_to_cel(item) for item in document]
+        )
+    elif isinstance(document, Dict):
+        return celtypes.MapType(
+            {json_to_cel(key): json_to_cel(value) for key, value in document.items()}
+        )
+    else:
+        raise ValueError(f"unexpected type {type(document)} in JSON structure {document!r}")
 
 
 Expression = Type[lark.Tree]
@@ -75,15 +120,20 @@ class InterpretedRunner(Runner):
     Pure AST expression evaluator. Uses :py:class:`evaluation.Evaluator` class.
 
     Given an AST, this evauates the AST in the context of a specific activation.
+
+    The returned value will be a celtypes type.
+
+    Generally, this should raise an EvalError for most kinds of ordinary problems.
+    It may raise an CELUnsupportedError for future features.
     """
-    def evaluate(self, activation: Context) -> Any:
+    def evaluate(self, context: Context) -> Any:
+        activation = self.environment.activation().nested_activation(vars=context)
         e = Evaluator(
-            annotations=self.environment.annotations,
+            ast=self.ast,
             activation=activation,
-            package=self.environment.package
         )
-        e.visit(self.ast)
-        return e.result
+        value = e.evaluate()
+        return value
 
 
 class CompiledRunner(Runner):
@@ -116,6 +166,8 @@ class Environment:
     -   type providers registry make ProtoBuf types available for CEL.
 
     ..  todo:: Add adapter and provider registries to the Environment.
+
+    ..  todo:: Return baseline activation.
     """
     def __init__(
             self,
@@ -129,6 +181,7 @@ class Environment:
         self.cel_parser = get_parser()
 
     def compile(self, text: str) -> Expression:
+        """Compile the CEL source. This can raise syntax error exceptions."""
         ast = self.cel_parser.parse(text)
         return ast
 
@@ -136,3 +189,6 @@ class Environment:
         self.logger.info(f"Package {self.package!r}")
         return InterpretedRunner(self, expr)
         # return CompiledRunner(self, expr)
+
+    def activation(self) -> Activation:
+        return Activation(annotations=self.annotations, package=self.package)

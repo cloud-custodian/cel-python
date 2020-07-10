@@ -5,5 +5,5 @@ We can use celpy to process JQ-like expressions.
 Scenario: Extract a field from a JSON document
 Given JSON document '{"some": {"complex": {"path": 42}}}'
 When echo document | celpy '.some.complex.path' is run
-Then stdout is "42"
+Then stdout is "42\n"
 And stderr is ""

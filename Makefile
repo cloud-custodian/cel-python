@@ -24,7 +24,7 @@ test-all:
 	tox
 
 sphinx:
-	export PYTHONPATH=$(PWD)/src && cd docs && $(MAKE) html
+	export PYTHONPATH=$(PWD)/src:$(PWD)/tools && cd docs && $(MAKE) html
 
 ghpages:
 	-git checkout gh-pages && \

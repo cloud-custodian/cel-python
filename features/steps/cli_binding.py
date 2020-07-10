@@ -112,7 +112,8 @@ def step_impl(context, regex):
 
 @then(u'stdout is "{text}"')
 def step_impl(context, text):
-    assert text == context.data['stdout'].rstrip(), f"{text!r} != {context.data!r}['stdout']"
+    clean_text = text.replace(r"\n", "\n")
+    assert clean_text == context.data['stdout'], f"{text!r} != {context.data!r}['stdout']"
 
 
 @then(u'stderr is ""')

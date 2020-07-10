@@ -110,13 +110,13 @@ class Value(NamedTuple):
             "bool": celpy.celtypes.BoolType,
             "bytes": celpy.celtypes.BytesType,
             "double": celpy.celtypes.DoubleType,
-            # duration
+            "duration": celpy.celtypes.DurationType,
             "int": celpy.celtypes.IntType,
             "list": celpy.celtypes.ListType,
             "map": celpy.celtypes.MapType,
             "null_type": type(None),
             "string": celpy.celtypes.StringType,
-            # timestamp
+            "timestamp": celpy.celtypes.TimestampType,
             "uint": celpy.celtypes.UintType,
             "type": type,
         }
@@ -147,6 +147,22 @@ class ListValue(NamedTuple):
     def cel_value(self) -> Any:
         """Translate Gherkin ListValue to a CEL list"""
         return celpy.celtypes.ListType(item.cel_value for item in self.items)
+
+
+class ObjectValue(NamedTuple):
+    namespace: str
+    source: List[Dict[str, Any]]
+
+    @property
+    def cel_value(self) -> Any:
+        """Translate Gherkin ObjectValue to a CEL object"""
+        if self.namespace == 'type.googleapis.com/google.protobuf.Duration':
+            sec_src, nano_src = self.source
+            seconds = int(sec_src["special_value_clause"]["value"])
+            nanos = int(nano_src["special_value_clause"]["value"])
+            return celpy.celtypes.DurationType(seconds, nanos)
+        else:
+            raise ValueError("Can't convert {self!r} to a CEL object")
 
 
 class TypeEnv(NamedTuple):

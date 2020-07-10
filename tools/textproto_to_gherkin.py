@@ -302,15 +302,20 @@ def dictify(tree: lark.tree.Tree) -> Union[str, Dict[str, Any]]:
 def detokenize(token: lark.Token) -> str:
     """Rewrite source Protobuf value tokens into Python native objects.
 
-    value : INT | FLOAT | STRING | NULL | BOOL | TYPE
+    ::
+
+        value : INT | FLOAT | STRING | NULL | BOOL | TYPE
 
     INT, FLOAT, and NULL are trivial because the syntax overlaps with Python.
 
-    TYPE is a string representation of a keyword, and also trivial
+    TYPE is a string representation of a keyword, and also trivial.
 
-    BOOL : "true" | "false"
+    ::
 
-    STRING : /"[^"\n\\]*((\\.)+[^"\n\\]*)*("|\\?$)/ | /'[^'\n\\]*((\\.)+[^'\n\\]*)*('|\\?$)/
+        BOOL : "true" | "false"
+
+        STRING : /"[^"\\n\\]*((\\.)+[^"\\n\\]*)*("|\\?$)/ | /'[^'\\n\\]*((\\.)+[^'\\n\\]*)*('|\\?$)/
+
     """
     def expand_str_escape(match: str) -> str:
         if match == '\\"':
@@ -474,22 +479,26 @@ class UnwindTests(lark.visitors.Visitor):
 
     def test_type_env(self, tree):
         """
-        test_type_env : "type_env" ":"? "{" type_env_name type_env_ident "}"
-        type_env_name : "name" ":" value ","?
-        type_env_ident : "ident" ":"? "{" type_name "}"
+        ::
 
-        value : INT | FLOAT | STRING | NULL | BOOL | TYPE
+            test_type_env : "type_env" ":"? "{" type_env_name type_env_ident "}"
+            type_env_name : "name" ":" value ","?
+            type_env_ident : "ident" ":"? "{" type_name "}"
 
-        type_name : "type" ":"? "{" type_spec "}"
+            value : INT | FLOAT | STRING | NULL | BOOL | TYPE
 
-        // TODO: Expand these, they have some unique structures.
-        type_spec : "primitive" ":" TYPE
-            | "message_type" ":" STRING
-            | "map_type" ":" map_type_spec
-            | "list_type" ":" "{" type_spec "}"
-            | "null" ":" TYPE
-            | "elem_type" ":" "{" type_spec "}"
-        map_type_spec : "{" "key_type" ":" "{" type_spec "}" "value_type" ":" "{" type_spec "}" "}"
+            type_name : "type" ":"? "{" type_spec "}"
+
+            // TODO: Expand these, they have some unique structures.
+            type_spec : "primitive" ":" TYPE
+                | "message_type" ":" STRING
+                | "map_type" ":" map_type_spec
+                | "list_type" ":" "{" type_spec "}"
+                | "null" ":" TYPE
+                | "elem_type" ":" "{" type_spec "}"
+            map_type_spec : "{" "key_type" ":" "{" type_spec "}"
+                                "value_type" ":" "{" type_spec "}" "}"
+
         """
         logger.info(f"{tree.data}: {tree.children}")
         type_env_name, type_env_ident = tree.children
@@ -534,11 +543,13 @@ class UnwindTests(lark.visitors.Visitor):
 
     def test_bindings(self, tree):
         """
-        test_bindings : "bindings" ":"? "{" bindings+ "}"
-        ?bindings : binding_key | binding_value
-        binding_key : "key" ":"? value
-        binding_value : "value" ":"? "{" value_clause "}"
-            | "value" ":"? "{" "value" ":"? "{" value_clause "}" "}"  // Ugh. There should be a better fix.
+        ::
+
+            test_bindings : "bindings" ":"? "{" bindings+ "}"
+            ?bindings : binding_key | binding_value
+            binding_key : "key" ":"? value
+            binding_value : "value" ":"? "{" value_clause "}"
+                | "value" ":"? "{" "value" ":"? "{" value_clause "}" "}"
 
         """
         logger.info(f"{tree.data}: {tree.children}")
@@ -579,7 +590,9 @@ class UnwindTests(lark.visitors.Visitor):
     def object_value_clause(self, tree):
         """5 alternatives, all similar to this...
 
-        [NAMESPACE] { details }
+        ::
+
+            [NAMESPACE] { details }
         """
         logger.debug(f"{tree.data}: {tree.children}")
         object_value_clause = tree.children[0]
@@ -588,13 +601,15 @@ class UnwindTests(lark.visitors.Visitor):
 
     def list_value_clause(self, tree):
         """
-        ?value_clause : container_values_clause | list_value_clause | map_value_clause ...
+        ::
 
-        list_value_clause : "list_value" ":"? "{" list_value* "}"
-        list_value : "values" ":"? "{" value_clause "}"
-        container_values_clause : single_value
+            ?value_clause : container_values_clause | list_value_clause | map_value_clause ...
 
-        single_value : TYPE_NAME ":" value
+            list_value_clause : "list_value" ":"? "{" list_value* "}"
+            list_value : "values" ":"? "{" value_clause "}"
+            container_values_clause : single_value
+
+            single_value : TYPE_NAME ":" value
 
         Note the recursion required to create a ListValue object.
         """
@@ -603,16 +618,18 @@ class UnwindTests(lark.visitors.Visitor):
 
     def map_value_clause(self, tree):
         """
-        ?value_clause : container_values_clause | list_value_clause | map_value_clause ...
+        ::
 
-        map_value_clause :  "map_value" ":"? "{" entries* "}"
-        entries : "entries" "{" key_value ~ 2 "}"
-        ?key_value : key_value_key | key_value_value
-        key_value_key : "key" ":"? "{" single_value "}"
-            | "key" ":" value
-        key_value_value : "value" ":"? "{" single_value "}"
+            ?value_clause : container_values_clause | list_value_clause | map_value_clause ...
 
-        single_value : TYPE_NAME ":" value
+            map_value_clause :  "map_value" ":"? "{" entries* "}"
+            entries : "entries" "{" key_value ~ 2 "}"
+            ?key_value : key_value_key | key_value_value
+            key_value_key : "key" ":"? "{" single_value "}"
+                | "key" ":" value
+            key_value_value : "value" ":"? "{" single_value "}"
+
+            single_value : TYPE_NAME ":" value
         """
         logger.info(f"{tree.data}: {tree.children}")
         self.current_value = MapValue()
@@ -653,12 +670,15 @@ class UnwindTests(lark.visitors.Visitor):
 
     def fields_clause(self, tree):
         """
-        fields_clause : "fields" "{" key_value ~ 2 "}"
+        ::
 
-        ?key_value : key_value_key | key_value_value
-        key_value_key : "key" ":"? "{" single_value "}"
-            | "key" ":" value
-        key_value_value : "value" ":"? "{" single_value "}"
+            fields_clause : "fields" "{" key_value ~ 2 "}"
+
+            ?key_value : key_value_key | key_value_value
+            key_value_key : "key" ":"? "{" single_value "}"
+                | "key" ":" value
+            key_value_value : "value" ":"? "{" single_value "}"
+
         """
         logger.debug(f"{tree.data}: {tree.children}")
         self.current_value = Fields([dictify(v) for v in tree.children])
@@ -667,7 +687,9 @@ class UnwindTests(lark.visitors.Visitor):
         """Value within a container (ListValue or ObjectValue) wrapping single_value instances.
         Also used at the top level within a test "value" property.
 
-        container_values_clause : single_value
+        ::
+
+            container_values_clause : single_value
         """
         logger.debug(f"{tree.data}: {tree.children}")
         # self.current_value = Value(tree.children[0].children[0].value, tree.children[0].children[1].children[0])
@@ -676,7 +698,10 @@ class UnwindTests(lark.visitors.Visitor):
 
     def type_wrapper_clause(self, tree):
         """
-        type_wrapper_clause : WRAPPER ":"? "{" value_clause? "}"
+        ::
+
+            type_wrapper_clause : WRAPPER ":"? "{" value_clause? "}"
+
         """
         logger.debug(f"{tree.data}: {tree.children}")
         if len(tree.children) == 2:
@@ -695,7 +720,10 @@ class UnwindTests(lark.visitors.Visitor):
 
     def special_value_clause(self, tree):
         """
-        special_value_clause : "value" ":" value
+        ::
+
+            special_value_clause : "value" ":" value
+
         """
         logger.debug(f"{tree.data}: {tree.children}")
         value = tree.children[0]
@@ -703,7 +731,10 @@ class UnwindTests(lark.visitors.Visitor):
 
     def single_value(self, tree):
         """
-        single_value : TYPE_NAME ":" value
+        ::
+
+            single_value : TYPE_NAME ":" value
+
         """
         logger.debug(f"{tree.data}: {tree.children}")
         type_token, value_tree = tree.children
@@ -714,7 +745,9 @@ class UnwindTests(lark.visitors.Visitor):
 
     def type_value_clause(self, tree):
         """
-        type_value_clause   : "type_value" ":"? STRING
+        ::
+
+            type_value_clause   : "type_value" ":"? STRING
         """
         type_token = tree.children[0]
         self.current_value = Value(

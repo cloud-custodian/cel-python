@@ -27,6 +27,8 @@ This provides a few jq-like, bc-like, and shell expr-like features.
 
 -   This does everything ``expr`` does, but the syntax is slightly different.
 
+TODO: This can also have a REPL, as well as process CSV files.
+
 SYNOPSIS
 ========
 
@@ -119,10 +121,9 @@ import logging
 import os
 import re
 import sys
-from typing import List, Tuple, Callable, Any, Dict, Union
-from . import Environment
+from typing import List, Tuple, Callable, Any, Dict
+from . import Environment, json_to_cel
 from . import celtypes
-from .evaluation import Value
 
 
 logger = logging.getLogger("celpy")
@@ -149,44 +150,6 @@ CLI_ARG_TYPES: Dict[str, Callable] = {
     "number_value": celtypes.DoubleType,  # Ambiguous; can somtimes be integer.
     "null_value": (lambda x: None),
 }
-
-
-JSON = Union[Dict[str, Any], List[Any], bool, float, int, str, None]
-
-
-def json_to_cel(document: JSON) -> Value:
-    """Convert parsed JSON object to CEL.
-
-    ::
-
-        >>> from pprint import pprint
-        >>> from celpy import __main__
-        >>> doc = json.loads('["str", 42, 3.14, null, true, {"hello": "world"}]')
-        >>> cel = json_to_cel(doc)
-        >>> pprint(cel)
-        ListType([StringType('str'), IntType(42), DoubleType(3.14), None, BoolType(True), \
-MapType({StringType('hello'): StringType('world')})])
-    """
-    if isinstance(document, bool):
-        return celtypes.BoolType(document)
-    elif isinstance(document, float):
-        return celtypes.DoubleType(document)
-    elif isinstance(document, int):
-        return celtypes.IntType(document)
-    elif isinstance(document, str):
-        return celtypes.StringType(document)
-    elif document is None:
-        return None
-    elif isinstance(document, List):
-        return celtypes.ListType(
-            [json_to_cel(item) for item in document]
-        )
-    elif isinstance(document, Dict):
-        return celtypes.MapType(
-            {json_to_cel(key): json_to_cel(value) for key, value in document.items()}
-        )
-    else:
-        raise ValueError(f"unexpected type {type(document)} in JSON structure {document!r}")
 
 
 def arg_type_value(text: str) -> Tuple[str, Any]:
@@ -243,9 +206,18 @@ def get_options(argv: List[str] = None) -> argparse.Namespace:
     """Parses command-line arguments."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-a", "--arg", nargs='*', action='store', type=arg_type_value)
+        "-a", "--arg", action='append', type=arg_type_value,
+        help="Provide name:type=value, or name=value for strings, "
+             "or name to read an environment variable"
+    )
     parser.add_argument(
-        "-n", "--null-input", dest='null_input', default=False, action='store_true')
+        "-n", "--null-input", dest='null_input', default=False, action='store_true',
+        help="Avoid reading Newline-Delimited JSON documents from stdin."
+    )
+    parser.add_argument(
+        "-b", "--boolean", default=False, action='store_true',
+        help="If the result is True, the exit status is 0, for False, it's 1, otherwise 2."
+    )
     parser.add_argument(
         "-v", "--verbose", default=0, action='count')
     parser.add_argument("expr")
@@ -253,7 +225,7 @@ def get_options(argv: List[str] = None) -> argparse.Namespace:
     return options
 
 
-def main(argv: List[str] = None) -> None:
+def main(argv: List[str] = None) -> int:
     """
     Given options from the command-line, execute the CEL expression.
 
@@ -296,9 +268,17 @@ def main(argv: List[str] = None) -> None:
             activation['jq'] = json_to_cel(json.loads(document))
             result = prgm.evaluate(activation)
             print(json.dumps(result))
+    if options.boolean:
+        if isinstance(result, (celtypes.BoolType, bool)):
+            return 0 if result else 1
+        else:
+            logger.warning(f"Expected celtypes.BoolType, got {type(result)}")
+            return 2
+    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover
     logging.basicConfig(level=logging.WARNING)
-    main(sys.argv[1:])
+    exit = main(sys.argv[1:])
     logging.shutdown()
+    sys.exit(exit)

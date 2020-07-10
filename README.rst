@@ -21,22 +21,6 @@ Pure Python implementation of Google Common Expression Language, https://opensou
 This implementation has minimal dependencies, runs quickly, and can be embedded into Python-based applications.
 Specifically, the intent is to be part of Cloud Custodian, C7N, as part of the security policy filter.
 
-Status
-======
-
-**Work In Process**
-
-Current Status:
-
-  11 features passed, 4 failed, 5 skipped
-  512 scenarios passed, 95 failed, 344 skipped
-  1159 steps passed, 95 failed, 1086 skipped, 0 undefined
-  Took 0m1.227s
-
-This is based on the CEL-Spec Simple test suite plus a few other tests.
-
-Unit test coverage is barely 88%.
-
 Installation
 =============
 
@@ -49,15 +33,6 @@ You now have the CEL run-time available to Python-based applications.
 Command Line
 ============
 
-It's a desk calculator.
-
-::
-
-    python -m celpy -n '355.0 / 113.0'
-
-This a tiny advantage over ``python -c '355/113'``. Most notably, the ability
-to embed Google CEL into other contexts where you don't *really* want Python's power.
-
 We can read JSON directly from stdin, making this a bit like JQ.
 
 ::
@@ -66,6 +41,14 @@ We can read JSON directly from stdin, making this a bit like JQ.
     {"this": {"from": {"json": 13}}}
     EOF
 
+It's also a desk calculator.
+
+::
+
+    python -m celpy -n '355.0 / 113.0'
+
+And, yes, this a tiny advantage over ``python -c '355/113'``. Most notably, the ability
+to embed Google CEL into other contexts where you don't *really* want Python's power.
 
 We can provide a ``-d`` option to define objects with particular data types, like JSON.
 This is particularly helpful for providing protobuf message definitions.
@@ -73,6 +56,12 @@ This is particularly helpful for providing protobuf message definitions.
 ::
 
     python -m celpy -dextract:JSON:'{"this": {"from": {"json": 13}}}' 'extract.this.from.json * 3 + 3'
+
+If you want to see details of evaluation, use ``-v``.
+
+::
+
+    python -m celpy -v -n '[2, 4, 6].map(n, n/2)'
 
 Library
 =======

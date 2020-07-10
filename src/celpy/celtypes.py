@@ -168,12 +168,16 @@ To get Go-like behavior, we need to use absolute values and restore the signs la
     go_mod = x_sign * (abs(x) % abs(y))
     return go_mod
 """
+import datetime
 from functools import wraps
 import logging
+import re
 from typing import (
-    Any, cast, NoReturn, Mapping, Union, Sequence, Tuple, Optional, Iterable,
-    Type
+    Any, NoReturn, Mapping, Union, Sequence, Tuple, Optional, Iterable,
+    Type, cast, overload
 )
+import pytz
+import pytz.exceptions  # type: ignore[import]
 
 
 logger = logging.getLogger("celtypes")
@@ -317,6 +321,8 @@ class IntType(int):
             return source
         elif isinstance(source, (float, DoubleType)):
             convert = int64(round)
+        elif isinstance(source, TimestampType):
+            convert = int64(lambda ts: ts.timestamp())
         else:
             # Must tolerate "-" as part of the literal.
             # See https://github.com/google/cel-spec/issues/126
@@ -630,6 +636,245 @@ class StringType(str):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
+
+
+class TimestampType(datetime.datetime):
+    """
+    Implements google.protobuf.Timestamp
+
+    See https://developers.google.com/protocol-buffers/docs/reference/google.protobuf
+
+    Also see https://www.ietf.org/rfc/rfc3339.txt.
+
+    The protobuf implementation is an ordered pair of int64 seconds and int32 nanos.
+
+    Instead of a Tuple[int, int] we use a wrapper for :py:class:`datetime.datetime`.
+
+    From protobuf documentation for making a Timestamp in Python::
+
+        now = time.time()
+        seconds = int(now)
+        nanos = int((now - seconds) * 10**9)
+        timestamp = Timestamp(seconds=seconds, nanos=nanos)
+
+    Also::
+
+        >>> t = TimestampType("2009-02-13T23:31:30Z")
+        >>> t
+        TimestampType(2009, 2, 13, 23, 31, 30, tzinfo=datetime.timezone.utc)
+        >>> t.timestamp()
+        1234567890.0
+        >>> str(t)
+        '2009-02-13T23:31:30Z'
+
+    :strong:`Timezones`
+
+    Timezones are expressed in the following grammar:
+
+    ::
+
+        TimeZone = "UTC" | LongTZ | FixedTZ ;
+        LongTZ = ? list available at
+                   http://joda-time.sourceforge.net/timezones.html ? ;
+        FixedTZ = ( "+" | "-" ) Digit Digit ":" Digit Digit ;
+        Digit = "0" | "1" | ... | "9" ;
+
+    Fixed timezones are explicit hour and minute offsets from UTC.
+    Long timezone names are like Europe/Paris, CET, or US/Central.
+
+    The Joda project (https://www.joda.org/joda-time/timezones.html)
+    says "Time zone data is provided by the public IANA time zone database."
+
+    The pytz project (http://pytz.sourceforge.net/)
+    says "Pytz is an interface to the IANA database".
+
+    Therefore pytz provides the same long names as Joda, used by CEL.
+
+    """
+    def __new__(cls: Type, source: Any, *args, **kwargs) -> 'TimestampType':
+        if isinstance(source, datetime.datetime):
+            return super().__new__(  # type: ignore
+                cls,
+                year=source.year,
+                month=source.month,
+                day=source.day,
+                hour=source.hour,
+                minute=source.minute,
+                second=source.second,
+                microsecond=source.microsecond,
+                tzinfo=source.tzinfo
+            )
+        elif isinstance(source, int) and len(args) >= 2:
+            return super().__new__(  # type: ignore
+                cls, source, *args, **kwargs
+            )
+
+        elif isinstance(source, str):
+            try:
+                local_datetime = datetime.datetime.strptime(
+                    source, "%Y-%m-%dT%H:%M:%SZ")
+                return super().__new__(  # type: ignore
+                    cls,
+                    year=local_datetime.year,
+                    month=local_datetime.month,
+                    day=local_datetime.day,
+                    hour=local_datetime.hour,
+                    minute=local_datetime.minute,
+                    second=local_datetime.second,
+                    tzinfo=datetime.timezone.utc
+                )
+            except ValueError:
+                extended_pat = re.compile(
+                    r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})"
+                    r"T(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})\.(?P<microsecond>\d*)Z$")
+                match = extended_pat.match(source)
+                if match is None:
+                    raise ValueError(f"Unparsable time: {source!r}")
+                microsecond = (match.group("microsecond") + "000000")[:6]  # trunc/pad to 6 digits
+                return super().__new__(  # type: ignore
+                    cls,
+                    year=int(match.group("year")),
+                    month=int(match.group("month")),
+                    day=int(match.group("day")),
+                    hour=int(match.group("hour")),
+                    minute=int(match.group("minute")),
+                    second=int(match.group("second")),
+                    microsecond=int(microsecond),
+                    tzinfo=datetime.timezone.utc
+                )
+        else:
+            raise TypeError(f"Cannot create {cls} from {source!r}")
+
+    def __str__(self) -> str:
+        return self.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def __add__(self, other: Any) -> 'TimestampType':
+        return TimestampType(super().__add__(other))
+
+    def __radd__(self, other: Any) -> 'TimestampType':
+        return TimestampType(super().__radd__(other))
+
+    @overload  # type: ignore
+    def __sub__(self, other: datetime.datetime) -> 'DurationType':
+        ...
+
+    @overload
+    def __sub__(self, other: datetime.timedelta) -> 'TimestampType':
+        ...
+
+    def __sub__(self, other):
+        if isinstance(other, TimestampType):
+            return DurationType(super().__sub__(other))
+        return TimestampType(super().__sub__(other))
+
+    @staticmethod
+    def tz_parse(tz_name: Optional[str]) -> datetime.tzinfo:
+        if tz_name:
+            try:
+                return pytz.timezone(tz_name)
+            except pytz.exceptions.UnknownTimeZoneError:
+                tz_pat = re.compile(r"^([+-]?)(\d\d?):(\d\d)$")
+                tz_match = tz_pat.match(tz_name)
+                if not tz_match:
+                    raise ValueError(f"Unparsable timezone: {tz_name!r}")
+                sign, hh, mm = tz_match.groups()
+                offset_min = (int(hh) * 60 + int(mm)) * (-1 if sign == '-' else +1)
+                offset = datetime.timedelta(seconds=offset_min * 60)
+                return datetime.timezone(offset)
+        else:
+            return pytz.utc
+
+    def getDate(self, tz_name: Optional[str]) -> IntType:
+        new_tz = self.tz_parse(tz_name)
+        return IntType(self.astimezone(new_tz).day)
+
+    def getDayOfMonth(self, tz_name: Optional[str]) -> IntType:
+        new_tz = self.tz_parse(tz_name)
+        return IntType(self.astimezone(new_tz).day - 1)
+
+    def getDayOfWeek(self, tz_name: Optional[str]) -> IntType:
+        new_tz = self.tz_parse(tz_name)
+        return IntType(self.astimezone(new_tz).isoweekday() % 7)
+
+    def getDayOfYear(self, tz_name: Optional[str]) -> IntType:
+        new_tz = self.tz_parse(tz_name)
+        working_date = self.astimezone(new_tz)
+        jan1 = datetime.datetime(working_date.year, 1, 1, tzinfo=new_tz)
+        days = working_date.toordinal() - jan1.toordinal()
+        return IntType(days)
+
+    def getMonth(self, tz_name: Optional[str]) -> IntType:
+        new_tz = self.tz_parse(tz_name)
+        return IntType(self.astimezone(new_tz).month - 1)
+
+    def getFullYear(self, tz_name: Optional[str]) -> IntType:
+        new_tz = self.tz_parse(tz_name)
+        return IntType(self.astimezone(new_tz).year)
+
+    def getHours(self, tz_name: Optional[str]) -> IntType:
+        new_tz = self.tz_parse(tz_name)
+        return IntType(self.astimezone(new_tz).hour)
+
+    def getMilliseconds(self, tz_name: Optional[str]) -> IntType:
+        new_tz = self.tz_parse(tz_name)
+        return IntType(self.astimezone(new_tz).microsecond // 1000)
+
+    def getMinutes(self, tz_name: Optional[str]) -> IntType:
+        new_tz = self.tz_parse(tz_name)
+        return IntType(self.astimezone(new_tz).minute)
+
+    def getSeconds(self, tz_name: Optional[str]) -> IntType:
+        new_tz = self.tz_parse(tz_name)
+        return IntType(self.astimezone(new_tz).second)
+
+
+class DurationType(datetime.timedelta):
+    """
+    Implements google.protobuf.Duration
+
+    https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration
+
+    The protobuf implementation is an ordered pair of int64 seconds and int32 nanos.
+
+    "type conversion, duration should be end with "s", which stands for seconds"
+
+    Instead of a Tuple[int, int] we use a wrapper for :py:class:`datetime.timedelta`.
+    """
+    def __new__(cls: Type, source: Any, nanos: int = 0, **kwargs) -> 'DurationType':
+        if isinstance(source, datetime.timedelta):
+            return super().__new__(  # type: ignore
+                cls, seconds=source.seconds, microseconds=source.microseconds)
+        elif isinstance(source, int):
+            return super().__new__(  # type: ignore
+                cls, seconds=source, microseconds=nanos // 1000)
+        elif isinstance(source, str):
+            duration_pat = re.compile(r"^(\d+)s$")
+            duration_match = duration_pat.match(source)
+            if not duration_match:
+                raise TypeError(f"Invalid duration {source!r}")
+            return super().__new__(  # type: ignore
+                cls, seconds=int(duration_match.group(1)))
+        else:
+            raise TypeError(f"Invalid initial value type: {type(source)}")
+
+    def __str__(self) -> str:
+        return "{0}s".format(int(self.total_seconds()))
+
+    def getHours(self, tz_name: Optional[str]) -> IntType:
+        assert tz_name is None
+        return IntType(int(self.total_seconds() / 60 / 60))
+
+    def getMilliseconds(self, tz_name: Optional[str]) -> IntType:
+        assert tz_name is None
+        return IntType(int(self.total_seconds() * 1000))
+
+    def getMinutes(self, tz_name: Optional[str]) -> IntType:
+        assert tz_name is None
+        return IntType(int(self.total_seconds() / 60))
+
+    def getSeconds(self, tz_name: Optional[str]) -> IntType:
+        assert tz_name is None
+        return IntType(int(self.total_seconds()))
 
 
 def valid_key_type(key: Any) -> bool:
