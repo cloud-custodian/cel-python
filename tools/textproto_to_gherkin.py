@@ -28,9 +28,11 @@ See https://github.com/protocolbuffers/protobuf/blob/master/python/google/protob
 See https://github.com/google/cel-go/blob/master/test/proto3pb/test_all_types.proto
 for the TestAllTypes protobuf definition that some tests expect to be present.
 
-..  todo:: Extract common @dataclass definitions from here and integration_binding.py
+..  todo:: Extract common @dataclass definitions
 
+    Merge this module and ``integration_binding.py``
     Create new common module shared by test environment and this testcase parser.
+
 """
 
 import argparse
@@ -300,42 +302,66 @@ def dictify(tree: lark.tree.Tree) -> Union[str, Dict[str, Any]]:
 
 
 def detokenize(token: lark.Token) -> str:
-    """Rewrite source Protobuf value tokens into Python native objects.
+    """Rewrite source Protobuf value tokens into Python native string objects.
 
     ::
 
         value : INT | FLOAT | STRING | NULL | BOOL | TYPE
 
-    INT, FLOAT, and NULL are trivial because the syntax overlaps with Python.
+    INT and FLOAT are trivial because the syntax overlaps with Python.
 
     TYPE is a string representation of a keyword, and also trivial.
 
+    The following require translation:
+
     ::
 
+        NULL : "NULL_VALUE"
         BOOL : "true" | "false"
-
         STRING : /"[^"\\n\\]*((\\.)+[^"\\n\\]*)*("|\\?$)/ | /'[^'\\n\\]*((\\.)+[^'\\n\\]*)*('|\\?$)/
 
+    These require some care:
+
+    -   ``NULL`` becomes Python ``None``
+
+    -   ``BOOL`` becomes Python ``True`` or ``False``
+
+    -   ``STRING`` requires some care to adjust the escapes from Protobuf to Python.
+        The token includes the surrounding quotes, which we have to remove.
+        Escapes include ``\\a`` ``\\b`` ``\\f`` ``\\n`` ``\\r`` ``\\t`` ``\\v``
+        ``\\"`` ``\\\\'`` ``\\\\\\\\``.
+        As well as ``\\\\x[0-9a-f]{2}`` and ``\\\\\\d{3}`` for hex and octal escapes.
+        We build a Python string and trust to the serializer to produce a workable output.
     """
-    def expand_str_escape(match: str) -> str:
+    def expand_str_escape(match: str) -> int:
         if match == '\\"':
-            return '"'
+            return ord('"')
         elif match == "\\'":
-            return "'"
+            return ord("'")
+        elif match in {"\\a", "\\b", "\\f", "\\n", "\\r", "\\t", "\\v", "\\\\"}:
+            return ord(
+                {
+                    "a": b"\a", "b": b"\b", "f": b"\f", "n": b"\n",
+                    "r": b"\r", "t": b"\t", "v": b"\v",
+                }.get(match[1], match[1])
+            )
+        elif match[:2] == "\\x":
+            return int(match[2:], 16)
         elif match[:1] == "\\":
-            return chr(int(match[1:], 8))
+            return int(match[1:], 8)
         else:
-            return match
+            # Non-escaped character.
+            return ord(match)
 
     if token.type == "STRING":
-        # dequote the value.
-        escapes = re.compile(r'\\"|\\\'|\\\d\d\d|.')
+        # Dequote the value, then expand escapes.
+        escapes = re.compile(r'\\"|\\\'|\\[abfnrtv\\]|\\\d{3}}|\\x[0-9a-f]{2}|.')
         if token.startswith('"') and token.endswith('"'):
             text = token.value[1:-1]
         elif token.startswith("'") and token.endswith("'"):
             text = token.value[1:-1]
         match_iter = escapes.finditer(text)
-        expanded = ''.join(expand_str_escape(m.group()) for m in match_iter)
+        expanded = bytes(expand_str_escape(m.group()) for m in match_iter)
         return expanded
     elif token.type == "BOOL":
         return token.value.lower() == "true"
@@ -364,15 +390,17 @@ def bytes_detokenize(token: lark.Token) -> str:
 
 def make_list_value(tree: lark.tree.Tree) -> ListValue:
     """
-    Creates a (recursive) ListValue object from the lark.tree.Tree.
+    Creates a (recursive) ListValue object from the ``lark.tree.Tree``.
 
-    ?value_clause : single_value | list_value_clause | map_value_clause ...
+    ::
 
-    list_value_clause : "list_value" ":"? "{" list_value* "}"
-    list_value : "values" ":"? "{" value_clause "}"
+        ?value_clause : single_value | list_value_clause | map_value_clause ...
 
-    map_value_clause :  "map_value" ":"? "{" entries* "}"
-    single_value : TYPE_NAME ":" value
+        list_value_clause : "list_value" ":"? "{" list_value* "}"
+        list_value : "values" ":"? "{" value_clause "}"
+
+        map_value_clause :  "map_value" ":"? "{" entries* "}"
+        single_value : TYPE_NAME ":" value
     """
     collection = ListValue()
     for list_value in tree.children:

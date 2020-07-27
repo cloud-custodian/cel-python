@@ -57,9 +57,9 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from typing import List, Dict, Any, NamedTuple, Type
+from typing import List, Dict, Any, NamedTuple, Type, Union, Callable, Tuple
 
-from celpy import Environment, EvalError, TypeAnnotation
+from celpy import Environment, CELEvalError
 import celpy.celtypes
 from behave import *
 
@@ -104,7 +104,7 @@ class Value(NamedTuple):
     def type_mapping(self, name: str) -> Type:
         """
         Convert type_value names to implementation types.
-        The names aren't quite the same as type names.
+        The CEL/protobuf names aren't the same as our implementation type names.
         """
         name_to_cel = {
             "bool": celpy.celtypes.BoolType,
@@ -119,6 +119,11 @@ class Value(NamedTuple):
             "timestamp": celpy.celtypes.TimestampType,
             "uint": celpy.celtypes.UintType,
             "type": type,
+
+            # The ``Value(value_type='type', value=...)`` was left in bytes when the Gherkin was built.
+            # These started as ``value: { type_value: "google.protobuf.Timestamp" }``
+            b"google.protobuf.Duration": celpy.celtypes.DurationType,
+            b"google.protobuf.Timestamp": celpy.celtypes.TimestampType,
         }
         return name_to_cel[name]
 
@@ -165,15 +170,25 @@ class ObjectValue(NamedTuple):
             raise ValueError("Can't convert {self!r} to a CEL object")
 
 
+class TypeKind(str, Enum):
+    PRIMITIVE = "primitive"
+    MAP_TYPE = "map_type"
+    STRING = "STRING"
+    INT64 = "INT64"
+    MAP_TYPE_SPEC = "map_type_spec"
+    ELEM_TYPE = "elem_type"
+    TYPE_SPEC = "type_spec"
+
+
 class TypeEnv(NamedTuple):
-    name: str
-    kind: str
-    type_ident: str
+    name: str  # The variable for which we're providing a type
+    kind: TypeKind
+    type_ident: Union[str, List[str]]
 
     @property
-    def annotation(self) -> TypeAnnotation:
-        """Translate Gherkin TypeEnv to a CEL TypeAnnotation"""
-        return TypeAnnotation(self.name, self.kind, self.type_ident)
+    def annotation(self) -> Tuple[str, Callable]:
+        """Translate Protobuf/Gherkin TypeEnv to a CEL type declaration"""
+        return (self.name, self.type_ident)
 
 
 class Bindings(NamedTuple):
@@ -206,24 +221,15 @@ def step_impl(context, container):
     context.data['container'] = container
 
 
-def expand_textproto_escapes(expr_text: str) -> str:
-    """Expand texproto \" escape special case."""
-    escape_pat = re.compile("\\\\\"|.")
-    replacements = {'\\"': '"'}
-    match_iter = escape_pat.finditer(expr_text)
-    expansion = ''.join(replacements.get(match.group(), match.group()) for match in match_iter)
-    return expansion
-
-
 def cel(context):
     """
     Run the CEL expression.
 
     TODO: include disable_macros and disable_check in environment.
     """
-    types = []
+    types: Dict[str, Callable] = {}
     if "type_env" in context.data:
-        types = [te.annotation for te in context.data['type_env']]
+        types = dict(te.annotation for te in context.data['type_env'])
 
     env = Environment(types)
     env.package = context.data['container']
@@ -235,20 +241,35 @@ def cel(context):
         result = prgm.evaluate(activation)
         context.data['result'] = result
         context.data['error'] = None
-    except EvalError as ex:
+    except CELEvalError as ex:
         # No 'result' to distinguish from an expected None value.
         context.data['error'] = ex.args[0]
 
 
+def expand_textproto_escapes(expr_text: str, quote: str) -> str:
+    """Expand texproto escapes.
+    The ``quote`` is either ``"'"`` or ``'"'`` and is translated everything else is left alone.
+    It was already valid CEL.
+    """
+    escape_pat = re.compile(f"\\\\\\{quote}|.")
+    replacements = {
+        f"\\{quote}": f"{quote}",
+    }
+    match_iter = escape_pat.finditer(expr_text)
+    expansion = ''.join(replacements.get(match.group(), match.group()) for match in match_iter)
+    # DEBUG print(f"expand_textproto_escapes: {expr_text!r} -> {expansion!r}")
+    return expansion
+
+
 @when(u'CEL expression "{expr}" is evaluated')
 def step_impl(context, expr):
-    context.data['expr'] = expand_textproto_escapes(expr)
+    context.data['expr'] = expand_textproto_escapes(expr, quote='"')
     cel(context)
 
 
 @when(u'CEL expression \'{expr}\' is evaluated')
 def step_impl(context, expr):
-    context.data['expr'] = expand_textproto_escapes(expr)
+    context.data['expr'] = expand_textproto_escapes(expr, quote="'")
     cel(context)
 
 
@@ -272,6 +293,7 @@ class ErrorCategory(Enum):
     no_such_overload = auto()
     integer_overflow = auto()
     undeclared_reference = auto()
+    unknown_variable = auto()
 
 
 ERROR_ALIASES = {
@@ -281,6 +303,7 @@ ERROR_ALIASES = {
     "no such overload": ErrorCategory.no_such_overload,
     "no matching overload": ErrorCategory.no_such_overload,
     "return error for overflow": ErrorCategory.integer_overflow,
+    "unknown varaible": ErrorCategory.unknown_variable,
 }
 
 

@@ -152,6 +152,11 @@ Scenario: "int64_overflow_negative"
  When CEL expression "-9223372036854775808 - 1" is evaluated
  Then eval_error is "return error for overflow"
 
+Scenario: "int64_min_negate"
+          "Negated LLONG_MIN is not representable."
+ When CEL expression "-(-9223372036854775808)" is evaluated
+ Then eval_error is "return error for overflow"
+
 Scenario: "uint64_overflow_positive"
           "ULLONG_MAX plus one."
  When CEL expression "18446744073709551615u + 1u" is evaluated

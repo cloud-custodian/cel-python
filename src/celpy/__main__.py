@@ -72,46 +72,6 @@ are also supported.
 Further, type providers can be bound to CEL. This means an extended CEL
 may have additional types beyond those defined by the :py:class:`Activation` class.
 
-Design
-=======
-
-See https://github.com/google/cel-go/blob/master/examples/simple_test.go
-
-The model Go we're sticking close to::
-
-    d := cel.Declarations(decls.NewVar("name", decls.String))
-    env, err := cel.NewEnv(d)
-    if err != nil {
-        log.Fatalf("environment creation error: %v\\n", err)
-    }
-    ast, iss := env.Compile(`"Hello world! I'm " + name + "."`)
-    // Check iss for compilation errors.
-    if iss.Err() != nil {
-        log.Fatalln(iss.Err())
-    }
-    prg, err := env.Program(ast)
-    if err != nil {
-        log.Fatalln(err)
-    }
-    out, _, err := prg.Eval(map[string]interface{}{
-        "name": "CEL",
-    })
-    if err != nil {
-        log.Fatalln(err)
-    }
-    fmt.Println(out)
-    // Output:Hello world! I'm CEL.
-
-Here's the Pythonic approach, using concept patterned after the Go implementation::
-
-    >>> from celpy import *
-    >>> decls = [TypeAnnotation("name", "primitive", "STRING")]
-    >>> env = Environment(annotations=decls)
-    >>> ast = env.compile('"Hello world! I\\'m " + name + "."')
-    >>> out = env.program(ast).evaluate({"name": "CEL"})
-    >>> print(out)
-    Hello world! I'm CEL.
-
 """
 
 import argparse
@@ -121,9 +81,9 @@ import logging
 import os
 import re
 import sys
-from typing import List, Tuple, Callable, Any, Dict
-from . import Environment, json_to_cel
-from . import celtypes
+from typing import List, Tuple, Callable, Any, Dict, Optional
+from celpy import Environment, json_to_cel, CELParseError, CELEvalError
+from celpy import celtypes
 
 
 logger = logging.getLogger("celpy")
@@ -135,24 +95,26 @@ CLI_ARG_TYPES: Dict[str, Callable] = {
     "uint": celtypes.UintType,
     "double": celtypes.DoubleType,
     "bool": celtypes.BoolType,
-    "string": str,
-    "bytes": bytes,
+    "string": celtypes.StringType,
+    "bytes": celtypes.BytesType,
     "list": ast.literal_eval,
     "map": ast.literal_eval,
-    "null_type": type(None),
+    "null_type": (lambda x: None),
+    "single_duration": celtypes.DurationType,
+    "single_timestamp": celtypes.TimestampType,
 
     "int64_value": celtypes.IntType,
     "uint64_value": celtypes.UintType,
     "double_value": celtypes.DoubleType,
     "bool_value": celtypes.BoolType,
-    "string_value": str,
-    "bytes_value": bytes,
+    "string_value": celtypes.StringType,
+    "bytes_value": celtypes.BytesType,
     "number_value": celtypes.DoubleType,  # Ambiguous; can somtimes be integer.
     "null_value": (lambda x: None),
 }
 
 
-def arg_type_value(text: str) -> Tuple[str, Any]:
+def arg_type_value(text: str) -> Tuple[str, Callable, Any]:
     """
     Decompose ``-a name:type=value`` argument into a useful triple.
 
@@ -174,7 +136,7 @@ def arg_type_value(text: str) -> Tuple[str, Any]:
         | "single_bool" | "single_string" | "single_bytes"
         | "single_duration" | "single_timestamp"
 
-    ..  todo:: names can include `.` to support namespacing.
+    ..  todo:: names can include `.` to support namespacing for protobuf support.
 
     :param text: Argument value
     :return: Tuple with name, and resulting object.
@@ -191,15 +153,16 @@ def arg_type_value(text: str) -> Tuple[str, Any]:
         value_text = os.environ.get(name)
     if type_name:
         try:
-            conversion = CLI_ARG_TYPES[type_name]
-            value = conversion(value_text)
+            type_definition = CLI_ARG_TYPES[type_name]
+            value = type_definition(value_text)
         except KeyError:
             raise argparse.ArgumentTypeError(f"arg {text} type name not in {list(CLI_ARG_TYPES)}")
         except ValueError:
             raise argparse.ArgumentTypeError(f"arg {text} value invalid for the supplied type")
     else:
         value = value_text
-    return name, value
+        type_definition = celtypes.StringType
+    return name, type_definition, value
 
 
 def get_options(argv: List[str] = None) -> argparse.Namespace:
@@ -241,40 +204,65 @@ def main(argv: List[str] = None) -> int:
     logger.debug(options)
     logger.info("Expr: %r", options.expr)
 
-    # TODO: Extract name:type annotations from options.arg
-    env = Environment(
-        package=None if options.null_input else "jq",
-        # annotations=[]
-    )
-    expr = env.compile(options.expr)
-    prgm = env.program(expr)
-
     if options.arg:
         logger.info("Args: %r", options.arg)
+
+    # TODO: Extract name:type annotations from options.arg
+    annotations: Optional[Dict[str, Callable]]
+    if options.arg:
+        annotations = {
+            name: type for name, type, value in options.arg
+        }
+    else:
+        annotations = None
+    env = Environment(
+        package=None if options.null_input else "jq",
+        annotations=annotations,
+    )
+    try:
+        expr = env.compile(options.expr)
+        prgm = env.program(expr)
+    except CELParseError as ex:
+        print(env.cel_parser.error_text(ex.args[0], ex.line, ex.column), file=sys.stderr)
+        return 1
+
+    if options.arg:
         activation = {
-            name: value for name, value in options.arg
+            name: value for name, type, value in options.arg
         }
     else:
         activation = {}
 
     if options.null_input:
         # Don't read stdin, evaluate with a minimal activation context.
-        result = prgm.evaluate(activation)
-        print(json.dumps(result))
+        try:
+            result = prgm.evaluate(activation)
+            if options.boolean:
+                if isinstance(result, (celtypes.BoolType, bool)):
+                    summary = 0 if result else 1
+                else:
+                    logger.warning(f"Expected celtypes.BoolType, got {type(result)} = {result!r}")
+                    summary = 2
+            else:
+                print(json.dumps(result))
+                summary = 0
+        except CELEvalError as ex:
+            print(env.cel_parser.error_text(ex.args[0], ex.line, ex.column), file=sys.stderr)
+            summary = 2
     else:
         # Each line is a JSON doc. We repackage it into celtypes objects.
         # It is in the "jq" package in the activation context.
+        summary = 0
         for document in sys.stdin:
             activation['jq'] = json_to_cel(json.loads(document))
-            result = prgm.evaluate(activation)
-            print(json.dumps(result))
-    if options.boolean:
-        if isinstance(result, (celtypes.BoolType, bool)):
-            return 0 if result else 1
-        else:
-            logger.warning(f"Expected celtypes.BoolType, got {type(result)}")
-            return 2
-    return 0
+            try:
+                result = prgm.evaluate(activation)
+                print(json.dumps(result))
+            except CELEvalError as ex:
+                print(env.cel_parser.error_text(ex.args[0], ex.line, ex.column), file=sys.stderr)
+                summary = 3
+
+    return summary
 
 
 if __name__ == "__main__":  # pragma: no cover

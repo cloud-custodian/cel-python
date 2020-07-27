@@ -144,7 +144,6 @@ Scenario: "string"
  When CEL expression "int('987')" is evaluated
  Then value is Value(value_type='int64_value', value=987)
 
-@wip
 Scenario: "timestamp"
  When CEL expression "int(timestamp('2004-09-16T23:59:59Z'))" is evaluated
  Then value is Value(value_type='int64_value', value=1095379199)

@@ -2,7 +2,7 @@ name: "comparisons"
 description: "Tests for boolean-valued functions and operators."
 section {
   name: "eq_literal"
-  description: "Literals comparison on _=_"
+  description: "Literals comparison on _==_"
   test {
     name: "eq_int"
     expr: "1 == 1"
@@ -34,6 +34,12 @@ section {
     value: { bool_value: false }
   }
   test {
+    name: "eq_double_NaN"
+    description: "CEL defines all NaN values to be equal."
+    expr: "1.0 / 0.0 == 1.0 / 0.0"
+    value: { bool_value: true }
+  }
+  test {
     name: "eq_string"
     expr: "'' == \"\""
     value: { bool_value: true }
@@ -61,6 +67,18 @@ section {
   test {
     name: "not_eq_string_unicode_ascii"
     expr: "'a' == 'à'"
+    value: { bool_value: false }
+  }
+  test {
+    name: "no_string_normalization"
+    description: "Should not normalize Unicode."
+    expr: "'Am\\u00E9lie' == 'Ame\\u0301lie'"
+    value: { bool_value: false }
+  }
+  test {
+    name: "no_string_normalization_surrogate"
+    description: "Should not replace surrogate pairs."
+    expr: "'\\U0001F436' == '\\xef\\xbf\\xbd\\xef\\xbf\\bd'"
     value: { bool_value: false }
   }
   test {
@@ -110,6 +128,17 @@ section {
     value: { bool_value: false }
   }
   test {
+    name: "not_eq_list_length"
+    expr: "['one'] == [2, 3]"
+    disable_check: true
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_eq_list_false_vs_types"
+    expr: "[1, 'dos', 3] == [1, 2, 4]"
+    value: { bool_value: false }
+  }
+  test {
     name: "eq_map_empty"
     expr: "{} == {}"
     value: { bool_value: true }
@@ -142,6 +171,11 @@ section {
   test {
     name: "not_eq_map_key_casing"
     expr: "{'key':'value'} == {'Key':'value'}"
+    value: { bool_value: false }
+  }
+  test {
+    name: "not_eq_map_false_vs_types"
+    expr: "{'k1': 1, 'k2': 'dos', 'k3': 3} == {'k1': 1, 'k2': 2, 'k3': 4}"
     value: { bool_value: false }
   }
   test {
@@ -378,6 +412,12 @@ section {
     name: "not_lt_string_case_length"
     expr: "'a' < 'AB'"
     value: { bool_value: false }
+  }
+  test {
+    name: "unicode_order_lexical"
+    description: "Compare the actual code points of the string, instead of decomposing ế into 'e' plus accent modifiers."
+    expr: "'f' < '\\u1EBF'"
+    value: { bool_value: true }
   }
   test {
     name: "lt_bytes"

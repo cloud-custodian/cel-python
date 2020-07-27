@@ -27,9 +27,7 @@ They're not raised directly, but instead placed on the stack so that
 short-circuit operators can ignore the exceptions.
 
 This means that Python exceptions like :exc:`TypeError`, :exc:`IndexError`, and :exc:`KeyError`
-are caught and transformed into :exc:`EvalError` objects.
-The :py:func:`eval_error` decorator is parameterized with a CEL error message and a Python
-exception. It catches exceptions and returns the useful error object.
+are caught and transformed into :exc:`CELEvalError` objects.
 
 The :py:class:`Value` type hint is a union of the various values
 that can be used in the evaluation stack.
@@ -43,7 +41,7 @@ import re
 import sys
 from typing import (
     Optional, List, Any, Union, Dict, Callable, Iterable, Iterator, Match,
-    Type, cast, Sequence, Sized, NamedTuple, Tuple, Mapping
+    Type, cast, Sequence, Sized, Tuple, Mapping
 )
 import celpy.celtypes
 
@@ -54,87 +52,103 @@ import lark  # type: ignore
 logger = logging.getLogger("evaluation")
 
 
-class TypeAnnotation(NamedTuple):
-    """
-    Name and type bindings used for binding external values.
-    This is used to wrap native Python types with CEL types.
-    This may be a kind of type provider and may be refactored into celtypes.
-    """
-    name: str
-    kind: str
-    type_ident: str
-
-
 class CELSyntaxError(Exception):
     """CEL Syntax error -- the AST did not have the expected structure."""
-    pass
+    def __init__(self, arg: Any, line: int, column: int) -> None:
+        super().__init__(arg)
+        self.line = line
+        self.column = column
 
 
 class CELUnsupportedError(Exception):
     """Feature unsupported by this implementation of CEL."""
-    pass
+    def __init__(self, arg: Any, line: int, column: int) -> None:
+        super().__init__(arg)
+        self.line = line
+        self.column = column
 
 
-class EvalError(Exception):
-    """CEL evaluation problem. This is saved on the value stack.
+class CELEvalError(Exception):
+    """CEL evaluation problem. This can be saved as a temporary value for later use.
     This is politely ignored by logic operators to provide commutative short-circuit.
-    If it is the last thing on the stack, there was a problem.
 
-    We provide operator special methods because it generally returns itself.
+    We provide operator-like special methods to return itself when operated on.
     """
-    def __neg__(self) -> 'EvalError':
+    def __init__(
+            self,
+            *args: Any,
+            tree: Optional[lark.Tree] = None,
+            token: Optional[lark.Token] = None) -> None:
+        super().__init__(*args)
+        self.tree = tree
+        self.token = token
+        self.line: Optional[int] = None
+        self.column: Optional[int] = None
+        if self.tree:
+            self.line = self.tree.meta.line
+            self.column = self.tree.meta.column
+        if self.token:
+            self.line = self.token.line
+            self.column = self.token.column
+
+    def __neg__(self) -> 'CELEvalError':
         return self
 
-    def __add__(self, other: Any) -> 'EvalError':
+    def __add__(self, other: Any) -> 'CELEvalError':
         return self
 
-    def __sub__(self, other: Any) -> 'EvalError':
+    def __sub__(self, other: Any) -> 'CELEvalError':
         return self
 
-    def __mul__(self, other: Any) -> 'EvalError':
+    def __mul__(self, other: Any) -> 'CELEvalError':
         return self
 
-    def __truediv__(self, other: Any) -> 'EvalError':
+    def __truediv__(self, other: Any) -> 'CELEvalError':
         return self
 
-    def __mod__(self, other: Any) -> 'EvalError':
+    def __floordiv__(self, other: Any) -> 'CELEvalError':
         return self
 
-    def __radd__(self, other: Any) -> 'EvalError':
+    def __mod__(self, other: Any) -> 'CELEvalError':
         return self
 
-    def __rsub__(self, other: Any) -> 'EvalError':
+    def __pow__(self, other: Any) -> 'CELEvalError':
         return self
 
-    def __rmul__(self, other: Any) -> 'EvalError':
+    def __radd__(self, other: Any) -> 'CELEvalError':
         return self
 
-    def __rtruediv__(self, other: Any) -> 'EvalError':
+    def __rsub__(self, other: Any) -> 'CELEvalError':
         return self
 
-    def __rmod__(self, other: Any) -> 'EvalError':
+    def __rmul__(self, other: Any) -> 'CELEvalError':
         return self
+
+    def __rtruediv__(self, other: Any) -> 'CELEvalError':
+        return self
+
+    def __rfloordiv__(self, other: Any) -> 'CELEvalError':
+        return self
+
+    def __rmod__(self, other: Any) -> 'CELEvalError':
+        return self
+
+    def __rpow__(self, other: Any) -> 'CELEvalError':
+        return self
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, CELEvalError):
+            return self.args == other.args
+        return NotImplemented
 
 
 # Values in the value stack.
-# This includes EvalError, which are deferred and can be ignored by some operators.
+# This includes CELEvalError, which are deferred and can be ignored by some operators.
 #
 Value = Union[
-    celpy.celtypes.BoolType,
-    celpy.celtypes.BytesType,
-    celpy.celtypes.DoubleType,
-    # TODO: celpy.celtypes.DurationType
-    celpy.celtypes.IntType,
-    celpy.celtypes.ListType,
-    celpy.celtypes.MapType,
-    None,   # Not needed: celpy.celtypes.NullType
-    celpy.celtypes.StringType,
-    celpy.celtypes.TimestampType,
-    # Not needed: celpy.celtypes.TypeType
-    celpy.celtypes.UintType,
-
+    celpy.celtypes.CELType,
     Callable,
-    EvalError,
+    CELEvalError,
 ]
 
 
@@ -143,15 +157,15 @@ Exception_Filter = Union[Type[Exception], Sequence[Type[Exception]]]
 
 def eval_error(new_text: str, exc_class: Exception_Filter) -> Callable:
     """
-    Wrap a function to transform native Python exceptions to CEL EvalError exceptions.
-    Any exception of the given class is replaced with the new EvalError object.
+    Wrap a function to transform native Python exceptions to CEL CELEvalError exceptions.
+    Any exception of the given class is replaced with the new CELEvalError object.
 
     :param new_text: Text of the exception, e.g., "divide by zero")
-        this is the return value if the :exc:`EvalError` remains in the evaluation stack.
+        this is the return value if the :exc:`CELEvalError` remains in the evaluation stack.
     :param exc_class: A Python exception class to match, e.g. ZeroDivisionError,
         or a sequence of exception (e.g. (ZeroDivisionError, ValueError))
     :return: A decorator that can be applied to a function
-        to map Python exceptions to :exc:`EvalError` instances.
+        to map Python exceptions to :exc:`CELEvalError` instances.
     """
     def concrete_decorator(function: Callable) -> Callable:
         @wraps(function)
@@ -161,11 +175,11 @@ def eval_error(new_text: str, exc_class: Exception_Filter) -> Callable:
             except exc_class as ex:
                 logger.debug(f"{function.__name__}(*{args}, **{kw}) --> {ex}")
                 _, _, tb = sys.exc_info()
-                value = EvalError(new_text, ex.__class__, ex.args).with_traceback(tb)
+                value = CELEvalError(new_text, ex.__class__, ex.args).with_traceback(tb)
                 value.__cause__ = ex
                 return value
             except Exception:
-                logger.exception(f"{function.__name__}(*{args}, **{kw})")
+                logger.error(f"{function.__name__}(*{args}, **{kw})")
                 raise
         return new_function
     return concrete_decorator
@@ -180,35 +194,14 @@ def boolean(function: Callable) -> Callable:
     """
     @wraps(function)
     def new_function(a, b):
-        return celpy.celtypes.BoolType(function(a, b))
+        result = function(a, b)
+        if result == NotImplemented:
+            return result
+        return celpy.celtypes.BoolType(result)
     return new_function
 
 
-def logical_and(x: Value, y: Value) -> Union[EvalError, celpy.celtypes.BoolType]:
-    """
-    Native Python has a left-to-right rule.
-    CEL && is commutative with non-Boolean values, including errors
-    """
-    if not isinstance(x, celpy.celtypes.BoolType) and not isinstance(y, celpy.celtypes.BoolType):
-        return EvalError("no such overload", TypeError, type(x))
-    elif not isinstance(x, celpy.celtypes.BoolType) and isinstance(y, celpy.celtypes.BoolType):
-        if y:
-            return cast(EvalError, x)  # whatever && true == whatever
-        else:
-            return y  # whatever && false == false
-    elif isinstance(x, celpy.celtypes.BoolType) and not isinstance(y, celpy.celtypes.BoolType):
-        if x:
-            return cast(EvalError, y)  # true && whatever == whatever
-        else:
-            return x  # false && whatever == false
-    else:
-        if isinstance(x, celpy.celtypes.BoolType) and isinstance(y, celpy.celtypes.BoolType):
-            return celpy.celtypes.BoolType(x and y)
-        else:
-            return EvalError("no such overload", TypeError, type(x))
-
-
-def logical_condition(e: Value, x: Value, y: Value) -> Union[EvalError, Value]:
+def logical_condition(e: Value, x: Value, y: Value) -> Union[CELEvalError, Value]:
     """
     CEL e ? x : y operator.
     Choose one of x or y. Exceptions in the unchosen expression are ignored.
@@ -218,73 +211,25 @@ def logical_condition(e: Value, x: Value, y: Value) -> Union[EvalError, Value]:
         2 / 0 > 4 ? 'baz' : 'quux'
 
     is a "division by zero" error.
+
+    ::
+
+        >>> from celpy import celtypes
+        >>> logical_condition(
+        ... celtypes.BoolType(True), celtypes.StringType("this"), celtypes.StringType("Not That"))
+        StringType('this')
+        >>> logical_condition(
+        ... celtypes.BoolType(False), celtypes.StringType("Not This"), celtypes.StringType("that"))
+        StringType('that')
     """
     if not isinstance(e, celpy.celtypes.BoolType):
-        raise EvalError("no such overload", TypeError, type(e))
+        raise TypeError(f"Unexpected {type(e)} ? {type(x)} : {type(y)}")
     result = x if e else y
     logger.debug(f"logical_condition({e!r}, {x!r}, {y!r}) = {result!r}")
-    # If x or y was a pending exception, it's now the real exception.
-    if isinstance(result, EvalError):
-        raise result
     return result
 
 
-def logical_not(x: Value) -> Union[EvalError, celpy.celtypes.BoolType]:
-    """
-    Native python `not` isn't fully exposed for our types.
-
-    This does not work::
-
-        result = operator.not_(x)
-    """
-    if isinstance(x, celpy.celtypes.BoolType):
-        result = celpy.celtypes.BoolType(not x)
-    else:
-        return EvalError("no such overload", TypeError, type(x))
-    logger.debug(f"logical_not({x!r}) = {result!r}")
-    return result
-
-
-def logical_or(x: Value, y: Value) -> Union[EvalError, celpy.celtypes.BoolType]:
-    """
-    Native Python has a left-to-right rule: (True or y) is True, (False or y) is y.
-    CEL || is commutative with non-Boolean values, including errors.
-    ``(x || false)`` is ``x``, and ``(false || y)`` is ``y``.
-
-    Example 1::
-
-        false || 1/0 != 0
-
-    is a "no matching overload" error.
-
-    Example 2::
-
-        (2 / 0 > 3 ? false : true) || true
-
-    is a "True"
-
-    If the operand(s) are not BoolType, we'll create an EvalError.
-    """
-    if not isinstance(x, celpy.celtypes.BoolType) and not isinstance(y, celpy.celtypes.BoolType):
-        return EvalError("no such overload", TypeError, type(x))
-    elif not isinstance(x, celpy.celtypes.BoolType) and isinstance(y, celpy.celtypes.BoolType):
-        if y:
-            return y  # whatever || true == true
-        else:
-            return cast(EvalError, x)  # whatever || false == whatever
-    elif isinstance(x, celpy.celtypes.BoolType) and not isinstance(y, celpy.celtypes.BoolType):
-        if x:
-            return x  # true || whatever == true
-        else:
-            return cast(EvalError, y)  # false || whatever == whatever
-    else:
-        if isinstance(x, celpy.celtypes.BoolType) and isinstance(y, celpy.celtypes.BoolType):
-            return celpy.celtypes.BoolType(x or y)
-        else:
-            return EvalError("no such overload", TypeError, type(x))
-
-
-def contains(item: Value, container: Value) -> Union[EvalError, bool]:
+def operator_in(item: Value, container: Value) -> Union[CELEvalError, bool]:
     """
     CEL contains test; ignores type errors.
 
@@ -303,29 +248,33 @@ def contains(item: Value, container: Value) -> Union[EvalError, bool]:
     It seems like ``next(iter(filter(lambda x: eq_test(c, x) for c in container))))``
     would do it. But. It's not quite right for the job.
 
-    There need to three results, something :py:func:`filter` doesn't handle. These are the chocies:
+    There need to be three results, something :py:func:`filter` doesn't handle.
+    These are the chocies:
 
     -   True. There was a item found. Exceptions may or may not have been found.
     -   False. No item found AND no expceptions.
-    -   EvalError. No item found AND at least one exception.
+    -   CELEvalError. No item found AND at least one exception.
 
     To an extent this is a little like the ``exists()`` macro.
     We can think of ``container.contains(item)`` as ``container.exists(r, r == item)``.
     However, exists() tends to silence exceptions, where this can expost them.
+
+    ..  todo:: This may be better done as
+
+        ``reduce(logical_or, (item == c for c in container), BoolType(False))``
     """
-    result: Union[EvalError, bool] = False
+    result: Union[CELEvalError, bool] = False
     for c in cast(List[Value], container):
         try:
             if c == item:
                 return True
         except TypeError as ex:
-            result = EvalError("no such overload", ex.__class__, ex.args)
-    logger.debug(f"contains({item!r}, {container!r}) = {result!r}")
+            result = CELEvalError("no such overload", ex.__class__, ex.args)
+    logger.debug(f"operator_in({item!r}, {container!r}) = {result!r}")
     return result
 
 
-@eval_error("no such overload", TypeError)
-def function_size(container: Value) -> Union[EvalError, celpy.celtypes.IntType]:
+def function_size(container: Value) -> Union[CELEvalError, celpy.celtypes.IntType]:
     """
     The size() function applied to a Value. Delegate to Python's :py:func:`len`.
 
@@ -335,7 +284,7 @@ def function_size(container: Value) -> Union[EvalError, celpy.celtypes.IntType]:
     (map(A, B)) -> int	map size
 
     For other types, this will raise a Python :exc:`TypeError`.
-    (This is captured and becomes an :exc:`EvalError` Value on the stack.)
+    (This is captured and becomes an :exc:`CELEvalError` Value on the stack.)
 
     ..  todo:: check container type for celpy.celtypes.StringType, celpy.celtypes.BytesType,
         celpy.celtypes.ListType and celpy.celtypes.MapType
@@ -346,107 +295,46 @@ def function_size(container: Value) -> Union[EvalError, celpy.celtypes.IntType]:
     return result
 
 
-@eval_error("no such overload", TypeError)
-@eval_error("no such key", KeyError)
-def has_macro(reference: Value) -> celpy.celtypes.BoolType:
-    """
-    The has(e.f) macro.
-
-    https://github.com/google/cel-spec/blob/master/doc/langdef.md#field-selection
-
-    1.  If e evaluates to a map, then has(e.f) indicates whether the string f is a key in the map
-        (note that f must syntactically be an identifier).
-
-    2.  If e evaluates to a message and f is not a declared field for the message,
-        has(e.f) raises a no_such_field error.
-
-    3.  If e evaluates to a protocol buffers version 2 message and f is a defined field:
-
-        - If f is a repeated field or map field, has(e.f) indicates whether the field is non-empty.
-
-        - If f is a singular or oneof field, has(e.f) indicates whether the field is set.
-
-    4.  If e evaluates to a protocol buffers version 3 message and f is a defined field:
-
-        - If f is a repeated field or map field, has(e.f) indicates whether the field is non-empty.
-
-        - If f is a oneof or singular message field, has(e.f) indicates whether the field is set.
-
-        - If f is some other singular field, has(e.f) indicates whether the field's value
-          is its default value (zero for numeric fields, false for booleans,
-          empty for strings and bytes).
-
-    5.  In all other cases, has(e.f) evaluates to an error.
-
-    """
-    return celpy.celtypes.BoolType(not isinstance(reference, EvalError))
-
-
 # TODO: This is part of a base Activation on which new Activations
 # are built as part of evaluation. User-defined functions can override
 # items in this mapping.
-base_functions: Dict[str, Callable] = {
-    "!_": eval_error("no such overload", TypeError)(
-        eval_error("return error for overflow", ValueError)(
-            logical_not)),
-    "-_": eval_error("no such overload", TypeError)(
-        eval_error("return error for overflow", ValueError)(
-            operator.neg)),
-    "_+_": eval_error("return error for overflow", ValueError)(operator.add),
-    "_-_": eval_error("return error for overflow", ValueError)(operator.sub),
-    "_*_": eval_error("return error for overflow", ValueError)(operator.mul),
-    "_/_": eval_error("divide by zero", ZeroDivisionError)(operator.truediv),
-    "_%_": eval_error(
-        "found no matching overload for '_%_' applied to '(double, double)'", TypeError)(
-            eval_error("modulus by zero", ZeroDivisionError)(
-                operator.mod)),
-    "_<_": eval_error("no such overload", TypeError)(boolean(operator.lt)),
-    "_<=_": eval_error("no such overload", TypeError)(boolean(operator.le)),
-    "_>=_": eval_error("no such overload", TypeError)(boolean(operator.ge)),
-    "_>_": eval_error("no such overload", TypeError)(boolean(operator.gt)),
-    "_==_": eval_error("no such overload", TypeError)(boolean(operator.eq)),
-    "_!=_": eval_error("no such overload", TypeError)(boolean(operator.ne)),
-    "_in_": eval_error("no such overload", TypeError)(contains),
-    "_||_": logical_or,
-    "_&&_": logical_and,
+base_functions: Mapping[str, Callable] = {
+    "!_": celpy.celtypes.logical_not,
+    "-_": operator.neg,
+    "_+_": operator.add,
+    "_-_": operator.sub,
+    "_*_": operator.mul,
+    "_/_": operator.truediv,
+    "_%_": operator.mod,
+    "_<_": boolean(operator.lt),
+    "_<=_": boolean(operator.le),
+    "_>=_": boolean(operator.ge),
+    "_>_": boolean(operator.gt),
+    "_==_": boolean(operator.eq),
+    "_!=_": boolean(operator.ne),
+    "_in_": operator_in,
+    "_||_": celpy.celtypes.logical_or,
+    "_&&_": celpy.celtypes.logical_and,
     "_?_:_": logical_condition,
-    "_[_]":
-        eval_error("no such overload", TypeError)(
-            eval_error("no such key", KeyError)(
-                eval_error("invalid_argument", IndexError)(
-                    operator.getitem))),
+    "_[_]": operator.getitem,
     "size": function_size,
     # StringType methods
-    "endsWith": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda s, text: celpy.celtypes.BoolType(s.endswith(text))),
-    "startsWith": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda s, text: celpy.celtypes.BoolType(s.startswith(text))),
-    "matches": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda s, pattern: celpy.celtypes.BoolType(re.search(pattern, s) is not None)),
-    "contains": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda s, text: celpy.celtypes.BoolType(text in s)),
+    "endsWith": lambda s, text: celpy.celtypes.BoolType(s.endswith(text)),
+    "startsWith": lambda s, text: celpy.celtypes.BoolType(s.startswith(text)),
+    "matches": lambda s, pattern: celpy.celtypes.BoolType(re.search(pattern, s) is not None),
+    "contains": lambda s, text: celpy.celtypes.BoolType(text in s),
     # TimestampType methods
-    "getDate": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda ts, tz_name=None: ts.getDate(tz_name)),
-    "getDayOfMonth": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda ts, tz_name=None: ts.getDayOfMonth(tz_name)),
-    "getDayOfWeek": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda ts, tz_name=None: ts.getDayOfWeek(tz_name)),
-    "getDayOfYear": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda ts, tz_name=None: ts.getDayOfYear(tz_name)),
-    "getFullYear": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda ts, tz_name=None: ts.getFullYear(tz_name)),
-    "getMonth": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda ts, tz_name=None: ts.getMonth(tz_name)),
+    "getDate": lambda ts, tz_name=None: ts.getDate(tz_name),
+    "getDayOfMonth": lambda ts, tz_name=None: ts.getDayOfMonth(tz_name),
+    "getDayOfWeek": lambda ts, tz_name=None: ts.getDayOfWeek(tz_name),
+    "getDayOfYear": lambda ts, tz_name=None: ts.getDayOfYear(tz_name),
+    "getFullYear": lambda ts, tz_name=None: ts.getFullYear(tz_name),
+    "getMonth": lambda ts, tz_name=None: ts.getMonth(tz_name),
     # TimestampType and DurationType methods
-    "getHours": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda ts, tz_name=None: ts.getHours(tz_name)),
-    "getMilliseconds": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda ts, tz_name=None: ts.getMilliseconds(tz_name)),
-    "getMinutes": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda ts, tz_name=None: ts.getMinutes(tz_name)),
-    "getSeconds": eval_error("no such overload", (TypeError, AttributeError))(
-        lambda ts, tz_name=None: ts.getSeconds(tz_name)),
+    "getHours": lambda ts, tz_name=None: ts.getHours(tz_name),
+    "getMilliseconds": lambda ts, tz_name=None: ts.getMilliseconds(tz_name),
+    "getMinutes": lambda ts, tz_name=None: ts.getMinutes(tz_name),
+    "getSeconds": lambda ts, tz_name=None: ts.getSeconds(tz_name),
     # type conversion functions
     "bool": celpy.celtypes.BoolType,
     "bytes": celpy.celtypes.BytesType,
@@ -463,14 +351,6 @@ base_functions: Dict[str, Callable] = {
 }
 
 
-# TODO: Push override_functions and functions into the chain of Activation instances.
-# Create an initial activation with functions. All others a sub-activations.
-override_functions: Dict[str, Callable] = {}
-
-
-functions = collections.ChainMap(override_functions, base_functions)
-
-
 # We'll tolerate a formal activation or a simpler mapping from names to values.
 Context = Union['Activation', Dict[str, Any]]
 
@@ -481,15 +361,12 @@ IDENT = r"[_a-zA-Z][_a-zA-Z0-9]*"
 
 class Activation:
     """
-    Namespace with variable bindings and type provider(s).
+    Namespace with variable bindings.
 
     ..  rubric:: Chaining/Nesting
 
-    Activations can form a chain so overrides are checked first and
-    built-in functions checked later.
-    A client builds a activation(s) on top of a global activation.
-
-    Activations can nest via macro evaluation.
+    Activations can form a chain so locals are checked first.
+    Activations can nest via macro evaluation, creating transient local variables.
 
     ::
 
@@ -550,29 +427,30 @@ class Activation:
 
     def __init__(
             self,
-            annotations: List[TypeAnnotation] = None,
+            annotations: Optional[Mapping[str, Callable]] = None,
             package: Optional[str] = None,
             vars: Optional[Context] = None,
     ) -> None:
         """
         Create an Activation.
 
-        :param annotations: Type annotations
+        :param annotations: Type annotations. There are two flavors:
+            ordinary variable names and function names using typing.Callable.
         :param vars: Variables with literals to be converted to the desired types.
         """
         self.parent: Optional[Activation] = None
 
-        # TODO: Build name -> kind[type_ident] annotations to use with bindings to be built later.
-        # TODO: Be sure all type annotation names are ["."] IDENT ["." IDENT]*
-        self.annotations = annotations or []
+        # TODO: Be sure all type annotation keys are ["."] IDENT ["." IDENT]*
+        # TODO: Be sure all type annotation values are either in celtypes or typing.Callable.
+        self.annotations: Mapping[str, Callable] = annotations or {}
 
         self.package = package
 
-        self.locals: Mapping[str, Any] = {}
+        self.locals: Mapping[str, Any]
         self.variables: Mapping[str, Any]
 
         if vars is None:
-            self.variables = self.locals
+            self.variables = self.locals = {}
         elif isinstance(vars, Activation):
             self.locals = {}
             self.variables = collections.ChainMap(self.locals, vars.variables)
@@ -602,7 +480,7 @@ class Activation:
 
     def nested_activation(
             self,
-            annotations: List[TypeAnnotation] = None,
+            annotations: Optional[Mapping[str, Callable]] = None,
             vars: Optional[Context] = None
     ) -> 'Activation':
         """
@@ -653,12 +531,10 @@ class Activation:
         The longest chain of nested packages *should* be resolved first.
         Not completely sure how to implement that as we navigate the IDENT "." IDENT "." IDENT
         of the AST structure.
-
-        (This lets variable names override function names by checking variables first.)
         """
         logger.info(f"resolve_name({self.package!r}.{name!r}) in {self.variables.keys()}")
         try:
-            # If a default package, use this as a default for resolution.
+            # If there's a default package, use this as a default prefix for name resolution.
             if self.package in self.variables:
                 try:
                     return self.variables[cast(str, self.package)][name]
@@ -667,10 +543,7 @@ class Activation:
             # Try to find the item without the default package name.
             return self.variables[name]
         except KeyError:
-            # Try to find the name as a function.
-            # TODO: Use a localized function mapping within the Activation.
-            if name in functions:
-                return functions[name]
+            pass
         # If not found in this Activation, check next in the chain.
         if self.parent:
             return self.parent.resolve_name(name)
@@ -681,19 +554,22 @@ class FindIdent(lark.visitors.Visitor_Recursive):
     """Locate the ident token at the bottom of an AST.
 
     This is needed to find the bind variable for macros.
+
+    It works by doing a "visit" on the entire tree, but saving
+    the details of the ``ident`` nodes only.
     """
     def __init__(self):
-        self.ident_value = None
+        self.ident_token = None
 
     def ident(self, tree):
         ident_token = tree.children[0]
-        self.ident_value = ident_token.value
+        self.ident_token = ident_token.value
 
     @classmethod
     def in_tree(cls, tree):
         fi = FindIdent()
         fi.visit(tree)
-        return fi.ident_value
+        return fi.ident_token
 
 
 def trace(method):
@@ -704,7 +580,7 @@ def trace(method):
     """
     @wraps(method)
     def concrete_method(self, tree):
-        self.logger.info(f"{self.level*'  '}{tree.data} {tree.children}")
+        self.logger.info(f"{self.level*'  '}{tree!r}")
         result = method(self, tree)
         self.logger.info(f"{self.level*'  '}{tree.data} -> {result!r}")
         return result
@@ -765,14 +641,35 @@ class Evaluator(lark.visitors.Interpreter):
     def __init__(
             self,
             ast: lark.Tree,
-            activation: Activation
+            activation: Activation,
+            functions: Union[Sequence[Callable], Mapping[str, Callable], None] = None
     ) -> None:
+        """
+        Create an evaluator for an AST with specific variables and functions.
+
+        :param ast: The AST to evaluate.
+        :param activation: The variable bindings to use.
+        :param functions: The functions to use. If nothing is supplied, the default
+            global `base_functions` are used. Otherwise a ChainMap is created so
+            these local functions override the base functions.
+        """
         self.ast = ast
         self.base_activation = activation
         self.activation = self.base_activation
+        self.functions: Mapping[str, Callable]
+        if isinstance(functions, Sequence):
+            local_functions = {
+                f.__name__: f for f in functions or []
+            }
+            self.functions = collections.ChainMap(local_functions, base_functions)
+        elif isinstance(functions, Mapping):
+            self.functions = collections.ChainMap(functions, base_functions)
+        else:
+            self.functions = base_functions
 
         self.level = 0
         self.logger.info(f"activation: {self.activation!r}")
+        self.logger.info(f"functions: {self.functions!r}")
 
     def set_activation(self, activation: Context) -> 'Evaluator':
         """
@@ -787,6 +684,13 @@ class Evaluator(lark.visitors.Interpreter):
         self.logger.info(f"Activation: {self.activation!r}")
         return self
 
+    def ident_value(self, name: str) -> Value:
+        """Resolve names in the current activation or in the type registry for conversions."""
+        try:
+            return self.activation.resolve_name(name)
+        except KeyError:
+            return self.functions[name]
+
     def evaluate(self) -> Value:
         """
         Evaluate this AST and return the value or raise an exception.
@@ -799,12 +703,12 @@ class Evaluator(lark.visitors.Interpreter):
             we can apply short-circuit logic and choose a non-exceptional result.
         """
         value = self.visit(self.ast)
-        if isinstance(value, EvalError):
+        if isinstance(value, CELEvalError):
             raise value
         return value
 
     def visit_children(self, tree):
-        """Extend the superclass to track nesting."""
+        """Extend the superclass to track nesting and current evaluation context."""
         self.level += 1
         result = super().visit_children(tree)
         self.level -= 1
@@ -814,27 +718,21 @@ class Evaluator(lark.visitors.Interpreter):
         """
         Function evaluation.
 
-        - object creation and type conversions.
-        - the ``has()`` macro
-        - The ``dyn()`` macro as part of progressive type checking.
+        - Object creation and type conversions.
+        - Other built-in functions like size()
+        - Extension functions
         """
-        if name_token.value == "has":
-            # has() cannot be overridden by a function definition.
-            function = has_macro
-        elif name_token.value == "dyn":
-            # dyn() is for progressive type checking; no run-time action.
-            function = lambda x: x  # noqa: E731
-        else:
-            try:
-                function = self.activation.resolve_name(name_token.value)
-            except KeyError:
-                function = EvalError(
-                    f"undeclared reference to '{name_token}' "
-                    f"(in container '{self.package}')")
+        function: Callable
+        try:
+            function = self.functions[name_token.value]
+        except KeyError as ex:
+            err = (
+                f"undeclared reference to '{name_token}' "
+                f"(in container '{self.package}')"
+            )
+            return CELEvalError(err, ex.__class__, ex.args, token=name_token)
 
-        if isinstance(function, EvalError):
-            return function
-        elif isinstance(exprlist, EvalError):
+        if isinstance(exprlist, CELEvalError):
             return exprlist
 
         try:
@@ -842,9 +740,15 @@ class Evaluator(lark.visitors.Interpreter):
             list_exprlist = cast(List[Value], exprlist or [])
             return function(*list_exprlist)
         except ValueError as ex:
-            return EvalError(f"return error for overflow: {ex}")
-        except TypeError as ex:
-            return EvalError(f"unbound function: {ex}")
+            value = CELEvalError(
+                "return error for overflow", ex.__class__, ex.args, token=name_token)
+            value.__cause__ = ex
+            return value
+        except (TypeError, AttributeError) as ex:
+            value = CELEvalError(
+                "no such overload", ex.__class__, ex.args, token=name_token)
+            value.__cause__ = ex
+            return value
 
     def method_eval(
             self,
@@ -855,55 +759,104 @@ class Evaluator(lark.visitors.Interpreter):
         Method evaluation. While are (nominally) attached to an object, the only thing
         actually special is that the object is the first parameter to a function.
         """
+        function: Value
         try:
-            function = self.activation.resolve_name(method_ident.value)
-        except KeyError:
-            function = EvalError(
+            function = self.functions[method_ident.value]
+        except KeyError as ex:
+            err = (
                 f"undeclared reference to '{method_ident!r}' "
-                f"(in container '{self.package}')")
+                f"(in container '{self.package}')"
+            )
+            return CELEvalError(err, ex.__class__, ex.args, token=method_ident)
 
-        if isinstance(function, EvalError):
-            return function
-        elif isinstance(object, EvalError):
+        if isinstance(object, CELEvalError):
             return object
-        elif isinstance(exprlist, EvalError):
+        elif isinstance(exprlist, CELEvalError):
             return exprlist
 
         try:
             function = cast(Callable, function)
             list_exprlist = cast(List[Value], exprlist or [])
             return function(object, *list_exprlist)
-        except TypeError as ex:
-            return EvalError(f"unbound function: {ex}")
+        except ValueError as ex:
+            value = CELEvalError(
+                "return error for overflow", ex.__class__, ex.args, token=method_ident)
+            value.__cause__ = ex
+            return value
+        except (TypeError, AttributeError) as ex:
+            value = CELEvalError("no such overload", ex.__class__, ex.args, token=method_ident)
+            value.__cause__ = ex
+            return value
+
+    def macro_has_eval(self, exprlist: lark.Tree) -> celpy.celtypes.BoolType:
+        """
+        The has(e.f) macro.
+
+        https://github.com/google/cel-spec/blob/master/doc/langdef.md#field-selection
+
+        1.  If e evaluates to a map, then has(e.f) indicates whether the string f is a
+            key in the map (note that f must syntactically be an identifier).
+
+        2.  If e evaluates to a message and f is not a declared field for the message,
+            has(e.f) raises a no_such_field error.
+
+        3.  If e evaluates to a protocol buffers version 2 message and f is a defined field:
+
+            - If f is a repeated field or map field, has(e.f) indicates whether the field is
+              non-empty.
+
+            - If f is a singular or oneof field, has(e.f) indicates whether the field is set.
+
+        4.  If e evaluates to a protocol buffers version 3 message and f is a defined field:
+
+            - If f is a repeated field or map field, has(e.f) indicates whether the field is
+              non-empty.
+
+            - If f is a oneof or singular message field, has(e.f) indicates whether the field
+              is set.
+
+            - If f is some other singular field, has(e.f) indicates whether the field's value
+              is its default value (zero for numeric fields, false for booleans,
+              empty for strings and bytes).
+
+        5.  In all other cases, has(e.f) evaluates to an error.
+
+        """
+        has_values = self.visit_children(exprlist)
+        return celpy.celtypes.BoolType(not isinstance(has_values[0], CELEvalError))
 
     @trace
-    def expr(self, tree):
+    def expr(self, tree: lark.Tree) -> Value:
         """
         expr           : conditionalor ["?" conditionalor ":" expr]
 
         The default implementation short-circuits
-        and can ignore an EvalError in a sub-expression.
+        and can ignore an CELEvalError in a sub-expression.
         """
         if len(tree.children) == 1:
             # expr is a single conditionalor.
             return self.visit_children(tree)[0]
         elif len(tree.children) == 3:
             # full conditionalor "?" conditionalor ":" expr.
-            func = functions["_?_:_"]
-            cond_tree, left_tree, right_tree = tree.children
-            cond_value = self.visit(cond_tree)
+            func = self.functions["_?_:_"]
+            cond_value, left, right = self.visit_children(tree)
             try:
-                left = self.visit(left_tree)
-            except EvalError as ex:
-                left = ex
-            try:
-                right = self.visit(right_tree)
-            except EvalError as ex:
-                right = ex
-            return func(cond_value, left, right)
+                return func(cond_value, left, right)
+            except TypeError as ex:
+                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                err = (
+                    f"found no matching overload for _?_:_ "
+                    f"applied to '({type(cond_value)}, {type(left)}, {type(right)})'"
+                )
+                value = CELEvalError(err, ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
         else:
             raise CELSyntaxError(
-                f"{tree.data} {tree.children}: bad expr node")
+                f"{tree.data} {tree.children}: bad expr node",
+                line=tree.line,
+                column=tree.column,
+            )
 
     @trace
     def conditionalor(self, tree):
@@ -911,27 +864,32 @@ class Evaluator(lark.visitors.Interpreter):
         conditionalor  : [conditionalor "||"] conditionaland
 
         The default implementation short-circuits
-        and can ignore an EvalError in a sub-expression.
+        and can ignore an CELEvalError in a sub-expression.
         """
         if len(tree.children) == 1:
             # conditionaland with no preceding conditionalor.
             values = self.visit_children(tree)
             return values[0]
         elif len(tree.children) == 2:
-            func = functions["_||_"]
-            left_tree, right_tree = tree.children
+            func = self.functions["_||_"]
+            left, right = self.visit_children(tree)
             try:
-                left = self.visit_children(left_tree)[0]
-            except EvalError as ex:
-                left = ex
-            try:
-                right = self.visit(right_tree)
-            except EvalError as ex:
-                right = ex
-            return func(left, right)
+                return func(left, right)
+            except TypeError as ex:
+                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                err = (
+                    f"found no matching overload for _||_ "
+                    f"applied to '({type(left)}, {type(right)})'"
+                )
+                value = CELEvalError(err, ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
         else:
             raise CELSyntaxError(
-                f"{tree.data} {tree.children}: bad conditionalor node")
+                f"{tree.data} {tree.children}: bad conditionalor node",
+                line=tree.line,
+                column=tree.column,
+            )
 
     @trace
     def conditionaland(self, tree):
@@ -939,27 +897,32 @@ class Evaluator(lark.visitors.Interpreter):
         conditionaland : [conditionaland "&&"] relation
 
         The default implementation short-circuits
-        and can ignore an EvalError in a sub-expression.
+        and can ignore an CELEvalError in a sub-expression.
         """
         if len(tree.children) == 1:
             # relation with no preceding conditionaland.
             values = self.visit_children(tree)
             return values[0]
         elif len(tree.children) == 2:
-            func = functions["_&&_"]
-            left_tree, right_tree = tree.children
+            func = self.functions["_&&_"]
+            left, right = self.visit_children(tree)
             try:
-                left = self.visit_children(left_tree)[0]
-            except EvalError as ex:
-                left = ex
-            try:
-                right = self.visit(right_tree)
-            except EvalError as ex:
-                right = ex
-            return func(left, right)
+                return func(left, right)
+            except TypeError as ex:
+                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                err = (
+                    f"found no matching overload for _&&_ "
+                    f"applied to '({type(left)}, {type(right)})'"
+                )
+                value = CELEvalError(err, ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
         else:
             raise CELSyntaxError(
-                f"{tree.data} {tree.children}: bad conditionalor node")
+                f"{tree.data} {tree.children}: bad conditionalor node",
+                line=tree.line,
+                column=tree.column,
+            )
 
     @trace
     def relation(self, tree):
@@ -989,6 +952,7 @@ class Evaluator(lark.visitors.Interpreter):
         if len(tree.children) == 1:
             # addition with no preceding relation.
             return values[0]
+
         elif len(tree.children) == 2:
             left_op, right_tree = tree.children
             op_name = {
@@ -1000,14 +964,28 @@ class Evaluator(lark.visitors.Interpreter):
                 "relation_ne": "_!=_",
                 "relation_in": "_in_",
             }[left_op.data]
-            func = functions[op_name]
+            func = self.functions[op_name]
             self.logger.debug(f"relation {op_name} {values!r}")
             # NOTE: values have the structure [[left], right]
             (left, *_), right = values
-            return func(left, right)
+            try:
+                return func(left, right)
+            except TypeError as ex:
+                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                err = (
+                    f"found no matching overload for {left_op.data!r} "
+                    f"applied to '({type(left)}, {type(right)})'"
+                )
+                value = CELEvalError(err, ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
+
         else:
             raise CELSyntaxError(
-                f"{tree.data} {tree.children}: bad relation node")
+                f"{tree.data} {tree.children}: bad relation node",
+                line=tree.line,
+                column=tree.column,
+            )
 
     @trace
     def addition(self, tree):
@@ -1037,12 +1015,31 @@ class Evaluator(lark.visitors.Interpreter):
                 "addition_add": "_+_",
                 "addition_sub": "_-_",
             }[left_op.data]
-            func = functions[op_name]
+            func = self.functions[op_name]
             # NOTE: values have the structure [[left], right]
             (left, *_), right = values
-            return func(left, right)
+            try:
+                return func(left, right)
+            except TypeError as ex:
+                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                err = (
+                    f"found no matching overload for {left_op.data!r} "
+                    f"applied to '({type(left)}, {type(right)})'"
+                )
+                value = CELEvalError(err, ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
+            except (ValueError, OverflowError) as ex:
+                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                value = CELEvalError("return error for overflow", ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
         else:
-            raise CELSyntaxError(f"{tree.data} {tree.children}: bad addition node")
+            raise CELSyntaxError(
+                f"{tree.data} {tree.children}: bad addition node",
+                line=tree.line,
+                column=tree.column,
+            )
 
     @trace
     def multiplication(self, tree):
@@ -1067,6 +1064,7 @@ class Evaluator(lark.visitors.Interpreter):
         if len(tree.children) == 1:
             # unary with no preceding multiplication.
             return values[0]
+
         elif len(tree.children) == 2:
             left_op, right_tree = tree.children
             op_name = {
@@ -1074,13 +1072,37 @@ class Evaluator(lark.visitors.Interpreter):
                 "multiplication_mul": "_*_",
                 "multiplication_mod": "_%_",
             }[left_op.data]
-            func = functions[op_name]
+            func = self.functions[op_name]
             # NOTE: values have the structure [[left], right]
             (left, *_), right = values
-            return func(left, right)
+            try:
+                return func(left, right)
+            except TypeError as ex:
+                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                err = (
+                    f"found no matching overload for {left_op.data!r} "
+                    f"applied to '({type(left)}, {type(right)})'"
+                )
+                value = CELEvalError(err, ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
+            except ZeroDivisionError as ex:
+                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                value = CELEvalError("modulus or divide by zero", ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
+            except (ValueError, OverflowError) as ex:
+                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                value = CELEvalError("return error for overflow", ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
+
         else:
             raise CELSyntaxError(
-                f"{tree.data} {tree.children}: bad multiplication node")
+                f"{tree.data} {tree.children}: bad multiplication node",
+                line=tree.line,
+                column=tree.column,
+            )
 
     @trace
     def unary(self, tree):
@@ -1111,18 +1133,36 @@ class Evaluator(lark.visitors.Interpreter):
                 "unary_not": "!_",
                 "unary_neg": "-_",
             }[op_tree.data]
-            func = functions[op_name]
+            func = self.functions[op_name]
             self.logger.debug(f"unary {op_name} {values!r}")
             # NOTE: values has the structure [[], right]
             left, right = values
-            return func(right)
+            try:
+                return func(right)
+            except TypeError as ex:
+                logger.debug(f"{func.__name__}({right}) --> {ex}")
+                err = (
+                    f"found no matching overload for {op_tree.data!r} "
+                    f"applied to '({type(right)})'"
+                )
+                value = CELEvalError(err, ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
+            except ValueError as ex:
+                logger.debug(f"{func.__name__}({right}) --> {ex}")
+                value = CELEvalError("return error for overflow", ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
 
         else:
             raise CELSyntaxError(
-                f"{tree.data} {tree.children}: bad unary node")
+                f"{tree.data} {tree.children}: bad unary node",
+                line=tree.line,
+                column=tree.column,
+            )
 
-    def decompose_macro(self, child) -> Tuple[Value, Callable[[Value], Value]]:
-        """Builds member and macro function.
+    def build_macro_eval(self, child) -> Callable[[Value], Value]:
+        """Builds macro function.
 
         For example
 
@@ -1132,18 +1172,17 @@ class Evaluator(lark.visitors.Interpreter):
 
         The function will expose exceptions, disabling short-circuit ``||`` and ``&&``.
         """
-        member_tree, _ = child.children[:2]
-        member = self.visit(member_tree)
         var_tree, expr_tree = child.children[2].children
-        identifier = FindIdent().in_tree(var_tree)
+        identifier = FindIdent.in_tree(var_tree)
         nested_eval = Evaluator(ast=expr_tree, activation=self.activation)
-        sub_expr = (
-            lambda v: nested_eval.set_activation({identifier: v}).evaluate()  # noqa: E731
-        )
-        return member, sub_expr
 
-    def decompose_macro_short_circuit(self, child) -> Tuple[Value, Callable[[Value], Value]]:
-        """Builds member and macro function.
+        def sub_expr(v: Value) -> Value:
+            return nested_eval.set_activation({identifier: v}).evaluate()
+
+        return sub_expr
+
+    def build_ss_macro_eval(self, child) -> Callable[[Value], Value]:
+        """Builds macro function for logical evaluation ignoring exception values.
 
         For example
 
@@ -1153,18 +1192,17 @@ class Evaluator(lark.visitors.Interpreter):
 
         The function will swallow exceptions, enabling short-circuit ``||`` and ``&&``.
         """
-        member_tree, _ = child.children[:2]
-        member = self.visit(member_tree)
         var_tree, expr_tree = child.children[2].children
-        identifier = FindIdent().in_tree(var_tree)
+        identifier = FindIdent.in_tree(var_tree)
         nested_eval = Evaluator(ast=expr_tree, activation=self.activation)
 
         def sub_expr(v: Value) -> Value:
             try:
                 return nested_eval.set_activation({identifier: v}).evaluate()
-            except EvalError as ex:
+            except CELEvalError as ex:
                 return ex
-        return member, sub_expr
+
+        return sub_expr
 
     @trace
     def member(self, tree):
@@ -1182,7 +1220,10 @@ class Evaluator(lark.visitors.Interpreter):
         """
         if len(tree.children) != 1:
             raise CELSyntaxError(
-                f"{tree.data} {tree.children}: bad member node")
+                f"{tree.data} {tree.children}: bad member node",
+                line=tree.line,
+                column=tree.column,
+            )
         child = tree.children[0]
         if child.data == "primary":
             # No other member-related syntax
@@ -1202,15 +1243,17 @@ class Evaluator(lark.visitors.Interpreter):
             member_tree, property_name_token = child.children
             member = self.visit(member_tree)
             property_name = property_name_token.value
-            if isinstance(member, celpy.celtypes.MapType):
-                if isinstance(member, EvalError):
-                    result = member
-                elif property_name in member:
+            if isinstance(member, CELEvalError):
+                result = member
+            elif isinstance(member, celpy.celtypes.MapType):
+                if property_name in member:
                     result = member[property_name]
                 else:
-                    result = EvalError(f"no such key: '{property_name}'")
+                    err = f"no such key: '{property_name}'"
+                    result = CELEvalError(err, KeyError, None, tree=tree)
             else:
-                result = EvalError(f"type: '{type(member)}' does not support field selection")
+                err = f"type: '{type(member)}' does not support field selection"
+                result = CELEvalError(err, TypeError, None, tree=tree)
             return result
 
         elif child.data == "member_dot_arg":
@@ -1224,28 +1267,35 @@ class Evaluator(lark.visitors.Interpreter):
             # if method_name_token.value in {macros} might be a helpful change.
             # Macros include m.map(), m.all(), m.exists(), m.exists_one(), and m.filter()
             if method_name_token.value == "map":
-                member, sub_expr = self.decompose_macro(child)
+                member = self.visit(member_tree)
+                sub_expr = self.build_macro_eval(child)
                 result = celpy.celtypes.ListType(map(sub_expr, member))
                 return result
 
             elif method_name_token.value == "filter":
-                member, sub_expr = self.decompose_macro(child)
+                member = self.visit(member_tree)
+                sub_expr = self.build_macro_eval(child)
                 result = celpy.celtypes.ListType(filter(sub_expr, member))
                 return result
 
             elif method_name_token.value == "all":
-                member, sub_expr = self.decompose_macro_short_circuit(child)
-                result = reduce(logical_and, map(sub_expr, member), celpy.celtypes.BoolType(True))
+                member = self.visit(member_tree)
+                and_oper = eval_error("no such overload", TypeError)(celpy.celtypes.logical_and)
+                sub_expr = self.build_ss_macro_eval(child)
+                result = reduce(and_oper, map(sub_expr, member), celpy.celtypes.BoolType(True))
                 return result
 
             elif method_name_token.value == "exists":
-                member, sub_expr = self.decompose_macro_short_circuit(child)
-                result = reduce(logical_or, map(sub_expr, member), celpy.celtypes.BoolType(False))
+                member = self.visit(member_tree)
+                or_oper = eval_error("no such overload", TypeError)(celpy.celtypes.logical_or)
+                sub_expr = self.build_ss_macro_eval(child)
+                result = reduce(or_oper, map(sub_expr, member), celpy.celtypes.BoolType(False))
                 return result
 
             elif method_name_token.value == "exists_one":
                 # Is there exactly 1?
-                member, sub_expr = self.decompose_macro(child)
+                member = self.visit(member_tree)
+                sub_expr = self.build_macro_eval(child)
                 count = sum(1 for value in member if sub_expr(value))
                 return celpy.celtypes.BoolType(count == 1)
 
@@ -1257,9 +1307,29 @@ class Evaluator(lark.visitors.Interpreter):
 
         elif child.data == "member_index":
             # Mapping or List indexing...
-            func = functions["_[_]"]
+            func = self.functions["_[_]"]
             member, index = self.visit_children(child)
-            return func(member, index)
+            try:
+                return func(member, index)
+            except TypeError as ex:
+                logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
+                err = (
+                    f"found no matching overload for _[_] "
+                    f"applied to '({type(member)}, {type(index)})'"
+                )
+                value = CELEvalError(err, ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
+            except KeyError as ex:
+                logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
+                value = CELEvalError("no such key", ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
+            except IndexError as ex:
+                logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
+                value = CELEvalError("invalid_argument", ex.__class__, ex.args, tree=tree)
+                value.__cause__ = ex
+                return value
 
         elif child.data == "member_object":
             # Object constructor...
@@ -1272,14 +1342,22 @@ class Evaluator(lark.visitors.Interpreter):
                 member, fieldinits = values
                 raise CELUnsupportedError(
                     f"{tree.data} {tree.children}: "
-                    f"{member!r} {{ {fieldinits!r} }} not implemented")
+                    f"{member!r} {{ {fieldinits!r} }} not implemented",
+                    line=tree.line,
+                    column=tree.column,
+                )
             else:
                 raise CELSyntaxError(
-                    f"{child.data} {child.children}: bad member_object node")
-
+                    f"{child.data} {child.children}: bad member_object node",
+                    line=tree.line,
+                    column=tree.column,
+                )
         else:
             raise CELSyntaxError(
-                f"{tree.data} {tree.children}: bad member node")
+                f"{tree.data} {tree.children}: bad member node",
+                line=tree.line,
+                column=tree.column,
+            )
 
     @trace
     def primary(self, tree):
@@ -1297,10 +1375,15 @@ class Evaluator(lark.visitors.Interpreter):
 
         TODO: Refactor into separate methods to skip this complex elif chain.
 
+        This includes function-like macros: has() and dyn(). These are special
+        cases because they're macros; they cannot be overridden.
         """
         if len(tree.children) != 1:
             raise CELSyntaxError(
-                f"{tree.data} {tree.children}: bad primary node")
+                f"{tree.data} {tree.children}: bad primary node",
+                line=tree.line,
+                column=tree.column,
+            )
 
         child = tree.children[0]
         if child.data == "literal":
@@ -1328,49 +1411,67 @@ class Evaluator(lark.visitors.Interpreter):
                 result = celpy.celtypes.MapType()
             else:
                 # mapinits (a sequence of key-value tuples) to be packaged as a dict.
-                # OR. An EvalError in case of ValueError caused by duplicate keys.
-                # OR. An EvalError in case of TypeError cause by invalid key types.
+                # OR. An CELEvalError in case of ValueError caused by duplicate keys.
+                # OR. An CELEvalError in case of TypeError cause by invalid key types.
                 # TODO: Refactor into type_eval()
                 try:
                     result = self.visit_children(child)[0]
                 except ValueError as ex:
-                    result = EvalError(ex.args[0])
+                    result = CELEvalError(ex.args[0], ex.__class__, ex.args, tree=tree)
                 except TypeError as ex:
-                    result = EvalError(ex.args[0])
+                    result = CELEvalError(ex.args[0], ex.__class__, ex.args, tree=tree)
             return result
 
         elif child.data in ("dot_ident", "dot_ident_arg"):
             # "." IDENT ["(" [exprlist] ")"]
             # Permits jq-compatible ".name.name.name".
             # Leading "." means the current package, which has the JQ document.
-            # TODO: These should be the same as ``member_dot_ident`` and ``member_dot_arg``
-            # With "." ``IDENT``  is current_package "." ``IDENT``.
-            # TODO: Implement the "." IDENT "(" exprlist ")" alternative
-            # len(child) == 1 -- ident only
-            # len(child) == 2 -- ident "(" exprlist ")"
-            name_token = child.children[0]
-            return self.activation.resolve_name(name_token.value)
+            # These are the same as ``member_dot_ident`` and ``member_dot_arg`` because
+            # With ``.IDENT``  is processed as ``current_package.IDENT``.
+            # len(child) == 1 -- "." IDENT
+            # len(child) == 2 -- "." IDENT "(" exprlist ")" -- TODO: Implement this.
+            values = self.visit_children(child)
+            # if len(values) == 1:
+            name_token = values[0]
+            return self.ident_value(name_token.value)
+            # else:
+            # TODO: provide exprlist to self.ident_vlaue, also.
 
         elif child.data == "ident_arg":
             # IDENT ["(" [exprlist] ")"]
             # Can be a proper function or one of the function-like macros: "has()", "dyn()".
-            values = self.visit_children(child)
-            return self.function_eval(*values)
+            name, exprlist = child.children
+            if name.value == "has":
+                # has() macro. True if the child expression is a member expression that evaluates.
+                # False if the child expression is a member expression that cannot be evaluated.
+                return self.macro_has_eval(exprlist)
+            elif name.value == "dyn":
+                # dyn() macro does nothing; it's for run-time type-checking.
+                dyn_values = self.visit_children(exprlist)
+                return dyn_values[0]
+            else:
+                values = self.visit_children(exprlist)
+                return self.function_eval(name, values)
 
         elif child.data == "ident":
             # IDENT -- simple identifier from the current activation.
             name_token = child.children[0]
             try:
-                result = self.activation.resolve_name(name_token.value)
-            except KeyError:
-                result = EvalError(
+                result = self.ident_value(name_token.value)
+            except KeyError as ex:
+                err = (
                     f"undeclared reference to '{name_token}' "
-                    f"(in container '{self.package}')")
+                    f"(in container '{self.package}')"
+                )
+                result = CELEvalError(err, ex.__class__, ex.args, tree=tree)
             return result
 
         else:
             raise CELSyntaxError(
-                f"{tree.data} {tree.children}: bad primary node")
+                f"{tree.data} {tree.children}: bad primary node",
+                line=tree.line,
+                column=tree.column,
+            )
 
     @trace
     def literal(self, tree):
@@ -1380,7 +1481,11 @@ class Evaluator(lark.visitors.Interpreter):
         ..  todo:: Use type provider conversions from string to CEL type objects.
         """
         if len(tree.children) != 1:
-            raise CELSyntaxError(f"{tree.data} {tree.children}: bad literal node")
+            raise CELSyntaxError(
+                f"{tree.data} {tree.children}: bad literal node",
+                line=tree.line,
+                column=tree.column,
+            )
         value_token = tree.children[0]
         try:
             if value_token.type == "FLOAT_LIT":
@@ -1389,12 +1494,16 @@ class Evaluator(lark.visitors.Interpreter):
                 result = celpy.celtypes.IntType(value_token.value)
             elif value_token.type == "UINT_LIT":
                 if not value_token.value[-1].lower() == 'u':
-                    raise CELSyntaxError(f"invalid unsigned int literal {value_token!r}")
+                    raise CELSyntaxError(
+                        f"invalid unsigned int literal {value_token!r}",
+                        line=tree.line,
+                        column=tree.column,
+                    )
                 result = celpy.celtypes.UintType(value_token.value[:-1])
             elif value_token.type in ("MLSTRING_LIT", "STRING_LIT"):
-                result = celstr(value_token.value)
+                result = celstr(value_token)
             elif value_token.type == "BYTES_LIT":
-                result = celbytes(value_token.value)
+                result = celbytes(value_token)
             elif value_token.type == "BOOL_LIT":
                 result = (
                     celpy.celtypes.BoolType(value_token.value.lower() == "true")
@@ -1402,9 +1511,13 @@ class Evaluator(lark.visitors.Interpreter):
             elif value_token.type == "NULL_LIT":
                 result = None
             else:
-                raise CELUnsupportedError(f"{tree.data} {tree.children}: type not implemented")
+                raise CELUnsupportedError(
+                    f"{tree.data} {tree.children}: type not implemented",
+                    line=tree.line,
+                    column=tree.column,
+                )
         except ValueError as ex:
-            result = EvalError(ex.args[0], ex.__class__, ex.args)
+            result = CELEvalError(ex.args[0], ex.__class__, ex.args, tree=tree)
 
         return result
 
@@ -1414,6 +1527,11 @@ class Evaluator(lark.visitors.Interpreter):
         exprlist       : expr ("," expr)*
         """
         values = self.visit_children(tree)
+        errors = (v for v in values if isinstance(v, CELEvalError))
+        try:
+            return next(errors)
+        except StopIteration:
+            pass
         result = celpy.celtypes.ListType(values)
         return result
 
@@ -1423,7 +1541,10 @@ class Evaluator(lark.visitors.Interpreter):
         fieldinits     : IDENT ":" expr ("," IDENT ":" expr)*
         """
         raise CELUnsupportedError(
-            f"{tree.data} {tree.children}: field initializations not implemented")
+            f"{tree.data} {tree.children}: field initializations not implemented",
+            line=tree.line,
+            column=tree.column,
+        )
 
     @trace
     def mapinits(self, tree):
@@ -1441,32 +1562,31 @@ class Evaluator(lark.visitors.Interpreter):
             if key not in result:
                 result[key] = value
             else:
-                raise EvalError(
-                    f"Duplicate key {key}"
-                )
+                raise ValueError(f"Duplicate key {key}")
 
         return result
 
 
 CEL_ESCAPES_PAT = re.compile(
-    "\\\\[bfnrt\"'\\\\]|\\\\\\d{3}|\\\\x[0-9abcdefABCDEF]{2}|\\\\u[0-9abcdefABCDEF]{4}|."
+    "\\\\[abfnrtv\"'\\\\]|\\\\\\d{3}|\\\\x[0-9a-fA-F]{2}|\\\\u[0-9a-fA-F]{4}|\\\\U[0-9a-fA-F]{8}|."
 )
 
 
 CEL_ESCAPES = {
-    '\\b': '\b', '\\f': '\f', '\\n': '\n', '\\r': '\r', '\\t': '\t',
+    '\\a': '\a', '\\b': '\b', '\\f': '\f', '\\n': '\n',
+    '\\r': '\r', '\\t': '\t', '\\v': '\v',
     '\\"': '"', "\\'": "'", '\\\\': '\\'
 }
 
 
-def celstr(text: str) -> celpy.celtypes.StringType:
+def celstr(token: lark.Token) -> celpy.celtypes.StringType:
     """
     Evaluate a CEL string literal, expanding escapes to create a Python string.
 
     It may be that built-in ``eval()`` might work for some of this, but
     the octal escapes aren't really viable.
 
-    :param text: CEL token value
+    :param token: CEL token value
     :return: str
 
     ..  todo:: This can be refactored into celpy.celtypes.StringType.
@@ -1477,7 +1597,7 @@ def celstr(text: str) -> celpy.celtypes.StringType:
                 expanded = match
             elif match[:2] == r'\x':
                 expanded = chr(int(match[2:], 16))
-            elif match[:2] == r'\u':
+            elif match[:2] in {r'\u', r'\U'}:
                 expanded = chr(int(match[2:], 16))
             elif match[:1] == '\\' and len(match) == 4:
                 expanded = chr(int(match[1:], 8))
@@ -1485,6 +1605,7 @@ def celstr(text: str) -> celpy.celtypes.StringType:
                 expanded = CEL_ESCAPES.get(match, match)
             yield expanded
 
+    text = token.value
     if text[:1] in ("R", "r"):
         # Raw; ignore ``\`` escapes
         if text[1:4] == '"""' or text[1:4] == "'''":
@@ -1505,12 +1626,14 @@ def celstr(text: str) -> celpy.celtypes.StringType:
     return celpy.celtypes.StringType(expanded)
 
 
-def celbytes(text: str) -> bytes:
+def celbytes(token: lark.Token) -> bytes:
     """
     Evaluate a CEL bytes literal, expanding escapes to create a Python bytes object.
 
-    :param text: CEL token value
+    :param token: CEL token value
     :return: bytes
+
+    ..  todo:: This can be refactored into celpy.celtypes.BytesType.
     """
     def expand(match_iter: Iterable[Match]) -> Iterator[int]:
         for match in (m.group() for m in match_iter):
@@ -1525,9 +1648,10 @@ def celbytes(text: str) -> bytes:
             else:
                 yield ord(CEL_ESCAPES.get(match, match))
 
+    text = token.value
     if text[:2].lower() == "br":
         # Raw; ignore ``\`` escapes
-        if text[2:4] == '"""' or text[2:4] == "'''":
+        if text[2:5] == '"""' or text[2:5] == "'''":
             # Long
             expanded = celpy.celtypes.BytesType(ord(c) for c in text[5:-3])
         else:
@@ -1535,7 +1659,7 @@ def celbytes(text: str) -> bytes:
             expanded = celpy.celtypes.BytesType(ord(c) for c in text[3:-1])
     elif text[:1].lower() == "b":
         # Cooked; expand ``\`` escapes
-        if text[1:3] == '"""' or text[1:3] == "'''":
+        if text[1:4] == '"""' or text[1:4] == "'''":
             # Long
             match_iter = CEL_ESCAPES_PAT.finditer(text[4:-3])
         else:
@@ -1543,5 +1667,5 @@ def celbytes(text: str) -> bytes:
             match_iter = CEL_ESCAPES_PAT.finditer(text[2:-1])
         expanded = celpy.celtypes.BytesType(expand(match_iter))
     else:
-        raise CELSyntaxError(f"Invalid bytes literal {text!r}")
+        raise ValueError(f"Invalid bytes literal {token.value!r}")
     return expanded

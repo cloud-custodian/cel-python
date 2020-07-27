@@ -18,8 +18,26 @@
 Application Integration
 ########################
 
+We'll look at the essential base case for integration:
+evaluate a function given some variable bindings.
 
-Currently, the implementation looks like this::
+Then we'll look at providing custom functions to extend
+the environment.
+
+This will lead us to providing custom type providers
+and custom type adapters.
+
+The Essentials
+==============
+
+Here are two examples of variable bindings
+
+README
+------
+
+Here's the example taken from the README.
+
+The baseline implementation works like this::
 
     >>> import celpy
     >>> cel_source = """
@@ -40,10 +58,363 @@ Currently, the implementation looks like this::
     >>> result
     BoolType(False)
 
-An environment provides type adapters and type providers. It can also provide a default package name.
+The :py:class:`celpy.Environment` can include type adapters and type providers. It's not clear
+how these should be implemented in Python or if they're even necessary.
+
 The compile step creates a syntax tree, which is used to create a final program to evaluate.
+Currently, there's a two-step process because we might want to optimize or transform the AST prior
+to evaluation.
 
-The activation provides specific variable types and values used to evaluate the program.
+The activation provides specific variable values used to evaluate the program.
 
-To an extent, the Python classes are loosely based on the object model in https://github.com/google/cel-go
+To an extent, the Python classes are loosely based on the object model in https://github.com/google/cel-go.
 We don't need all the Go formalisms, however, and rely on Pythonic variants.
+
+Simple example using builtin operators
+---------------------------------------
+
+Here's an example taken from
+https://github.com/google/cel-go/blob/master/examples/README.md
+
+Evaluate expression ``"Hello world! I'm " + name + "."`` with ``CEL`` passed as
+the ``name`` variable.
+
+..  code:: go
+
+    import (
+        "github.com/google/cel-go/cel"
+        "github.com/google/cel-go/checker/decls"
+    )
+
+    d := cel.Declarations(decls.NewVar("name", decls.String))
+    env, err := cel.NewEnv(d)
+
+    ast, iss := env.Compile(`"Hello world! I'm " + name + "."`)
+    // Check iss for compilation errors.
+    if iss.Err() != nil {
+        log.Fatalln(iss.Err())
+    }
+    prg, err := env.Program(ast)
+    out, _, err := prg.Eval(map[string]interface{}{
+        "name":   "CEL",
+    })
+    fmt.Println(out)
+    // Output:Hello world! I'm CEL.
+
+Here's the Python version::
+
+    >>> import celpy
+    >>> cel_source = """
+    ... "Hello world! I'm " + name + "."
+    ... """
+
+    >>> decls = {"name": celpy.celtypes.StringType}
+    >>> env = celpy.Environment(annotations=decls)
+    >>> ast = env.compile(cel_source)
+    >>> prgm = env.program(ast)
+
+    >>> activation = {
+    ...     "name": "CEL"
+    ... }
+    >>> result = prgm.evaluate(activation)
+    >>> result
+    "Hello world! I'm CEL."
+
+There's a big open concern here: there's no formal type adapter implementation.
+Nothing converts from the input value in the activation to the proper underlying
+type. This relies on Python's built-in type conversions.
+
+..  todo:: Handle type adapters properly.
+
+Function Bindings
+=================
+
+Here are two more examples of binding, taken from
+https://github.com/google/cel-go/blob/master/examples/README.md
+
+Note the complication here comes from the way the Go implementation resolves overloaded functions.
+Each CEL overload of a function is described by a ``("name", [args], result)`` structure.
+This allows for multiple type-specific overload versions of a generic function.
+
+The key of ``("name", [args], result)`` maps to a specific ``arg_name_arg()`` or ``name_arg()``
+overloaded implementation for specific argument types.
+
+For example, ``("greet", [StringType, StringType], StringType)`` maps to ``string_greet_string()``.
+
+This is emphatically not how Python generally works. A more Pythonic approach is to provide
+a single, generic, function which examines the arguments and decides what to do. Python doesn't
+generally do overloaded name resolution.
+
+There are two choices:
+
+1.  Build a mapping from ``("name", [args], result)`` to a specific overloaded implementation.
+    This pulls argument and result type coercion outside the Python function.
+    It matches the Go implementation, but can be confusing for Python implementers.
+    This requires exposing a great deal of machinery already available in a Python function
+    definition.
+
+2.  Ignore the complex type exposture techniques that Go requiees and dispatch to a Python function.
+    The Python function will sort out type variants and handle argument value coercion on its own.
+    This simplifies implementation down to name resolution.
+    Indeed, the type mapping rules can introspect Python's type annotations on the function
+    definition.
+
+We follow the 2nd alternative. The Python function binding relies -- exclusively -- on introspection
+of the function provided.
+
+Custom function on string type
+------------------------------
+
+Evaluate expression ``i.greet(you)`` with:
+
+..  parsed-literal::
+
+    i       -> CEL
+    you     -> world
+    greet   -> "Hello %s! Nice to meet you, I'm %s."
+
+
+First we need to declare two string variables and `greet` function.
+`NewInstanceOverload` must be used if we want to declare function which will
+operate on a type. First element of slice passed as `argTypes` into
+`NewInstanceOverload` is declaration of instance type. Next elements are
+parameters of function.
+
+..  code:: go
+
+    decls.NewVar("i", decls.String),
+    decls.NewVar("you", decls.String),
+    decls.NewFunction("greet",
+        decls.NewInstanceOverload("string_greet_string",
+            []*exprpb.Type{decls.String, decls.String},
+            decls.String))
+    ... // Create env and compile
+
+
+Let's implement `greet` function and pass it to `program`. We will be using
+`Binary`, because `greet` function uses 2 parameters (1st instance, 2nd
+function parameter).
+
+..  code:: go
+
+    greetFunc := &functions.Overload{
+        Operator: "string_greet_string",
+        Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
+            return types.String(
+                fmt.Sprintf("Hello %s! Nice to meet you, I'm %s.\n", rhs, lhs))
+            }}
+    prg, err := env.Program(c, cel.Functions(greetFunc))
+
+    out, _, err := prg.Eval(map[string]interface{}{
+        "i": "CEL",
+        "you": "world",
+    })
+    fmt.Println(out)
+    // Output:Hello world! Nice to meet you, I'm CEL.
+
+Here's the Python version::
+
+    >>> import celpy
+    >>> from typing import Callable
+    >>> cel_source = """
+    ... i.greet(you)
+    ... """
+
+    >>> decls = {
+    ...     "i": celpy.celtypes.StringType,
+    ...     "you": celpy.celtypes.StringType,
+    ...     "greet": Callable}
+    >>> env = celpy.Environment(annotations=decls)
+    >>> ast = env.compile(cel_source)
+    >>> def greet(lhs: celpy.celtypes.StringType, rhs: celpy.celtypes.StringType) -> celpy.celtypes.StringType:
+    ...     return "Hello {1:s}! Nice to meet you, I'm {0:s}.\\n".format(lhs, rhs)
+    >>> prgm = env.program(ast, functions=[greet])
+    >>> activation = {
+    ...     "i": "CEL", "you": "world"
+    ... }
+    >>> result = prgm.evaluate(activation)
+    >>> result
+    "Hello world! Nice to meet you, I'm CEL.\\n"
+
+Define custom global function
+-----------------------------
+
+Evaluate expression ``shake_hands(i,you)`` with:
+
+..  parsed-literal::
+
+    i           -> CEL
+    you         -> world
+    shake_hands -> "%s and %s are shaking hands."
+
+
+In order to declare global function we need to use `NewOverload`:
+
+..  code:: go
+
+    decls.NewVar("i", decls.String),
+    decls.NewVar("you", decls.String),
+    decls.NewFunction("shake_hands",
+        decls.NewOverload("shake_hands_string_string",
+            []*exprpb.Type{decls.String, decls.String},
+            decls.String))
+    ... // Create env and compile.
+
+    shakeFunc := &functions.Overload{
+        Operator: "shake_hands_string_string",
+        Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
+            return types.String(
+                fmt.Sprintf("%s and %s are shaking hands.\n", lhs, rhs))
+            }}
+    prg, err := env.Program(c, cel.Functions(shakeFunc))
+
+    out, _, err := prg.Eval(map[string]interface{}{
+        "i": "CEL",
+        "you": "world",
+    })
+    fmt.Println(out)
+    // Output:CEL and world are shaking hands.
+
+Here's the Python version::
+
+    >>> import celpy
+    >>> from typing import Callable
+    >>> cel_source = """
+    ... shake_hands(i,you)
+    ... """
+
+    >>> decls = {
+    ...     "i": celpy.celtypes.StringType,
+    ...     "you": celpy.celtypes.StringType,
+    ...     "shake_hands": Callable}
+    >>> env = celpy.Environment(annotations=decls)
+    >>> ast = env.compile(cel_source)
+    >>> def shake_hands(lhs: celpy.celtypes.StringType, rhs: celpy.celtypes.StringType) -> celpy.celtypes.StringType:
+    ...     return f"{lhs} and {rhs} are shaking hands.\\n"
+    >>> prgm = env.program(ast, functions=[shake_hands])
+    >>> activation = {
+    ...     "i": "CEL", "you": "world"
+    ... }
+    >>> result = prgm.evaluate(activation)
+    >>> result
+    'CEL and world are shaking hands.\\n'
+
+
+
+For more examples of how to use CEL, see
+https://github.com/google/cel-go/tree/master/cel/cel_test.go
+
+Examples from Go implementation
+================================
+
+See https://github.com/google/cel-go/blob/master/README.md
+
+..  code::
+
+    // Check whether a resource name starts with a group name.
+    resource.name.startsWith("/groups/" + auth.claims.group)
+
+    // Determine whether the request is in the permitted time window.
+    request.time - resource.age < duration("24h")
+
+    // Check whether all resource names in a list match a given filter.
+    auth.claims.email_verified && resources.all(r, r.startsWith(auth.claims.email))
+
+    // Ensure all tweets are less than 140 chars
+    tweets.all(t, t.size() <= 140)
+
+    // Test whether the field is a non-default value if proto-based, or defined
+    // in the JSON case.
+    has(message.field)
+
+Following one of the more complete examples through the README
+
+..  code:: go
+
+    import(
+        "github.com/google/cel-go/cel"
+        "github.com/google/cel-go/checker/decls"
+    )
+
+    env, err := cel.NewEnv(
+        cel.Declarations(
+            decls.NewVar("name", decls.String),
+            decls.NewVar("group", decls.String)))
+
+    ast, issues := env.Compile(`name.startsWith("/groups/" + group)`)
+    if issues != nil && issues.Err() != nil {
+        log.Fatalf("type-check error: %s", issues.Err())
+    }
+    prg, err := env.Program(ast)
+    if err != nil {
+        log.Fatalf("program construction error: %s", err)
+    }
+
+    // The `out` var contains the output of a successful evaluation.
+    // The `details' var would contain intermediate evaluation state if enabled as
+    // a cel.ProgramOption. This can be useful for visualizing how the `out` value
+    // was arrive at.
+    out, details, err := prg.Eval(map[string]interface{}{
+        "name": "/groups/acme.co/documents/secret-stuff",
+        "group": "acme.co"})
+    fmt.Println(out) // 'true'
+
+This has the following Python implementation::
+
+    >>> import celpy
+    >>> decls = {
+    ...     "name": celpy.celtypes.StringType,
+    ...     "group": celpy.celtypes.StringType,
+    ... }
+    >>> env = celpy.Environment(annotations=decls)
+    >>> ast = env.compile('name.startsWith("/groups/" + group)')
+    >>> prgm = env.program(ast)
+    >>> activation = {
+    ...     "name": "/groups/acme.co/documents/secret-stuff",
+    ...     "group": "acme.co",
+    ... }
+    >>> result = prgm.evaluate(activation)
+    >>> result
+    BoolType(True)
+
+Exceptions and Errors
+======================
+
+Exceptions raised in Python world will (eventually) crash the CEL evluation.
+This gives the author of an extension function the complete traceback to help
+fix the Python code.
+No masking or rewriting of Python exceptions ever occurs in extension functions.
+
+A special :exc:`celpy.EvalError` exception can be used in an extension function
+to permit CEL's short-circuit logic processing to silence this exception.  See the
+https://github.com/google/cel-go/blob/master/README.md#partial-state for more examples
+of how the short-circuit (partial state) operations work.
+
+An extension function must **return** a :exc:`celpy.EvalError` object
+to allow processing to continue in spite of an uncomputable value.
+
+::
+
+    from celpy import *
+    def my_extension(a: Value) -> Value:
+        try:
+            return celtypes.UintType(64 // a)
+        except DivideByZeroError as ex:
+            return EvalError(f"my_extnsion({a}) error")
+
+The returned exception object allows short-circuit processing. For example,
+
+::
+
+    false && my_extension(0)
+
+This evaluates to ``false``.  If computed, any :exc:`celpy.EvalError` object will be silently ignored.
+
+On the other hand,
+
+::
+
+    true && my_extension(0)
+
+This will result in a visible :exc:`celpy.EvalError` result from the extension function.
+This will eventually be raised as an exception, so the framework using ``celpy`` can track this run-time error.

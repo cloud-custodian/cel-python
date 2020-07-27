@@ -135,11 +135,11 @@ EXPONENT       : /[eE]/ /[+-]?/ DIGIT+
 
 // Rewritten into REGEX; explicitly list the escapes
 
-STRING_LIT     : /[rR]?"(?:\\[bfnrt"'\\]|\\\d{3}|\\x[0-9abcdefABCDEF]{2}|\\u[0-9abcdefABCDEF]{4}|.)*?"/
-               | /[rR]?'(?:\\[bfnrt"'\\]|\\\d{3}|\\x[0-9abcdefABCDEF]{2}|\\u[0-9abcdefABCDEF]{4}|.)*?'/
+STRING_LIT     : /[rR]?"(?:\\[abfnrtv"'\\]|\\\d{3}|\\x[0-9a-fA-F]{2}|\\u[0-9a-fA-F]{4-8}|.)*?"/
+               | /[rR]?'(?:\\[abfnrtv"'\\]|\\\d{3}|\\x[0-9a-fA-F]{2}|\\u[0-9a-fA-F]{4}|\\U[0-9a-fA-F]{8}|.)*?'/
 
-MLSTRING_LIT   : /[rR]?"""(?:\\[bfnrt"'\\]|\\\d{3}|\\x[0-9abcdefABCDEF]{2}|\\u[0-9abcdefABCDEF]{4}|\r\n|\r|\n|.)*?"""/
-               | /[rR]?'''(?:\\[bfnrt"'\\]|\\\d{3}|\\x[0-9abcdefABCDEF]{2}|\\u[0-9abcdefABCDEF]{4}|\r\n|\r|\n|.)*?'''/
+MLSTRING_LIT   : /[rR]?"""(?:\\[abfnrtv"'\\]|\\\d{3}|\\x[0-9a-fA-F]{2}|\\u[0-9a-fA-F]{4-8}|\r\n|\r|\n|.)*?"""/
+               | /[rR]?'''(?:\\[abfnrtv"'\\]|\\\d{3}|\\x[0-9a-fA-F]{2}|\\u[0-9a-fA-F]{4}|\\U[0-9a-fA-F]{8}|\r\n|\r|\n|.)*?'''/
 
 BYTES_LIT      : /[bB]/ MLSTRING_LIT | /[bB]/ STRING_LIT
 
