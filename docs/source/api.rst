@@ -40,7 +40,7 @@ evaluation
 parser
 ======
 
-..  automodule:: celpy.parser
+..  automodule:: celpy.celparser
 
 tools.textproto_to_gherkin
 ==========================

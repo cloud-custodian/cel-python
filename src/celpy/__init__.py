@@ -95,13 +95,14 @@ Here's the Pythonic approach, using concept patterned after the Go implementatio
     Hello world! I'm CEL.
 
 """
+import base64
 import json  # noqa: F401
 import logging
-from typing import Any, Type, Optional, List, Dict, Union, Callable
+from typing import Any, Type, Optional, List, Dict, Union, cast
 import lark  # type: ignore[import]
 from celpy.celparser import CELParser, CELParseError  # noqa: F401
 from celpy.evaluation import (  # noqa: F401
-    Evaluator, Context, CELEvalError, Value, Activation, base_functions
+    Evaluator, Context, CELEvalError, Result, Activation, base_functions, CELFunction
 )
 from celpy import celtypes
 
@@ -109,8 +110,71 @@ from celpy import celtypes
 JSON = Union[Dict[str, Any], List[Any], bool, float, int, str, None]
 
 
-def json_to_cel(document: JSON) -> Value:
-    """Convert parsed JSON object to CEL.
+class CELJSONEncoder(json.JSONEncoder):
+    """
+    An Encoder to export CEL objects as JSON text.
+
+    This is **not** a reversible transformation. Some things are coerced to strings
+    without any more detailed type marker.
+    Specifically timestamps, durations, and bytes.
+    """
+    @staticmethod
+    def to_python(
+            cel_object: celtypes.Value) -> Union[celtypes.Value, List[Any], Dict[Any, Any], bool]:
+        """Recursive walk through the CEL object, replacing BoolType with native bool instances.
+        This lets the :py:mod:`json` module correctly represent the obects
+        with JSON ``true`` and ``false``.
+
+        This will also replace ListType and MapType with native ``list`` and ``dict``.
+        All other CEL objects will be left intact. This creates an intermediate hybrid
+        beast that's not quite a :py:class:`celtypes.Value` because a few things have been replaced.
+        """
+        if isinstance(cel_object, celtypes.BoolType):
+            return True if cel_object else False
+        elif isinstance(cel_object, celtypes.ListType):
+            return [CELJSONEncoder.to_python(item) for item in cel_object]
+        elif isinstance(cel_object, celtypes.MapType):
+            return {
+                CELJSONEncoder.to_python(key): CELJSONEncoder.to_python(value)
+                for key, value in cel_object.items()
+            }
+        else:
+            return cel_object
+
+    def encode(self, cel_object: celtypes.Value) -> str:
+        """
+        Override built-in encode to create proper Python :py:class:`bool` objects.
+        """
+        return super().encode(CELJSONEncoder.to_python(cel_object))
+
+    def default(self, cel_object: celtypes.Value) -> JSON:
+        if isinstance(cel_object, celtypes.TimestampType):
+            return str(cel_object)
+        elif isinstance(cel_object, celtypes.DurationType):
+            return str(cel_object)
+        elif isinstance(cel_object, celtypes.BytesType):
+            return base64.b64encode(cel_object).decode("ASCII")
+        else:
+            return cast(JSON, super().default(cel_object))
+
+
+class CELJSONDecoder(json.JSONDecoder):
+    """
+    An Encoder to import CEL objects from JSON to the extent possible.
+
+    This does not handle non-JSON types in any form. Coercion from string
+    to TimestampType or DurationType or BytesType is handled by celtype
+    constructors.
+    """
+    def decode(self, source: str, _w: Any = None) -> Any:
+        raw_json = super().decode(source)
+        return json_to_cel(raw_json)
+
+
+def json_to_cel(document: JSON) -> celtypes.Value:
+    """Convert parsed JSON object from Python to CEL to the extent possible.
+
+    It's difficult to distinguish strings which should be timestamps or durations.
 
     ::
 
@@ -144,7 +208,11 @@ MapType({StringType('hello'): StringType('world')})])
         raise ValueError(f"unexpected type {type(document)} in JSON structure {document!r}")
 
 
+# A parsed AST.
 Expression = Type[lark.Tree]
+
+# A CEL type annotation.
+Annotation = celtypes.CELType
 
 
 class Runner:
@@ -159,14 +227,14 @@ class Runner:
             self,
             environment: 'Environment',
             ast: Expression,
-            functions: Optional[List[Callable]] = None
+            functions: Optional[List[CELFunction]] = None
     ) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.environment = environment
         self.ast = ast
         self.functions = functions
 
-    def evaluate(self, activation: Context) -> Any:  # pragma: no cover
+    def evaluate(self, activation: Context) -> Result:  # pragma: no cover
         raise NotImplementedError
 
 
@@ -181,7 +249,7 @@ class InterpretedRunner(Runner):
     Generally, this should raise an CELEvalError for most kinds of ordinary problems.
     It may raise an CELUnsupportedError for future features.
     """
-    def evaluate(self, context: Context) -> Any:
+    def evaluate(self, context: Context) -> Result:
         activation = self.environment.activation().nested_activation(vars=context)
         e = Evaluator(
             ast=self.ast,
@@ -205,14 +273,14 @@ class CompiledRunner(Runner):
             self,
             environment: 'Environment',
             ast: Expression,
-            functions: Optional[List[Callable]] = None
+            functions: Optional[List[CELFunction]] = None
     ) -> None:
         super().__init__(environment, ast, functions)
         # Transform to Python.
         # compile()
         # cache executable code object.
 
-    def evaluate(self, activation: Context) -> Any:
+    def evaluate(self, activation: Context) -> Result:
         # eval() code object with activation as locals, and built-ins as gobals.
         return super().evaluate(activation)
 
@@ -227,13 +295,11 @@ class Environment:
     -   type providers registry make ProtoBuf types available for CEL.
 
     ..  todo:: Add adapter and provider registries to the Environment.
-
-    ..  todo:: Return baseline activation.
     """
     def __init__(
             self,
             package: Optional[str] = None,
-            annotations: Optional[Dict[str, Callable]] = None
+            annotations: Optional[Dict[str, Annotation]] = None
     ) -> None:
         """
         Create a new environment.
@@ -242,29 +308,31 @@ class Environment:
         :param annotations: Names with type annotations.
             There are two flavors of names provided here.
 
-            - Variable names based on celtypes
+            - Variable names based on :py:mod:``celtypes``
 
             - Function names, using ``typing.Callable``.
         """
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.annotations: Dict[str, Callable] = annotations or {}
+        self.annotations: Dict[str, Annotation] = annotations or {}
         self.logger.info(f"Type Annotations {self.annotations!r}")
         self.package: Optional[str] = package
         self.cel_parser = CELParser()
+        self.runnable: Runner
 
     def compile(self, text: str) -> Expression:
         """Compile the CEL source. This can raise syntax error exceptions."""
         ast = self.cel_parser.parse(text)
-        return ast
+        return cast(Expression, ast)
 
     def program(
             self,
             expr: Expression,
-            functions: Optional[List[Callable]] = None) -> Runner:
+            functions: Optional[List[CELFunction]] = None) -> Runner:
         """Transforms the AST into an executable runner."""
         self.logger.info(f"Package {self.package!r}")
-        return InterpretedRunner(self, expr, functions)
+        self.runnable = InterpretedRunner(self, expr, functions)
         # return CompiledRunner(self, expr, functions)
+        return self.runnable
 
     def activation(self) -> Activation:
         """Returns a base activation"""

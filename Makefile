@@ -24,9 +24,10 @@ test-all:
 	tox
 
 unit-test:
-	PYTHONPATH=src pytest -vv --cov=src --cov-report=term-missing
+	PYTHONPATH=src pytest -vv --cov=src --cov-report=term-missing ${test}
 
 sphinx:
+	PYTHONPATH=src python -m doctest docs/source/*.rst
 	export PYTHONPATH=$(PWD)/src:$(PWD)/tools && cd docs && $(MAKE) html
 
 ghpages:

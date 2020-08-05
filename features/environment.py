@@ -11,3 +11,4 @@ def before_scenario(context, scenario):
     context.data['type_env'] = []
     context.data['bindings'] = {}
     context.data['container'] = ""
+    context.data['json'] = []

@@ -14,37 +14,37 @@
 # See the License for the specific language governing permissions and limitations under the License.
 
 """
-CEL Types: wrappers on Python types to add CEL semantics.
+CEL Types: wrappers on Python types to provide CEL semantics.
 
-CEL boolean has a slight difference from native Python bool -- it won't do some math.
+This can be used by a Python module to work with CEL-friendly values and CEL results.
 
-CEL has int64 and uint64 subclasses of integer. These have specific ranges, unlike
-the native Python int type.
+Examples of distinctions between CEL and Python:
 
-These raise :exc:`ValueError` for out-of-range values and :exc:`TypeError`
+-   Unlike Python ``bool``, CEL :py:class:`BoolType` won't do some math.
+
+-   CEL has ``int64`` and ``uint64`` subclasses of integer. These have specific ranges and
+    raise :exc:`ValueError` errors on overflow.
+
+CEL types will raise :exc:`ValueError` for out-of-range values and :exc:`TypeError`
 for operations they refuse.
-These exceptions are captured and turned into values on the stack to permit logic operators
-to quietly silence them via short-circuiting.
+The :py:mod:`evaluation` module can capture these exceptions and turn them into result values.
+This can permit the logic operators to quietly silence them via "short-circuiting".
 
-In the normal course of events, CEL's evaluator may attempt operations between an CEL Exception
-on the value stack and an instance of one of these classes.
-We rely on how this leads to an ordinary Python :exc:`TypeError` to be raised.
-This can be wrapped into an CEL Exception object and place on the stack.
-We don't need to make special :func:`isinstance` checks for this situation.
+In the normal course of events, CEL's evaluator may attempt operations between a
+CEL exception result and an instance of one of CEL types.
+We rely on this leading to an ordinary Python :exc:`TypeError` to be raised to propogate
+the error. Or. A logic operator may discard the error object.
 
-::
-
-    3 + ZeroDivisionError("divide by zero")
-    Traceback (most recent call last):
-      File "<input>", line 1, in <module>
-    TypeError: unsupported operand type(s) for +: 'int' and 'ZeroDivisionError'
+The :py:mod:`evaluation` module extends these types with it's own :exc:`CELEvalError` exception.
+We try to keep that as a separate concern from the core operator implementations here.
+We leverage Python features, which means raising exceptions when there is a problem.
 
 Types
 =============
 
 See https://github.com/google/cel-go/tree/master/common/types
 
-These are the Go type definitions that are built-in to CEL:
+These are the Go type definitions that are used by CEL:
 
 -   BoolType
 -   BytesType
@@ -64,11 +64,11 @@ e.g., ``42`` vs. ``42u`` vs. ``"42"`` vs. ``b"42"`` vs. ``42.``.
 
 We provide matching Python class names for each of these types. The Python type names
 are subclasses of Python native types, allowing a client to transparently work with
-CEL results and provide values to CEL that *should* be tolerated.
+CEL results. A Python host should be able to provide values to CEL that will be tolerated.
 
 A type hint of ``Value`` unifies these into a common hint.
 
-CEL also supports protobuf types:
+The CEL Go implementation also supports protobuf types:
 
 -   dpb.Duration
 -   tpb.Timestamp
@@ -86,18 +86,18 @@ CEL also supports protobuf types:
 -   wrapperspb.UInt32Value
 -   wrapperspb.UInt64Value
 
-This involve expressions like the following::
+These types involve expressions like the following::
 
     google.protobuf.UInt32Value{value: 123u}
 
-In this case, the well-known protobuf name is directly available to CEL.
+In this case, the well-known protobuf name is directly visible as CEL syntax.
+There's a ``google`` package with the needed definitions.
 
 Type Provider
 ==============================
 
 A type provider can be bound to the environment, this will support additional types.
 This appears to be a factory to map names of types to type classes.
-
 
 Run-time type binding is shown by a CEL expression like the following::
 
@@ -174,27 +174,16 @@ import logging
 import re
 from typing import (
     Any, NoReturn, Mapping, Union, Sequence, Tuple, Optional, Iterable,
-    Type, cast, overload
+    List, Dict, Type, Callable, TypeVar, cast, overload
 )
+import dateutil.parser
 import dateutil.tz
 
 
 logger = logging.getLogger("celtypes")
 
 
-def type_matched(method):
-    """Decorates a method to assure the "other" value has the same type."""
-    @wraps(method)
-    def type_matching_method(self, other: Any) -> Any:
-        # if isinstance(other, Exception):
-        #     raise other
-        if not(issubclass(type(other), type(self)) or issubclass(type(self), type(other))):
-            raise TypeError(f"no such overload: {type(self)} != {type(other)}")
-        return method(self, other)
-    return type_matching_method
-
-
-CELType = Union[
+Value = Union[
     'BoolType',
     'BytesType',
     'DoubleType',
@@ -202,16 +191,67 @@ CELType = Union[
     'IntType',
     'ListType',
     'MapType',
-    None,   # Don't seem to need NullType
+    None,   # Used instead of NullType
     'StringType',
     'TimestampType',
-    # Don't seem to need TypeType
     'UintType',
-    TypeError,  # An interim no such overload that is skipped by short-circuit logic
+]
+
+CELType = Union[
+    Type['BoolType'],
+    Type['BytesType'],
+    Type['DoubleType'],
+    Type['DurationType'],
+    Type['IntType'],
+    Type['ListType'],
+    Type['MapType'],
+    Callable[..., None],  # Used instead of NullType
+    Type['StringType'],
+    Type['TimestampType'],
+    # Is a TypeType needed?
+    Type['UintType'],
+    Callable[..., Value]  # Conversion functions
 ]
 
 
-def logical_and(x: CELType, y: CELType) -> CELType:
+def type_matched(method: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]:
+    """Decorates a method to assure the "other" value has the same type."""
+    @wraps(method)
+    def type_matching_method(self: Any, other: Any) -> Any:
+        if not(issubclass(type(other), type(self)) or issubclass(type(self), type(other))):
+            raise TypeError(f"no such overload: {type(self)} != {type(other)}")
+        return method(self, other)
+    return type_matching_method
+
+
+def logical_condition(e: Value, x: Value, y: Value) -> Value:
+    """
+    CEL e ? x : y operator.
+    Choose one of x or y. Exceptions in the unchosen expression are ignored.
+
+    Example::
+
+        2 / 0 > 4 ? 'baz' : 'quux'
+
+    is a "division by zero" error.
+
+    ::
+
+        >>> logical_condition(
+        ... BoolType(True), StringType("this"), StringType("Not That"))
+        StringType('this')
+        >>> logical_condition(
+        ... BoolType(False), StringType("Not This"), StringType("that"))
+        StringType('that')
+    """
+    if not isinstance(e, BoolType):
+        raise TypeError(f"Unexpected {type(e)} ? {type(x)} : {type(y)}")
+    result = x if e else y
+    logger.debug(f"logical_condition({e!r}, {x!r}, {y!r}) = {result!r}")
+    return result
+
+
+def logical_and(x: Value, y: Value) -> Value:
     """
     Native Python has a left-to-right rule.
     CEL && is commutative with non-Boolean values, including error objects.
@@ -232,13 +272,9 @@ def logical_and(x: CELType, y: CELType) -> CELType:
         return BoolType(cast(BoolType, x) and cast(BoolType, y))
 
 
-def logical_not(x: CELType) -> CELType:
+def logical_not(x: Value) -> Value:
     """
-    Native python `not` isn't fully exposed for our types.
-
-    This does not work::
-
-        result = operator.not_(x)
+    Native python `not` isn't fully exposed for CEL types.
     """
     if isinstance(x, BoolType):
         result = BoolType(not x)
@@ -248,7 +284,7 @@ def logical_not(x: CELType) -> CELType:
     return result
 
 
-def logical_or(x: CELType, y: CELType) -> CELType:
+def logical_or(x: Value, y: Value) -> Value:
     """
     Native Python has a left-to-right rule: (True or y) is True, (False or y) is y.
     CEL || is commutative with non-Boolean values, including errors.
@@ -293,6 +329,9 @@ class BoolType(int):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({bool(self)})"
 
+    def __str__(self) -> str:
+        return str(bool(self))
+
     def __neg__(self) -> NoReturn:
         raise TypeError("no such overload")
 
@@ -303,15 +342,20 @@ class BoolType(int):
 class BytesType(bytes):
     """Python's bytes semantics are close to CEL."""
     def __new__(
-            cls: Type,
-            source: Union[str, bytes, Iterable[int], 'BytesType', 'StringType'], *args, **kwargs
+            cls: Type['BytesType'],
+            source: Union[str, bytes, Iterable[int], 'BytesType', 'StringType'],
+            *args: Any,
+            **kwargs: Any
     ) -> 'BytesType':
         if isinstance(source, (bytes, BytesType)):
-            return super().__new__(cls, source)  # type: ignore[call-arg]
+            return cast(BytesType, super().__new__(cls, source))  # type: ignore[call-arg]
         elif isinstance(source, (str, StringType)):
-            return super().__new__(cls, source.encode('utf-8'))  # type: ignore[call-arg]
+            return cast(
+                BytesType,
+                super().__new__(cls, source.encode('utf-8'))   # type: ignore[call-arg]
+            )
         elif isinstance(source, Iterable):
-            return super().__new__(cls, source)  # type: ignore[call-arg]
+            return cast(BytesType, super().__new__(cls, source))  # type: ignore[call-arg]
         else:
             raise TypeError(f"Invalid initial value type: {type(source)}")
 
@@ -369,15 +413,18 @@ class DoubleType(float):
         return super().__hash__()
 
 
-def int64(operator):
+IntOperator = TypeVar('IntOperator', bound=Callable[..., int])
+
+
+def int64(operator: IntOperator) -> IntOperator:
     """Apply an operation, but assure the value is within the int64 range."""
     @wraps(operator)
-    def clamped_operator(*args, **kwargs):
-        result = operator(*args, **kwargs)
+    def clamped_operator(*args: Any, **kwargs: Any) -> int:
+        result: int = operator(*args, **kwargs)
         if -(2**63) <= result < 2**63:
             return result
         raise ValueError("overflow")
-    return clamped_operator
+    return cast(IntOperator, clamped_operator)
 
 
 class IntType(int):
@@ -407,9 +454,12 @@ class IntType(int):
     IntType(-123)
     """
     def __new__(
-            cls: Type,
-            source: Any, *args, **kwargs
+            cls: Type['IntType'],
+            source: Any,
+            *args: Any,
+            **kwargs: Any
     ) -> 'IntType':
+        convert: Callable[..., int]
         if isinstance(source, IntType):
             return source
         elif isinstance(source, (float, DoubleType)):
@@ -424,7 +474,7 @@ class IntType(int):
             # Must tolerate "-" as part of the literal.
             # See https://github.com/google/cel-spec/issues/126
             convert = int64(int)
-        return super().__new__(cls, convert(source))  # type: ignore[call-arg]
+        return cast(IntType, super().__new__(cls, convert(source)))  # type: ignore[call-arg]
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
@@ -490,7 +540,7 @@ class IntType(int):
     @int64
     def __rmod__(self, other: Any) -> 'IntType':
         left_sign = -1 if other < IntType(0) else +1
-        go_mod = left_sign * (abs(other) % abs(cast(IntType, self)))
+        go_mod = left_sign * (abs(other) % abs(self))
         return IntType(go_mod)
 
     @type_matched
@@ -521,15 +571,15 @@ class IntType(int):
         return super().__hash__()
 
 
-def uint64(operator):
+def uint64(operator: IntOperator) -> IntOperator:
     """Apply an operation, but assure the value is within the uint64 range."""
     @wraps(operator)
-    def clamped_operator(*args, **kwargs):
+    def clamped_operator(*args: Any, **kwargs: Any) -> int:
         result = operator(*args, **kwargs)
         if 0 <= result < 2**64:
             return result
         raise ValueError("overflow")
-    return clamped_operator
+    return cast(IntOperator, clamped_operator)
 
 
 class UintType(int):
@@ -571,12 +621,15 @@ class UintType(int):
     TypeError: no such overload
     """
     def __new__(
-            cls: Type,
-            source: Any, *args, **kwargs
+            cls: Type['UintType'],
+            source: Any,
+            *args: Any,
+            **kwargs: Any
     ) -> 'UintType':
+        convert: Callable[..., int]
         if isinstance(source, UintType):
             return source
-        if isinstance(source, (float, DoubleType)):
+        elif isinstance(source, (float, DoubleType)):
             convert = uint64(round)
         elif isinstance(source, TimestampType):
             convert = uint64(lambda src: src.timestamp())
@@ -584,7 +637,7 @@ class UintType(int):
             convert = uint64(lambda src: int(src[2:], 16))
         else:
             convert = uint64(int)
-        return super().__new__(cls, convert(source))  # type: ignore[call-arg]
+        return cast(UintType, super().__new__(cls, convert(source)))  # type: ignore[call-arg]
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
@@ -652,7 +705,7 @@ class UintType(int):
         return super().__hash__()
 
 
-class ListType(list):
+class ListType(List[Value]):
     """
     Native Python implements comparison operations between list objects.
 
@@ -684,18 +737,18 @@ class ListType(list):
         if not isinstance(other, (list, ListType)):
             raise TypeError(f"no such overload: ListType == {type(other)}")
 
-        def equal(s: Any, o: Any) -> CELType:
+        def equal(s: Any, o: Any) -> Value:
             try:
                 return BoolType(s == o)
             except TypeError as ex:
-                return ex
+                return cast(BoolType, ex)  # Instead of Union[BoolType, TypeError]
 
         result = (
             len(self) == len(other)
             and reduce(  # noqa: W503
                 logical_and,
                 (equal(item_s, item_o) for item_s, item_o in zip(self, other)),
-                cast(CELType, BoolType(True))
+                cast(Value, BoolType(True))
             )
         )
         if isinstance(result, TypeError):
@@ -706,18 +759,18 @@ class ListType(list):
         if not isinstance(other, (list, ListType)):
             raise TypeError(f"no such overload: ListType != {type(other)}")
 
-        def not_equal(s: Any, o: Any) -> CELType:
+        def not_equal(s: Any, o: Any) -> Value:
             try:
                 return BoolType(s != o)
             except TypeError as ex:
-                return ex
+                return cast(BoolType, ex)  # Instead of Union[BoolType, TypeError]
 
         result = (
             len(self) != len(other)
             or reduce(  # noqa: W503
                 logical_or,
                 (not_equal(item_s, item_o) for item_s, item_o in zip(self, other)),
-                cast(CELType, BoolType(False))
+                cast(Value, BoolType(False))
             )
         )
         if isinstance(result, TypeError):
@@ -725,10 +778,19 @@ class ListType(list):
         return bool(result)
 
 
-BaseMapTypes = Union[Mapping[Any, Any], Sequence[Tuple[Any, Any]]]
+BaseMapTypes = Union[
+    Mapping[Any, Any],
+    Sequence[Tuple[Any, Any]],
+    None
+]
 
 
-class MapType(dict):
+MapKeyTypes = Union[
+    'IntType', 'UintType', 'BoolType', 'StringType', str
+]
+
+
+class MapType(Dict[Value, Value]):
     """
     Native Python allows mapping updates and any hashable type as a kay.
 
@@ -744,7 +806,7 @@ class MapType(dict):
     """
     def __init__(
             self,
-            base: Optional[BaseMapTypes] = None) -> None:
+            base: BaseMapTypes = None) -> None:
         super().__init__()
         if base is None:
             pass
@@ -769,11 +831,11 @@ class MapType(dict):
         if not isinstance(other, (Mapping, MapType)):
             raise TypeError(f"no such overload: MapType == {type(other)}")
 
-        def equal(s: Any, o: Any) -> Union[TypeError, BoolType]:
+        def equal(s: Any, o: Any) -> BoolType:
             try:
                 return BoolType(s == o)
             except TypeError as ex:
-                return ex
+                return cast(BoolType, ex)  # Instead of Union[BoolType, TypeError]
 
         keys_s = self.keys()
         keys_o = other.keys()
@@ -782,7 +844,7 @@ class MapType(dict):
             and reduce(  # noqa: W503
                 logical_and,
                 (equal(self[k], other[k]) for k in keys_s),
-                cast(CELType, BoolType(True))
+                cast(Value, BoolType(True))
             )
         )
         if isinstance(result, TypeError):
@@ -794,15 +856,15 @@ class MapType(dict):
             raise TypeError(f"no such overload: MapType != {type(other)}")
 
         # Singleton special case, may return no-such overload.
-        if len(self) == len(other) and len(self) == 1 and self.keys() == other.keys():
+        if len(self) == 1 and len(other) == 1 and self.keys() == other.keys():
             k = next(iter(self.keys()))
-            return self[k] != other[k]
+            return cast(bool, self[k] != other[k])  # Instead of Union[BoolType, TypeError]
 
-        def not_equal(s: Any, o: Any) -> Union[TypeError, BoolType]:
+        def not_equal(s: Any, o: Any) -> BoolType:
             try:
                 return BoolType(s != o)
             except TypeError as ex:
-                return ex
+                return cast(BoolType, ex)  # Instead of Union[BoolType, TypeError]
 
         keys_s = self.keys()
         keys_o = other.keys()
@@ -811,7 +873,7 @@ class MapType(dict):
             or reduce(  # noqa: W503
                 logical_or,
                 (not_equal(self[k], other[k]) for k in keys_s),
-                cast(CELType, BoolType(False))
+                cast(Value, BoolType(False))
             )
         )
         if isinstance(result, TypeError):
@@ -835,16 +897,20 @@ class StringType(str):
     We rely on the overlap between ``"/u270c"`` and ``"/U0001f431"`` in CEL and Python.
     """
     def __new__(
-            cls: Type,
-            source: Union[str, bytes, 'BytesType', 'StringType'], *args, **kwargs
+            cls: Type['StringType'],
+            source: Union[str, bytes, 'BytesType', 'StringType'],
+            *args: Any,
+            **kwargs: Any
     ) -> 'StringType':
         if isinstance(source, (bytes, BytesType)):
-            return super().__new__(cls, source.decode('utf'))  # type: ignore[call-arg]
+            return cast(
+                StringType,
+                super().__new__(cls, source.decode('utf')))  # type: ignore[call-arg]
         elif isinstance(source, (str, StringType)):
             # TODO: Consider returning the original StringType object.
-            return super().__new__(cls, source)  # type: ignore[call-arg]
+            return cast(StringType, super().__new__(cls, source))  # type: ignore[call-arg]
         else:
-            return super().__new__(cls, source)  # type: ignore[call-arg]
+            return cast(StringType, super().__new__(cls, source))
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
@@ -911,9 +977,15 @@ class TimestampType(datetime.datetime):
     The ``dateutil`` project (https://pypi.org/project/python-dateutil/)
     is used for TZ handling and timestamp parsing.
     """
-    def __new__(cls: Type, source: Any, *args, **kwargs) -> 'TimestampType':
+    def __new__(
+            cls: Type['TimestampType'],
+            source: Union[int, str, datetime.datetime],
+            *args: Any,
+            **kwargs: Any) -> 'TimestampType':
+
         if isinstance(source, datetime.datetime):
-            return super().__new__(  # type: ignore
+            # Wrap a datetime.datetime
+            return cast(TimestampType, super().__new__(  # type: ignore [call-arg]
                 cls,
                 year=source.year,
                 month=source.month,
@@ -923,48 +995,32 @@ class TimestampType(datetime.datetime):
                 second=source.second,
                 microsecond=source.microsecond,
                 tzinfo=source.tzinfo or datetime.timezone.utc
-            )
+            ))
+
         elif isinstance(source, int) and len(args) >= 2:
-            ts = super().__new__(  # type: ignore
+            # Wrap a sequence of integers that datetime.datetime might accept.
+            ts = super().__new__(  # type: ignore [call-arg]
                 cls, source, *args, **kwargs
             )
             if not ts.tzinfo:
                 ts = ts.replace(tzinfo=datetime.timezone.utc)
-            return ts
+            return cast(TimestampType, ts)
 
         elif isinstance(source, str):
-            try:
-                local_datetime = datetime.datetime.strptime(
-                    source, "%Y-%m-%dT%H:%M:%SZ")
-                return super().__new__(  # type: ignore
-                    cls,
-                    year=local_datetime.year,
-                    month=local_datetime.month,
-                    day=local_datetime.day,
-                    hour=local_datetime.hour,
-                    minute=local_datetime.minute,
-                    second=local_datetime.second,
-                    tzinfo=datetime.timezone.utc
-                )
-            except ValueError:
-                extended_pat = re.compile(
-                    r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})"
-                    r"T(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})\.(?P<microsecond>\d*)Z$")
-                match = extended_pat.match(source)
-                if match is None:
-                    raise ValueError(f"Unparsable time: {source!r}")
-                microsecond = (match.group("microsecond") + "000000")[:6]  # trunc/pad to 6 digits
-                return super().__new__(  # type: ignore
-                    cls,
-                    year=int(match.group("year")),
-                    month=int(match.group("month")),
-                    day=int(match.group("day")),
-                    hour=int(match.group("hour")),
-                    minute=int(match.group("minute")),
-                    second=int(match.group("second")),
-                    microsecond=int(microsecond),
-                    tzinfo=datetime.timezone.utc
-                )
+            # Use dateutil to try a variety of text formats.
+            parsed_datetime = dateutil.parser.isoparse(source)
+            return cast(TimestampType, super().__new__(  # type: ignore [call-arg]
+                cls,
+                year=parsed_datetime.year,
+                month=parsed_datetime.month,
+                day=parsed_datetime.day,
+                hour=parsed_datetime.hour,
+                minute=parsed_datetime.minute,
+                second=parsed_datetime.second,
+                microsecond=parsed_datetime.microsecond,
+                tzinfo=parsed_datetime.tzinfo
+            ))
+
         else:
             raise TypeError(f"Cannot create {cls} from {source!r}")
 
@@ -988,6 +1044,9 @@ class TimestampType(datetime.datetime):
             return cast(TimestampType, result)
         return TimestampType(result)
 
+    # For more information, check the typeshed definition
+    # https://github.com/python/typeshed/blob/master/stdlib/2and3/datetime.pyi
+
     @overload  # type: ignore
     def __sub__(self, other: 'TimestampType') -> 'DurationType':
         ...  # pragma: no cover
@@ -996,10 +1055,13 @@ class TimestampType(datetime.datetime):
     def __sub__(self, other: 'DurationType') -> 'TimestampType':
         ...  # pragma: no cover
 
-    def __sub__(self, other):
+    def __sub__(
+            self,
+            other: Union['TimestampType', 'DurationType']
+    ) -> Union['TimestampType', 'DurationType']:
         result = super().__sub__(other)
         if result == NotImplemented:
-            return result
+            return cast(DurationType, result)
         if isinstance(result, datetime.timedelta):
             return DurationType(result)
         return TimestampType(result)
@@ -1021,46 +1083,46 @@ class TimestampType(datetime.datetime):
         else:
             return dateutil.tz.UTC
 
-    def getDate(self, tz_name: Optional[str] = None) -> IntType:
+    def getDate(self, tz_name: Optional[StringType] = None) -> IntType:
         new_tz = self.tz_parse(tz_name)
         return IntType(self.astimezone(new_tz).day)
 
-    def getDayOfMonth(self, tz_name: Optional[str] = None) -> IntType:
+    def getDayOfMonth(self, tz_name: Optional[StringType] = None) -> IntType:
         new_tz = self.tz_parse(tz_name)
         return IntType(self.astimezone(new_tz).day - 1)
 
-    def getDayOfWeek(self, tz_name: Optional[str] = None) -> IntType:
+    def getDayOfWeek(self, tz_name: Optional[StringType] = None) -> IntType:
         new_tz = self.tz_parse(tz_name)
         return IntType(self.astimezone(new_tz).isoweekday() % 7)
 
-    def getDayOfYear(self, tz_name: Optional[str] = None) -> IntType:
+    def getDayOfYear(self, tz_name: Optional[StringType] = None) -> IntType:
         new_tz = self.tz_parse(tz_name)
         working_date = self.astimezone(new_tz)
         jan1 = datetime.datetime(working_date.year, 1, 1, tzinfo=new_tz)
         days = working_date.toordinal() - jan1.toordinal()
         return IntType(days)
 
-    def getMonth(self, tz_name: Optional[str] = None) -> IntType:
+    def getMonth(self, tz_name: Optional[StringType] = None) -> IntType:
         new_tz = self.tz_parse(tz_name)
         return IntType(self.astimezone(new_tz).month - 1)
 
-    def getFullYear(self, tz_name: Optional[str] = None) -> IntType:
+    def getFullYear(self, tz_name: Optional[StringType] = None) -> IntType:
         new_tz = self.tz_parse(tz_name)
         return IntType(self.astimezone(new_tz).year)
 
-    def getHours(self, tz_name: Optional[str] = None) -> IntType:
+    def getHours(self, tz_name: Optional[StringType] = None) -> IntType:
         new_tz = self.tz_parse(tz_name)
         return IntType(self.astimezone(new_tz).hour)
 
-    def getMilliseconds(self, tz_name: Optional[str] = None) -> IntType:
+    def getMilliseconds(self, tz_name: Optional[StringType] = None) -> IntType:
         new_tz = self.tz_parse(tz_name)
         return IntType(self.astimezone(new_tz).microsecond // 1000)
 
-    def getMinutes(self, tz_name: Optional[str] = None) -> IntType:
+    def getMinutes(self, tz_name: Optional[StringType] = None) -> IntType:
         new_tz = self.tz_parse(tz_name)
         return IntType(self.astimezone(new_tz).minute)
 
-    def getSeconds(self, tz_name: Optional[str] = None) -> IntType:
+    def getSeconds(self, tz_name: Optional[StringType] = None) -> IntType:
         new_tz = self.tz_parse(tz_name)
         return IntType(self.astimezone(new_tz).second)
 
@@ -1082,17 +1144,21 @@ class DurationType(datetime.timedelta):
     MinSeconds = -315576000000
     NanosecondsPerSecond = 1000000000
 
-    def __new__(cls: Type, source: Any, nanos: int = 0, **kwargs) -> 'DurationType':
+    def __new__(
+            cls: Type['DurationType'],
+            source: Any,
+            nanos: int = 0,
+            **kwargs: Any) -> 'DurationType':
         if isinstance(source, datetime.timedelta):
             if not (cls.MinSeconds <= source.total_seconds() <= cls.MaxSeconds):
                 raise ValueError("range error: {source}")
-            return super().__new__(  # type: ignore
-                cls, days=source.days, seconds=source.seconds, microseconds=source.microseconds)
+            return cast(DurationType, super().__new__(  # type: ignore[call-arg]
+                cls, days=source.days, seconds=source.seconds, microseconds=source.microseconds))
         elif isinstance(source, int):
             if not (cls.MinSeconds <= source <= cls.MaxSeconds):
                 raise ValueError("range error: {source}")
-            return super().__new__(  # type: ignore
-                cls, seconds=source, microseconds=nanos // 1000)
+            return cast(DurationType, super().__new__(  # type: ignore[call-arg]
+                cls, seconds=source, microseconds=nanos // 1000))
         elif isinstance(source, str):
             duration_pat = re.compile(r"^(\d+)s$")
             duration_match = duration_pat.match(source)
@@ -1101,8 +1167,8 @@ class DurationType(datetime.timedelta):
             seconds = int(duration_match.group(1))
             if not (cls.MinSeconds <= seconds <= cls.MaxSeconds):
                 raise ValueError("range error: {source}")
-            return super().__new__(  # type: ignore
-                cls, seconds=seconds)
+            return cast(DurationType, super().__new__(  # type: ignore[call-arg]
+                cls, seconds=seconds))
         else:
             raise TypeError(f"Invalid initial value type: {type(source)}")
 

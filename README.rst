@@ -33,54 +33,85 @@ You now have the CEL run-time available to Python-based applications.
 Command Line
 ============
 
-We can read JSON directly from stdin, making this a bit like JQ.
+We can read JSON directly from stdin, making this a bit like ``jq``.
 
 ::
 
-    python -m celpy '.this.from.json * 3 + 3' <<EOF
-    {"this": {"from": {"json": 13}}}
-    EOF
+    % python -m celpy '.this.from.json * 3 + 3' <<EOF
+    heredoc> {"this": {"from": {"json": 13}}}
+    heredoc> EOF
+    42
 
-It's also a desk calculator.
+
+It's also a desk calculator, like ``expr``, but with float values:
 
 ::
 
-    python -m celpy -n '355.0 / 113.0'
+    % python -m celpy -n '355.0 / 113.0'
+    3.1415929203539825
 
-And, yes, this a tiny advantage over ``python -c '355/113'``. Most notably, the ability
+It's not as sophistcated as ``bc``.
+But, yes, this has a tiny advantage over ``python -c '355/113'``. Most notably, the ability
 to embed Google CEL into other contexts where you don't *really* want Python's power.
 
-We can provide a ``-d`` option to define objects with particular data types, like JSON.
+It's also capable of decision-making, like ``test``:
+
+::
+
+    % echo '{"status": 3}' | python -m celpy -sb '.status == 0'
+    false
+    % echo $?
+    1
+
+We can provide a ``-a`` option to define objects with specific data types.
 This is particularly helpful for providing protobuf message definitions.
 
 ::
 
-    python -m celpy -dextract:JSON:'{"this": {"from": {"json": 13}}}' 'extract.this.from.json * 3 + 3'
+    python -m celpy -n --arg x:int=6 --arg y:int=7 'x*y'
+    42
 
 If you want to see details of evaluation, use ``-v``.
 
 ::
 
     python -m celpy -v -n '[2, 4, 6].map(n, n/2)'
+    ... a lot of output
+    [1, 2, 3]
 
 Library
 =======
 
+To follow the pattern defined in the Go implementation, there's a multi-step
+process for compiling a CEL expression to create a runnable "program". This program
+can then be applied to argument values.
+
 ::
 
-    import celpy
-    expr = celpy.ExpressionBuilder().create_expression("""
+    >>> import celpy
+    >>> cel_source = """
+    ... account.balance >= transaction.withdrawal
+    ... || (account.overdraftProtection
+    ... && account.overdraftLimit >= transaction.withdrawal - account.balance)
+    ... """
 
-    account.balance >= transaction.withdrawal
-    || (account.overdraftProtection
-    && account.overdraftLimit >= transaction.withdrawal  - account.balance)
+    >>> env = celpy.Environment()
+    >>> ast = env.compile(cel_source)
+    >>> prgm = env.program(ast)
 
-    """)
-    assert not expr.evaluate(account={"balance": 500, "overdraftProtection": False}, transaction={"withdrawl": 600})
+    >>> activation = {
+    ...     "account": celpy.json_to_cel({"balance": 500, "overdraftProtection": False}),
+    ...     "transaction": celpy.json_to_cel({"withdrawal": 600})
+    ... }
+    >>> result = prgm.evaluate(activation)
+    >>> result
+    BoolType(False)
 
-To an extent, the Python classes are loosely based on the object model in https://github.com/google/cel-go
+The Python classes are generally based on the object model in https://github.com/google/cel-go
+These types semantics are slightly different from Python's native semantics.
+Type coercion is not generally done.
+Python ``//`` truncates toward negative infinity. Go (and CEL) ``/`` truncates toward zero.
 
-We don't need all the Go formalisms, however, and rely on Pythonic variants.
 
 Development
 ===========

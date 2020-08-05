@@ -137,17 +137,6 @@ def test_boolean_decorator():
     assert result_3 == NotImplemented
 
 
-def test_logical_condition():
-    assert (
-        logical_condition(celtypes.BoolType(True), sentinel.true, sentinel.false) == sentinel.true
-    )
-    assert (
-        logical_condition(celtypes.BoolType(False), sentinel.true, sentinel.false) == sentinel.false
-    )
-    with raises(TypeError):
-        logical_condition(celtypes.StringType("nope"), sentinel.true, sentinel.false)
-
-
 def test_operator_in():
     container_1 = celtypes.ListType([
         celtypes.IntType(42),
@@ -177,6 +166,8 @@ def test_function_size():
     with raises(TypeError):
         function_size(celtypes.DoubleType("3.14"))
 
+    assert function_size(None) == 0
+
 
 def test_activation_no_package_no_vars():
     a = Activation()
@@ -187,6 +178,7 @@ def test_activation_no_package_no_vars():
     assert a_n.resolve_name("x") == celtypes.IntType(42)
 
 
+@mark.skipif(sys.version_info[:2] == (3, 6), reason="Uses class name format > 3.6")
 def test_activation_jq_package_vars():
     a = Activation(
         annotations={"jq": celtypes.MapType},
@@ -855,19 +847,6 @@ def test_unops(unop_trees):
 # The following use a patch to :py:meth:`Evaluator.visit_children` to produce useful answers.
 # It simplifies the required :py:class:`lark.Tree` object.
 
-def test_member_broken():
-    tree = lark.Tree(
-        data="member",
-        children=[],
-        meta=Mock(line=1, column=1)
-    )
-    evaluator_0 = Evaluator(
-        tree,
-        activation=Mock()
-    )
-    with raises(CELSyntaxError):
-        evaluator_0.member(tree)
-
 
 def test_member(monkeypatch):
     visit_children = Mock(return_value=[celtypes.IntType(42)])
@@ -910,7 +889,8 @@ def test_member_dot_good_found(monkeypatch):
                         children=[]
                     ),
                     lark.lexer.Token("IDENT", "name")
-                ]
+                ],
+                meta = Mock(line=1, column=1)
             )
         ]
     )
@@ -918,7 +898,7 @@ def test_member_dot_good_found(monkeypatch):
         tree,
         activation=Mock()
     )
-    assert evaluator_0.member(tree) == celtypes.IntType(42)
+    assert evaluator_0.member_dot(tree.children[0]) == celtypes.IntType(42)
 
 
 def test_member_dot_good_notfound(monkeypatch):
@@ -938,7 +918,8 @@ def test_member_dot_good_notfound(monkeypatch):
                         children=[]
                     ),
                     lark.lexer.Token("IDENT", "not_the_name")
-                ]
+                ],
+                meta = Mock(line=1, column=1)
             )
         ],
         meta=Mock(line=1, column=1)
@@ -947,7 +928,7 @@ def test_member_dot_good_notfound(monkeypatch):
         tree,
         activation=Mock()
     )
-    assert isinstance(evaluator_0.member(tree), CELEvalError)
+    assert isinstance(evaluator_0.member_dot(tree.children[0]), CELEvalError)
 
 
 def test_member_dot_no_overload(monkeypatch):
@@ -965,7 +946,8 @@ def test_member_dot_no_overload(monkeypatch):
                         children=[]
                     ),
                     lark.lexer.Token("IDENT", "name")
-                ]
+                ],
+                meta = Mock(line=1, column=1)
             )
         ],
         meta=Mock(line=1, column=1)
@@ -974,7 +956,7 @@ def test_member_dot_no_overload(monkeypatch):
         tree,
         activation=Mock()
     )
-    assert isinstance(evaluator_0.member(tree), CELEvalError)
+    assert isinstance(evaluator_0.member_dot(tree.children[0]), CELEvalError)
 
 
 def test_member_dot_error(monkeypatch):
@@ -993,7 +975,8 @@ def test_member_dot_error(monkeypatch):
                         children=[]
                     ),
                     lark.lexer.Token("IDENT", "name")
-                ]
+                ],
+                meta = Mock(line=1, column=1)
             )
         ]
     )
@@ -1001,11 +984,42 @@ def test_member_dot_error(monkeypatch):
         tree,
         activation=Mock()
     )
-    assert evaluator_0.member(tree) == the_error
+    assert evaluator_0.member_dot(tree.children[0]) == the_error
 
+def test_member_dot_arg_method_0(monkeypatch):
+    """A method, e.g., Timestamp(1234567890).getMonth(); distinct from the macros."""
+    visit_children = Mock(
+        return_value=[
+            celtypes.TimestampType("2009-02-13T23:31:30Z"),
+            lark.lexer.Token("IDENT", "getMonth"),
+        ]
+    )
+    monkeypatch.setattr(Evaluator, 'visit_children', visit_children)
+    tree = lark.Tree(
+        data="member",
+        children=[
+            lark.Tree(
+                data="member_dot_arg",
+                children=[
+                    lark.Tree(
+                        data="primary",
+                        children=[]
+                    ),
+                    lark.lexer.Token("IDENT", "getMonth"),
+                ],
+                meta = Mock(line=1, column=1)
+            )
+        ],
+        meta = Mock(line=1, column=1)
+    )
+    evaluator_0 = Evaluator(
+        tree,
+        activation=Mock()
+    )
+    assert evaluator_0.member_dot_arg(tree.children[0]) == celtypes.IntType(1)
 
-def test_member_dot_arg_method(monkeypatch):
-    """A method, e.g., member.contains(); distinct from the macros."""
+def test_member_dot_arg_method_1(monkeypatch):
+    """A method, e.g., ["hello", "world"].contains("hello"); distinct from the macros."""
     visit_children = Mock(
         return_value=[
             celtypes.ListType([celtypes.StringType("hello"), celtypes.StringType("world"),]),
@@ -1029,15 +1043,17 @@ def test_member_dot_arg_method(monkeypatch):
                         data="literal",
                         children=[]
                     ),
-                ]
+                ],
+                meta = Mock(line=1, column=1)
             )
-        ]
+        ],
+        meta = Mock(line=1, column=1)
     )
     evaluator_0 = Evaluator(
         tree,
         activation=Mock()
     )
-    assert evaluator_0.member(tree) == celtypes.BoolType(True)
+    assert evaluator_0.member_dot_arg(tree.children[0]) == celtypes.BoolType(True)
 
 
 def test_builld_macro_eval(monkeypatch):
@@ -1226,7 +1242,7 @@ def test_member_dot_arg_map(monkeypatch):
         activation=Mock()
     )
     assert (
-        evaluator_0.member(tree)
+        evaluator_0.member_dot_arg(tree.children[0])
         == celtypes.ListType([celtypes.StringType("hello"), celtypes.StringType("world"),])
     )
 
@@ -1248,7 +1264,7 @@ def test_member_dot_arg_filter(monkeypatch):
         activation=Mock()
     )
     assert (
-        evaluator_0.member(tree)
+        evaluator_0.member_dot_arg(tree.children[0])
         == celtypes.ListType([celtypes.BoolType(True),])
     )
 
@@ -1271,7 +1287,7 @@ def test_member_dot_arg_all(monkeypatch):
         activation=Mock()
     )
     assert (
-        evaluator_0.member(tree) == celtypes.BoolType(False)
+        evaluator_0.member_dot_arg(tree.children[0]) == celtypes.BoolType(False)
     )
 
 
@@ -1293,7 +1309,7 @@ def test_member_dot_arg_exists(monkeypatch):
         activation=Mock()
     )
     assert (
-        evaluator_0.member(tree) == celtypes.BoolType(True)
+        evaluator_0.member_dot_arg(tree.children[0]) == celtypes.BoolType(True)
     )
 
 
@@ -1315,7 +1331,7 @@ def test_member_dot_arg_exists_one(monkeypatch):
         activation=Mock()
     )
     assert (
-        evaluator_0.member(tree) == celtypes.BoolType(True)
+        evaluator_0.member_dot_arg(tree.children[0]) == celtypes.BoolType(True)
     )
 
 
@@ -1357,7 +1373,8 @@ def index_trees(request, monkeypatch):
                         data="literal",
                         children=[]
                     ),
-                ]
+                ],
+                meta=Mock(line=1, column=1)
             )
         ],
         meta=Mock(line=1, column=1)
@@ -1375,10 +1392,10 @@ def test_member_index(index_trees):
         activation=Mock()
     )
     if isinstance(expected, type):
-        assert isinstance(evaluator_0.member(tree), expected), \
+        assert isinstance(evaluator_0.member_index(tree.children[0]), expected), \
             "{0!r} is not {1}".format(evaluator_0.member(tree), expected)
     else:
-        assert evaluator_0.member(tree) == expected
+        assert evaluator_0.member_index(tree.children[0]) == expected
 
 
 def test_member_object_0():
@@ -1387,7 +1404,8 @@ def test_member_object_0():
         children=[
             lark.Tree(
                 data="member_object",
-                children=[]
+                children=[],
+                meta=Mock(line=1, column=1)
             )
         ],
         meta=Mock(line=1, column=1)
@@ -1397,7 +1415,7 @@ def test_member_object_0():
         activation=Mock()
     )
     with raises(CELSyntaxError):
-        evaluator_0.member(tree)
+        evaluator_0.member_object(tree.children[0])
 
 
 def test_member_object_1():
@@ -1414,7 +1432,8 @@ def test_member_object_1():
                             lark.lexer.Token(type_="INT_LIT", value="42"),
                         ]
                     ),
-                ]
+                ],
+                meta=Mock(line=1, column=1)
             ),
         ],
         meta=Mock(line=1, column=1)
@@ -1423,7 +1442,7 @@ def test_member_object_1():
         tree,
         activation=Mock()
     )
-    assert evaluator_0.member(tree) == celtypes.IntType(42)
+    assert evaluator_0.member_object(tree.children[0]) == celtypes.IntType(42)
 
 def test_member_object_2(monkeypatch):
     visit_children = Mock(
@@ -1446,6 +1465,7 @@ def test_member_object_2(monkeypatch):
                         children=[],
                     ),
                 ],
+                meta=Mock(line=1, column=1)
             ),
         ],
         meta=Mock(line=1, column=1)
@@ -1455,26 +1475,7 @@ def test_member_object_2(monkeypatch):
         activation=Mock()
     )
     with raises(CELUnsupportedError):
-        evaluator_0.member(tree)
-
-
-def test_member_broken_unexpected():
-    tree = lark.Tree(
-        data="member",
-        children=[
-            lark.Tree(
-                data="unexpected",
-                children=[]
-            )
-        ],
-        meta=Mock(line=1, column=1)
-    )
-    evaluator_0 = Evaluator(
-        tree,
-        activation=Mock()
-    )
-    with raises(CELSyntaxError):
-        evaluator_0.member(tree)
+        evaluator_0.member_object(tree.children[0])
 
 
 def test_primary_0():
@@ -1573,6 +1574,30 @@ def test_primary_dot_ident(monkeypatch):
         activation=Mock()
     )
     assert evaluator_0.primary(tree) == sentinel.value
+    assert ident_value.mock_calls == [call("name")]
+
+
+def test_primary_dot_ident_not_found(monkeypatch):
+    ident_value = Mock(side_effect=KeyError("name"))
+    monkeypatch.setattr(Evaluator, 'ident_value', ident_value)
+
+    tree = lark.Tree(
+        data="primary",
+        children=[
+            lark.Tree(
+                data="dot_ident",
+                children=[
+                    lark.lexer.Token("IDENT", "name"),
+                ]
+            )
+        ],
+        meta=Mock(line=1, column=1)
+    )
+    evaluator_0 = Evaluator(
+        tree,
+        activation=Mock()
+    )
+    assert isinstance(evaluator_0.primary(tree), CELEvalError)
     assert ident_value.mock_calls == [call("name")]
 
 
@@ -1715,23 +1740,21 @@ def test_primary_ident_bad(monkeypatch):
 
 
 def test_primary_paren_expr(monkeypatch):
-    visit_children = Mock(return_value=[[sentinel.value]])
+    visit_children = Mock(return_value=[sentinel.value])
     monkeypatch.setattr(Evaluator, 'visit_children', visit_children)
 
     paren_expr = lark.Tree(
-        data="expr",
-        children=[]
+        data="paren_expr",
+        children=[
+            lark.Tree(
+                data="expr",
+                children=[]
+            )
+        ]
     )
     tree = lark.Tree(
         data="primary",
-        children=[
-            lark.Tree(
-                data="paren_expr",
-                children=[
-                    paren_expr
-                ]
-            )
-        ],
+        children=[paren_expr],
         meta=Mock(line=1, column=1)
     )
     evaluator_0 = Evaluator(
@@ -1739,7 +1762,7 @@ def test_primary_paren_expr(monkeypatch):
         activation=Mock()
     )
     assert evaluator_0.primary(tree) == sentinel.value
-    assert visit_children.mock_calls == [call(tree)]
+    assert visit_children.mock_calls == [call(tree.children[0])]
 
 
 def test_primary_list_lit_empty():

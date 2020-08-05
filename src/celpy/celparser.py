@@ -62,14 +62,18 @@ Example::
 """
 from pathlib import Path
 import re
-from typing import Optional, List
+from typing import Optional, List, Any
 from lark import Lark, Token, Tree  # type: ignore[import]  # noqa: F401
 from lark.exceptions import ParseError, LexError  # type: ignore[import]
-import lark.visitors  # type: ignore
+import lark.visitors  # type: ignore[import]
 
 
 class CELParseError(Exception):
-    def __init__(self, *args, line=None, column=None):
+    def __init__(
+            self,
+            *args: Any,
+            line: Optional[int] = None,
+            column: Optional[int] = None) -> None:
         super().__init__(*args)
         self.line = line
         self.column = column
@@ -123,7 +127,7 @@ class CELParser:
         return message
 
 
-class DumpAST(lark.visitors.Visitor_Recursive):
+class DumpAST(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
     """Dump a CEL AST creating a close approximation to the original source."""
 
     @classmethod

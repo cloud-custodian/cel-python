@@ -17,13 +17,21 @@ Test all the celtype methods.
 """
 import datetime
 import math
+from unittest.mock import sentinel
 from pytest import *
 from celpy.evaluation import CELEvalError
 from celpy.celtypes import *
 
+
 def test_bool_type():
     t, f = BoolType(True), BoolType(False)
     exc = CELEvalError(('summary', 'details'))
+
+    assert logical_condition(t, sentinel.true, sentinel.false) == sentinel.true
+    assert logical_condition(f, sentinel.true, sentinel.false) == sentinel.false
+    with raises(TypeError):
+        logical_condition(StringType("nope"), sentinel.true, sentinel.false)
+
     assert logical_and(t, t) == t
     assert logical_and(t, f) == f
     assert logical_and(f, t) == f

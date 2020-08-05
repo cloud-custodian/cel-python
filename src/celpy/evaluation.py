@@ -17,21 +17,23 @@
 CEL Interpreter using the AST directly.
 
 The general idea is to map CEL operators to Python operators and push the
-real work off to Python.
+real work off to Python objects defined by the :py:mod:`celpy.celtypes` module.
 
 CEL operator "+" is implemented by "_+_" function. We map this to :py:func:`operator.add`.
+This will then look for `__add__()` methods in the various :py:class:`celpy.celtypes.CELType`
+types.
 
 In order to deal gracefully with missing and incomplete data,
-exceptions are first-class objects on the evaluation stack.
-They're not raised directly, but instead placed on the stack so that
+exceptions are turned into first-class :py:class:`Result` objects.
+They're not raised directly, but instead saved as part of the evaluation so that
 short-circuit operators can ignore the exceptions.
 
 This means that Python exceptions like :exc:`TypeError`, :exc:`IndexError`, and :exc:`KeyError`
 are caught and transformed into :exc:`CELEvalError` objects.
 
-The :py:class:`Value` type hint is a union of the various values
-that can be used in the evaluation stack.
-
+The :py:class:`Resut` type hint is a union of the various values that are encountered
+during evaluation. It's a union of the :py:class:`celpy.celtypes.CELTypes` type and the
+:exc:`CELEvalError` exception.
 """
 import collections
 from functools import wraps, reduce
@@ -41,13 +43,15 @@ import re
 import sys
 from typing import (
     Optional, List, Any, Union, Dict, Callable, Iterable, Iterator, Match,
-    Type, cast, Sequence, Sized, Tuple, Mapping
+    Type, TypeVar, Sequence, Sized, Tuple, Mapping, cast
 )
 import celpy.celtypes
 
-import lark.visitors  # type: ignore
-import lark  # type: ignore
+import lark.visitors  # type: ignore[import]
+import lark
 
+# A CEL type annotation.
+Annotation = celpy.celtypes.CELType
 
 logger = logging.getLogger("evaluation")
 
@@ -72,7 +76,8 @@ class CELEvalError(Exception):
     """CEL evaluation problem. This can be saved as a temporary value for later use.
     This is politely ignored by logic operators to provide commutative short-circuit.
 
-    We provide operator-like special methods to return itself when operated on.
+    We provide operator-like special methods so an instance of an error
+    returns itself when operated on.
     """
     def __init__(
             self,
@@ -90,6 +95,9 @@ class CELEvalError(Exception):
         if self.token:
             self.line = self.token.line
             self.column = self.token.column
+
+    def with_traceback(self, tb: Any) -> 'CELEvalError':
+        return cast('CELEvalError', super().with_traceback(tb))
 
     def __neg__(self) -> 'CELEvalError':
         return self
@@ -142,50 +150,65 @@ class CELEvalError(Exception):
         return NotImplemented
 
 
-# Values in the value stack.
-# This includes CELEvalError, which are deferred and can be ignored by some operators.
-#
-Value = Union[
-    celpy.celtypes.CELType,
-    Callable,
+# The interim results extends celtypes to include itermediate CELEvalError exception objects.
+# These can be deferred as part of commutative logical_and and logical_or operations.
+# It includes the responses to type() queries, also.
+Result = Union[
+    celpy.celtypes.Value,
     CELEvalError,
+    celpy.celtypes.CELType,
 ]
 
+# The various functions that apply to CEL data.
+# The evaluator's functions expand on the CELTypes to include CELEvalError and the
+# celpy.celtypes.CELType union type, also.
+CELFunction = Callable[..., Result]
 
-Exception_Filter = Union[Type[Exception], Sequence[Type[Exception]]]
+# A combination of a CELType result or a function resulting from identifier evaluation.
+Result_Function = Union[
+    Result,
+    CELFunction,
+]
+
+Exception_Filter = Union[Type[BaseException], Sequence[Type[BaseException]]]
+
+TargetFunc = TypeVar('TargetFunc', bound=CELFunction)
 
 
-def eval_error(new_text: str, exc_class: Exception_Filter) -> Callable:
+def eval_error(new_text: str, exc_class: Exception_Filter) -> Callable[[TargetFunc], TargetFunc]:
     """
-    Wrap a function to transform native Python exceptions to CEL CELEvalError exceptions.
+    Wrap a function to transform native Python exceptions to CEL CELEvalError values.
     Any exception of the given class is replaced with the new CELEvalError object.
 
-    :param new_text: Text of the exception, e.g., "divide by zero")
-        this is the return value if the :exc:`CELEvalError` remains in the evaluation stack.
+    :param new_text: Text of the exception, e.g., "divide by zero", "no such overload")
+        this is the return value if the :exc:`CELEvalError` becomes the result.
     :param exc_class: A Python exception class to match, e.g. ZeroDivisionError,
-        or a sequence of exception (e.g. (ZeroDivisionError, ValueError))
+        or a sequence of exception classes (e.g. (ZeroDivisionError, ValueError))
     :return: A decorator that can be applied to a function
         to map Python exceptions to :exc:`CELEvalError` instances.
+
+    This is used in the ``all()`` and ``exists()`` macros to silently ignore TypeError exceptions.
     """
-    def concrete_decorator(function: Callable) -> Callable:
+    def concrete_decorator(function: TargetFunc) -> TargetFunc:
         @wraps(function)
-        def new_function(*args, **kw):
+        def new_function(*args: celpy.celtypes.Value, **kwargs: celpy.celtypes.Value) -> Result:
             try:
-                return function(*args, **kw)
-            except exc_class as ex:
-                logger.debug(f"{function.__name__}(*{args}, **{kw}) --> {ex}")
+                return function(*args, **kwargs)
+            except exc_class as ex:  # type: ignore[misc]
+                logger.debug(f"{function.__name__}(*{args}, **{kwargs}) --> {ex}")
                 _, _, tb = sys.exc_info()
                 value = CELEvalError(new_text, ex.__class__, ex.args).with_traceback(tb)
                 value.__cause__ = ex
                 return value
             except Exception:
-                logger.error(f"{function.__name__}(*{args}, **{kw})")
+                logger.error(f"{function.__name__}(*{args}, **{kwargs})")
                 raise
-        return new_function
+        return cast(TargetFunc, new_function)
     return concrete_decorator
 
 
-def boolean(function: Callable) -> Callable:
+def boolean(
+        function: Callable[..., celpy.celtypes.Value]) -> Callable[..., celpy.celtypes.BoolType]:
     """
     Wraps boolean operators to create CEL BoolType results.
 
@@ -193,43 +216,15 @@ def boolean(function: Callable) -> Callable:
     :return: Decorated function with type coercion.
     """
     @wraps(function)
-    def new_function(a, b):
+    def bool_function(a: celpy.celtypes.Value, b: celpy.celtypes.Value) -> celpy.celtypes.BoolType:
         result = function(a, b)
         if result == NotImplemented:
-            return result
-        return celpy.celtypes.BoolType(result)
-    return new_function
+            return cast(celpy.celtypes.BoolType, result)
+        return celpy.celtypes.BoolType(bool(result))
+    return bool_function
 
 
-def logical_condition(e: Value, x: Value, y: Value) -> Union[CELEvalError, Value]:
-    """
-    CEL e ? x : y operator.
-    Choose one of x or y. Exceptions in the unchosen expression are ignored.
-
-    Example::
-
-        2 / 0 > 4 ? 'baz' : 'quux'
-
-    is a "division by zero" error.
-
-    ::
-
-        >>> from celpy import celtypes
-        >>> logical_condition(
-        ... celtypes.BoolType(True), celtypes.StringType("this"), celtypes.StringType("Not That"))
-        StringType('this')
-        >>> logical_condition(
-        ... celtypes.BoolType(False), celtypes.StringType("Not This"), celtypes.StringType("that"))
-        StringType('that')
-    """
-    if not isinstance(e, celpy.celtypes.BoolType):
-        raise TypeError(f"Unexpected {type(e)} ? {type(x)} : {type(y)}")
-    result = x if e else y
-    logger.debug(f"logical_condition({e!r}, {x!r}, {y!r}) = {result!r}")
-    return result
-
-
-def operator_in(item: Value, container: Value) -> Union[CELEvalError, bool]:
+def operator_in(item: Result, container: Result) -> Result:
     """
     CEL contains test; ignores type errors.
 
@@ -263,18 +258,18 @@ def operator_in(item: Value, container: Value) -> Union[CELEvalError, bool]:
 
         ``reduce(logical_or, (item == c for c in container), BoolType(False))``
     """
-    result: Union[CELEvalError, bool] = False
-    for c in cast(List[Value], container):
+    result: Result = celpy.celtypes.BoolType(False)
+    for c in cast(Iterable[Result], container):
         try:
             if c == item:
-                return True
+                return celpy.celtypes.BoolType(True)
         except TypeError as ex:
             result = CELEvalError("no such overload", ex.__class__, ex.args)
     logger.debug(f"operator_in({item!r}, {container!r}) = {result!r}")
     return result
 
 
-def function_size(container: Value) -> Union[CELEvalError, celpy.celtypes.IntType]:
+def function_size(container: Result) -> Result:
     """
     The size() function applied to a Value. Delegate to Python's :py:func:`len`.
 
@@ -284,21 +279,21 @@ def function_size(container: Value) -> Union[CELEvalError, celpy.celtypes.IntTyp
     (map(A, B)) -> int	map size
 
     For other types, this will raise a Python :exc:`TypeError`.
-    (This is captured and becomes an :exc:`CELEvalError` Value on the stack.)
+    (This is captured and becomes an :exc:`CELEvalError` Result.)
 
     ..  todo:: check container type for celpy.celtypes.StringType, celpy.celtypes.BytesType,
         celpy.celtypes.ListType and celpy.celtypes.MapType
     """
+    if container is None:
+        return celpy.celtypes.IntType(0)
     sized_container = cast(Sized, container)
     result = celpy.celtypes.IntType(len(sized_container))
     logger.debug(f"function_size({container!r}) = {result!r}")
     return result
 
 
-# TODO: This is part of a base Activation on which new Activations
-# are built as part of evaluation. User-defined functions can override
-# items in this mapping.
-base_functions: Mapping[str, Callable] = {
+# User-defined functions can override items in this mapping.
+base_functions: Mapping[str, CELFunction] = {
     "!_": celpy.celtypes.logical_not,
     "-_": operator.neg,
     "_+_": operator.add,
@@ -315,7 +310,7 @@ base_functions: Mapping[str, Callable] = {
     "_in_": operator_in,
     "_||_": celpy.celtypes.logical_or,
     "_&&_": celpy.celtypes.logical_and,
-    "_?_:_": logical_condition,
+    "_?_:_": celpy.celtypes.logical_condition,
     "_[_]": operator.getitem,
     "size": function_size,
     # StringType methods
@@ -323,18 +318,18 @@ base_functions: Mapping[str, Callable] = {
     "startsWith": lambda s, text: celpy.celtypes.BoolType(s.startswith(text)),
     "matches": lambda s, pattern: celpy.celtypes.BoolType(re.search(pattern, s) is not None),
     "contains": lambda s, text: celpy.celtypes.BoolType(text in s),
-    # TimestampType methods
-    "getDate": lambda ts, tz_name=None: ts.getDate(tz_name),
-    "getDayOfMonth": lambda ts, tz_name=None: ts.getDayOfMonth(tz_name),
-    "getDayOfWeek": lambda ts, tz_name=None: ts.getDayOfWeek(tz_name),
-    "getDayOfYear": lambda ts, tz_name=None: ts.getDayOfYear(tz_name),
-    "getFullYear": lambda ts, tz_name=None: ts.getFullYear(tz_name),
-    "getMonth": lambda ts, tz_name=None: ts.getMonth(tz_name),
+    # TimestampType methods. Type details are redundant, but required because of the lambdas
+    "getDate": lambda ts, tz_name=None: celpy.celtypes.IntType(ts.getDate(tz_name)),
+    "getDayOfMonth": lambda ts, tz_name=None: celpy.celtypes.IntType(ts.getDayOfMonth(tz_name)),
+    "getDayOfWeek": lambda ts, tz_name=None: celpy.celtypes.IntType(ts.getDayOfWeek(tz_name)),
+    "getDayOfYear": lambda ts, tz_name=None: celpy.celtypes.IntType(ts.getDayOfYear(tz_name)),
+    "getFullYear": lambda ts, tz_name=None: celpy.celtypes.IntType(ts.getFullYear(tz_name)),
+    "getMonth": lambda ts, tz_name=None: celpy.celtypes.IntType(ts.getMonth(tz_name)),
     # TimestampType and DurationType methods
-    "getHours": lambda ts, tz_name=None: ts.getHours(tz_name),
-    "getMilliseconds": lambda ts, tz_name=None: ts.getMilliseconds(tz_name),
-    "getMinutes": lambda ts, tz_name=None: ts.getMinutes(tz_name),
-    "getSeconds": lambda ts, tz_name=None: ts.getSeconds(tz_name),
+    "getHours": lambda ts, tz_name=None: celpy.celtypes.IntType(ts.getHours(tz_name)),
+    "getMilliseconds": lambda ts, tz_name=None: celpy.celtypes.IntType(ts.getMilliseconds(tz_name)),
+    "getMinutes": lambda ts, tz_name=None: celpy.celtypes.IntType(ts.getMinutes(tz_name)),
+    "getSeconds": lambda ts, tz_name=None: celpy.celtypes.IntType(ts.getSeconds(tz_name)),
     # type conversion functions
     "bool": celpy.celtypes.BoolType,
     "bytes": celpy.celtypes.BytesType,
@@ -427,7 +422,7 @@ class Activation:
 
     def __init__(
             self,
-            annotations: Optional[Mapping[str, Callable]] = None,
+            annotations: Optional[Mapping[str, Annotation]] = None,
             package: Optional[str] = None,
             vars: Optional[Context] = None,
     ) -> None:
@@ -435,19 +430,18 @@ class Activation:
         Create an Activation.
 
         :param annotations: Type annotations. There are two flavors:
-            ordinary variable names and function names using typing.Callable.
+            ordinary variable names and function names.
         :param vars: Variables with literals to be converted to the desired types.
         """
         self.parent: Optional[Activation] = None
 
         # TODO: Be sure all type annotation keys are ["."] IDENT ["." IDENT]*
-        # TODO: Be sure all type annotation values are either in celtypes or typing.Callable.
-        self.annotations: Mapping[str, Callable] = annotations or {}
+        self.annotations: Mapping[str, Annotation] = annotations or {}
 
         self.package = package
 
-        self.locals: Mapping[str, Any]
-        self.variables: Mapping[str, Any]
+        self.locals: Dict[str, celpy.celtypes.Value]
+        self.variables: Mapping[str, celpy.celtypes.Value]
 
         if vars is None:
             self.variables = self.locals = {}
@@ -472,15 +466,15 @@ class Activation:
             # This shouldn't matter because names should be resolved longest first.
             for name, path in sorted(expanded_names, key=lambda n_p: len(n_p[1])):
                 # Create a namespace with the names leading to the target value.
-                expanded = self.make_namespace(vars[name], path)
                 # Add the top-level name referring to the resulting namespace.
-                self.locals.update(expanded)
+                for k, v in self.make_namespace(vars[name], path).items():
+                    self.locals[str(k)] = v
 
             self.variables = self.locals
 
     def nested_activation(
             self,
-            annotations: Optional[Mapping[str, Callable]] = None,
+            annotations: Optional[Mapping[str, Annotation]] = None,
             vars: Optional[Context] = None
     ) -> 'Activation':
         """
@@ -498,12 +492,12 @@ class Activation:
         return new
 
     @staticmethod
-    def make_namespace(value: Any, path: List[str]) -> Dict[str, Any]:
+    def make_namespace(value: Any, path: List[str]) -> celpy.celtypes.MapType:
         """
         Bottom-up creation of nested namespace objects to contain names.
 
-        The use of MapType is not appropriate here, since these are
-        technically packages, not mappings.
+        The use of MapType may not be appropriate here.
+        This creates and populates a package, which could be an extension to a mapping.
         """
         if len(path) > 1:
             child_namespace = Activation.make_namespace(value, path[1:])
@@ -511,7 +505,7 @@ class Activation:
         else:
             return celpy.celtypes.MapType({path[0]: value})
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}"
             f"(annotations={self.annotations}, "
@@ -519,7 +513,7 @@ class Activation:
             f"vars={repr(self.variables)})"
         )
 
-    def resolve_name(self, name: str) -> Optional[Value]:
+    def resolve_name(self, name: str) -> Optional[Result]:
         """
         This resolves a name in the current activation.
 
@@ -535,9 +529,11 @@ class Activation:
         logger.info(f"resolve_name({self.package!r}.{name!r}) in {self.variables.keys()}")
         try:
             # If there's a default package, use this as a default prefix for name resolution.
-            if self.package in self.variables:
+            # The is not None helps mypy understand there's a value str value.
+            if self.package is not None and self.package in self.variables:
                 try:
-                    return self.variables[cast(str, self.package)][name]
+                    package = cast(Mapping[str, celpy.celtypes.Value], self.variables[self.package])
+                    return package[name]
                 except KeyError:
                     pass
             # Try to find the item without the default package name.
@@ -550,7 +546,7 @@ class Activation:
         raise KeyError(name)
 
 
-class FindIdent(lark.visitors.Visitor_Recursive):
+class FindIdent(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
     """Locate the ident token at the bottom of an AST.
 
     This is needed to find the bind variable for macros.
@@ -558,28 +554,29 @@ class FindIdent(lark.visitors.Visitor_Recursive):
     It works by doing a "visit" on the entire tree, but saving
     the details of the ``ident`` nodes only.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self.ident_token = None
 
-    def ident(self, tree):
+    def ident(self, tree: lark.Tree) -> None:
         ident_token = tree.children[0]
         self.ident_token = ident_token.value
 
     @classmethod
-    def in_tree(cls, tree):
+    def in_tree(cls: Type['FindIdent'], tree: lark.Tree) -> lark.Token:
         fi = FindIdent()
         fi.visit(tree)
         return fi.ident_token
 
 
-def trace(method):
+def trace(
+        method: Callable[['Evaluator', lark.Tree], Any]) -> Callable[['Evaluator', lark.Tree], Any]:
     """
     Decorator to create consistent evaluation trace logging.
     This only works for a class with a ``level`` attribute.
     This is generally applied to the methods matching rule names.
     """
     @wraps(method)
-    def concrete_method(self, tree):
+    def concrete_method(self: 'Evaluator', tree: lark.Tree) -> Any:
         self.logger.info(f"{self.level*'  '}{tree!r}")
         result = method(self, tree)
         self.logger.info(f"{self.level*'  '}{tree.data} -> {result!r}")
@@ -587,7 +584,7 @@ def trace(method):
     return concrete_method
 
 
-class Evaluator(lark.visitors.Interpreter):
+class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
     """
     Evaluate an AST in the context of a specific Activation.
 
@@ -642,7 +639,7 @@ class Evaluator(lark.visitors.Interpreter):
             self,
             ast: lark.Tree,
             activation: Activation,
-            functions: Union[Sequence[Callable], Mapping[str, Callable], None] = None
+            functions: Union[Sequence[CELFunction], Mapping[str, CELFunction], None] = None
     ) -> None:
         """
         Create an evaluator for an AST with specific variables and functions.
@@ -656,7 +653,7 @@ class Evaluator(lark.visitors.Interpreter):
         self.ast = ast
         self.base_activation = activation
         self.activation = self.base_activation
-        self.functions: Mapping[str, Callable]
+        self.functions: Mapping[str, CELFunction]
         if isinstance(functions, Sequence):
             local_functions = {
                 f.__name__: f for f in functions or []
@@ -684,14 +681,14 @@ class Evaluator(lark.visitors.Interpreter):
         self.logger.info(f"Activation: {self.activation!r}")
         return self
 
-    def ident_value(self, name: str) -> Value:
+    def ident_value(self, name: str) -> Result_Function:
         """Resolve names in the current activation or in the type registry for conversions."""
         try:
             return self.activation.resolve_name(name)
         except KeyError:
             return self.functions[name]
 
-    def evaluate(self) -> Value:
+    def evaluate(self) -> celpy.celtypes.Value:
         """
         Evaluate this AST and return the value or raise an exception.
 
@@ -702,19 +699,23 @@ class Evaluator(lark.visitors.Interpreter):
         -   Internally, we sometimes want to silence the exception so that
             we can apply short-circuit logic and choose a non-exceptional result.
         """
-        value = self.visit(self.ast)
+        value = cast(Result, self.visit(self.ast))
         if isinstance(value, CELEvalError):
             raise value
-        return value
+        return cast(celpy.celtypes.Value, value)
 
-    def visit_children(self, tree):
-        """Extend the superclass to track nesting and current evaluation context."""
+    def visit_children(self, tree: lark.Tree) -> List[Result]:
+        """Extend the superclass to track nesting and current evaluation context.
+        """
         self.level += 1
         result = super().visit_children(tree)
         self.level -= 1
-        return result
+        return cast(List[Result], result)
 
-    def function_eval(self, name_token: lark.Token, exprlist: Optional[Value] = None) -> Value:
+    def function_eval(
+            self,
+            name_token: lark.Token,
+            exprlist: Optional[Iterable[Result]] = None) -> Result:
         """
         Function evaluation.
 
@@ -722,7 +723,7 @@ class Evaluator(lark.visitors.Interpreter):
         - Other built-in functions like size()
         - Extension functions
         """
-        function: Callable
+        function: CELFunction
         try:
             function = self.functions[name_token.value]
         except KeyError as ex:
@@ -736,8 +737,7 @@ class Evaluator(lark.visitors.Interpreter):
             return exprlist
 
         try:
-            function = cast(Callable, function)
-            list_exprlist = cast(List[Value], exprlist or [])
+            list_exprlist = cast(List[Result], exprlist or [])
             return function(*list_exprlist)
         except ValueError as ex:
             value = CELEvalError(
@@ -752,14 +752,14 @@ class Evaluator(lark.visitors.Interpreter):
 
     def method_eval(
             self,
-            object: Value,
+            object: Result,
             method_ident: lark.Token,
-            exprlist: Optional[Value] = None) -> Value:
+            exprlist: Optional[Iterable[Result]] = None) -> Result:
         """
         Method evaluation. While are (nominally) attached to an object, the only thing
         actually special is that the object is the first parameter to a function.
         """
-        function: Value
+        function: CELFunction
         try:
             function = self.functions[method_ident.value]
         except KeyError as ex:
@@ -775,8 +775,7 @@ class Evaluator(lark.visitors.Interpreter):
             return exprlist
 
         try:
-            function = cast(Callable, function)
-            list_exprlist = cast(List[Value], exprlist or [])
+            list_exprlist = cast(List[Result], exprlist or [])
             return function(object, *list_exprlist)
         except ValueError as ex:
             value = CELEvalError(
@@ -826,7 +825,7 @@ class Evaluator(lark.visitors.Interpreter):
         return celpy.celtypes.BoolType(not isinstance(has_values[0], CELEvalError))
 
     @trace
-    def expr(self, tree: lark.Tree) -> Value:
+    def expr(self, tree: lark.Tree) -> Result:
         """
         expr           : conditionalor ["?" conditionalor ":" expr]
 
@@ -835,11 +834,12 @@ class Evaluator(lark.visitors.Interpreter):
         """
         if len(tree.children) == 1:
             # expr is a single conditionalor.
-            return self.visit_children(tree)[0]
+            values = self.visit_children(tree)
+            return values[0]
         elif len(tree.children) == 3:
             # full conditionalor "?" conditionalor ":" expr.
             func = self.functions["_?_:_"]
-            cond_value, left, right = self.visit_children(tree)
+            cond_value, left, right = cast(Tuple[Result, Result, Result], self.visit_children(tree))
             try:
                 return func(cond_value, left, right)
             except TypeError as ex:
@@ -859,7 +859,7 @@ class Evaluator(lark.visitors.Interpreter):
             )
 
     @trace
-    def conditionalor(self, tree):
+    def conditionalor(self, tree: lark.Tree) -> Result:
         """
         conditionalor  : [conditionalor "||"] conditionaland
 
@@ -872,7 +872,7 @@ class Evaluator(lark.visitors.Interpreter):
             return values[0]
         elif len(tree.children) == 2:
             func = self.functions["_||_"]
-            left, right = self.visit_children(tree)
+            left, right = cast(Tuple[Result, Result], self.visit_children(tree))
             try:
                 return func(left, right)
             except TypeError as ex:
@@ -892,7 +892,7 @@ class Evaluator(lark.visitors.Interpreter):
             )
 
     @trace
-    def conditionaland(self, tree):
+    def conditionaland(self, tree: lark.Tree) -> Result:
         """
         conditionaland : [conditionaland "&&"] relation
 
@@ -905,7 +905,7 @@ class Evaluator(lark.visitors.Interpreter):
             return values[0]
         elif len(tree.children) == 2:
             func = self.functions["_&&_"]
-            left, right = self.visit_children(tree)
+            left, right = cast(Tuple[Result, Result], self.visit_children(tree))
             try:
                 return func(left, right)
             except TypeError as ex:
@@ -925,7 +925,7 @@ class Evaluator(lark.visitors.Interpreter):
             )
 
     @trace
-    def relation(self, tree):
+    def relation(self, tree: lark.Tree) -> Result:
         """
         relation       : [relation_lt | relation_le | relation_ge | relation_gt
                        | relation_eq | relation_ne | relation_in] addition
@@ -948,9 +948,9 @@ class Evaluator(lark.visitors.Interpreter):
 
         The AST doesn't provide a flat list of values, however.
         """
-        values = self.visit_children(tree)
         if len(tree.children) == 1:
             # addition with no preceding relation.
+            values = self.visit_children(tree)
             return values[0]
 
         elif len(tree.children) == 2:
@@ -965,9 +965,9 @@ class Evaluator(lark.visitors.Interpreter):
                 "relation_in": "_in_",
             }[left_op.data]
             func = self.functions[op_name]
-            self.logger.debug(f"relation {op_name} {values!r}")
             # NOTE: values have the structure [[left], right]
-            (left, *_), right = values
+            (left, *_), right = cast(Tuple[List[Result], Result], self.visit_children(tree))
+            self.logger.debug(f"relation {left!r} {op_name} {right!r}")
             try:
                 return func(left, right)
             except TypeError as ex:
@@ -988,7 +988,7 @@ class Evaluator(lark.visitors.Interpreter):
             )
 
     @trace
-    def addition(self, tree):
+    def addition(self, tree: lark.Tree) -> Result:
         """
         addition       : [addition_add | addition_sub] multiplication
 
@@ -1005,10 +1005,11 @@ class Evaluator(lark.visitors.Interpreter):
 
         The AST doesn't provide a flat list of values, however.
         """
-        values = self.visit_children(tree)
         if len(tree.children) == 1:
             # multiplication with no preceding addition.
+            values = self.visit_children(tree)
             return values[0]
+
         elif len(tree.children) == 2:
             left_op, right_tree = tree.children
             op_name = {
@@ -1017,7 +1018,8 @@ class Evaluator(lark.visitors.Interpreter):
             }[left_op.data]
             func = self.functions[op_name]
             # NOTE: values have the structure [[left], right]
-            (left, *_), right = values
+            (left, *_), right = cast(Tuple[List[Result], Result], self.visit_children(tree))
+            self.logger.debug(f"addition {left!r} {op_name} {right!r}")
             try:
                 return func(left, right)
             except TypeError as ex:
@@ -1034,6 +1036,7 @@ class Evaluator(lark.visitors.Interpreter):
                 value = CELEvalError("return error for overflow", ex.__class__, ex.args, tree=tree)
                 value.__cause__ = ex
                 return value
+
         else:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad addition node",
@@ -1042,7 +1045,7 @@ class Evaluator(lark.visitors.Interpreter):
             )
 
     @trace
-    def multiplication(self, tree):
+    def multiplication(self, tree: lark.Tree) -> Result:
         """
         multiplication : [multiplication_mul | multiplication_div | multiplication_mod] unary
 
@@ -1060,9 +1063,9 @@ class Evaluator(lark.visitors.Interpreter):
 
         The AST doesn't provide a flat list of values, however.
         """
-        values = self.visit_children(tree)
         if len(tree.children) == 1:
             # unary with no preceding multiplication.
+            values = self.visit_children(tree)
             return values[0]
 
         elif len(tree.children) == 2:
@@ -1074,7 +1077,8 @@ class Evaluator(lark.visitors.Interpreter):
             }[left_op.data]
             func = self.functions[op_name]
             # NOTE: values have the structure [[left], right]
-            (left, *_), right = values
+            (left, *_), right = cast(Tuple[List[Result], Result], self.visit_children(tree))
+            self.logger.debug(f"multiplication {left!r} {op_name} {right!r}")
             try:
                 return func(left, right)
             except TypeError as ex:
@@ -1105,7 +1109,7 @@ class Evaluator(lark.visitors.Interpreter):
             )
 
     @trace
-    def unary(self, tree):
+    def unary(self, tree: lark.Tree) -> Result:
         """
         unary          : [unary_not | unary_neg] member
 
@@ -1122,9 +1126,9 @@ class Evaluator(lark.visitors.Interpreter):
 
         But, values has the structure ``[[], right]``
         """
-        values = self.visit_children(tree)
         if len(tree.children) == 1:
             # member with no preceeding unary_not or unary_neg
+            values = self.visit_children(tree)
             return values[0]
 
         elif len(tree.children) == 2:
@@ -1134,9 +1138,9 @@ class Evaluator(lark.visitors.Interpreter):
                 "unary_neg": "-_",
             }[op_tree.data]
             func = self.functions[op_name]
-            self.logger.debug(f"unary {op_name} {values!r}")
             # NOTE: values has the structure [[], right]
-            left, right = values
+            left, right = cast(Tuple[List[Result], Result], self.visit_children(tree))
+            self.logger.debug(f"unary {op_name} {right!r}")
             try:
                 return func(right)
             except TypeError as ex:
@@ -1161,7 +1165,7 @@ class Evaluator(lark.visitors.Interpreter):
                 column=tree.column,
             )
 
-    def build_macro_eval(self, child) -> Callable[[Value], Value]:
+    def build_macro_eval(self, child: lark.Tree) -> Callable[[Any], Result]:
         """Builds macro function.
 
         For example
@@ -1176,12 +1180,12 @@ class Evaluator(lark.visitors.Interpreter):
         identifier = FindIdent.in_tree(var_tree)
         nested_eval = Evaluator(ast=expr_tree, activation=self.activation)
 
-        def sub_expr(v: Value) -> Value:
+        def sub_expr(v: Result) -> Result:
             return nested_eval.set_activation({identifier: v}).evaluate()
 
         return sub_expr
 
-    def build_ss_macro_eval(self, child) -> Callable[[Value], Value]:
+    def build_ss_macro_eval(self, child: lark.Tree) -> Callable[[Any], Result]:
         """Builds macro function for logical evaluation ignoring exception values.
 
         For example
@@ -1196,7 +1200,7 @@ class Evaluator(lark.visitors.Interpreter):
         identifier = FindIdent.in_tree(var_tree)
         nested_eval = Evaluator(ast=expr_tree, activation=self.activation)
 
-        def sub_expr(v: Value) -> Value:
+        def sub_expr(v: Result) -> Result:
             try:
                 return nested_eval.set_activation({identifier: v}).evaluate()
             except CELEvalError as ex:
@@ -1205,7 +1209,22 @@ class Evaluator(lark.visitors.Interpreter):
         return sub_expr
 
     @trace
-    def member(self, tree):
+    def member(self, tree: lark.Tree) -> Result:
+        """
+        member         : member_dot | member_dot_arg | member_item | member_object | primary
+
+        member_dot     : member "." IDENT
+        member_dot_arg : member "." IDENT "(" [exprlist] ")"
+        member_item    : member "[" expr "]"
+        member_object  : member "{" [fieldinits] "}"
+
+        https://github.com/google/cel-spec/blob/master/doc/langdef.md#field-selection
+        """
+        values = self.visit_children(tree)
+        return values[0]
+
+    @trace
+    def member_dot(self, tree: lark.Tree) -> Result:
         """
         member         : member_dot | member_dot_arg | member_item | member_object | primary
 
@@ -1216,151 +1235,198 @@ class Evaluator(lark.visitors.Interpreter):
 
         https://github.com/google/cel-spec/blob/master/doc/langdef.md#field-selection
 
-        TODO: Refactor into separate methods to skip this complex elif chain.
+        Field Selection. There are four cases.
+
+        - If e evaluates to a message
+          and f is not declared in this message, the runtime error no_such_field is raised.
+
+        - If e evaluates to a message
+          and f is declared, but the field is not set,
+          the default value of the field's type will be produced.
+
+        - If e evaluates to a map, then e.f is equivalent to e['f'].
+
+        - In all other cases, e.f evaluates to an error.
+
+        TODO: implement member "." IDENT for messages.
         """
-        if len(tree.children) != 1:
-            raise CELSyntaxError(
-                f"{tree.data} {tree.children}: bad member node",
+        member_tree, property_name_token = tree.children
+        member = self.visit(member_tree)
+        property_name = property_name_token.value
+        if isinstance(member, CELEvalError):
+            result = member
+        elif isinstance(member, celpy.celtypes.MapType):
+            if property_name in member:
+                result = member[property_name]
+            else:
+                err = f"no such key: '{property_name}'"
+                result = CELEvalError(err, KeyError, None, tree=tree)
+        else:
+            err = f"type: '{type(member)}' does not support field selection"
+            result = CELEvalError(err, TypeError, None, tree=tree)
+        return result
+
+    @trace
+    def member_dot_arg(self, tree: lark.Tree) -> Result:
+        """
+        member         : member_dot | member_dot_arg | member_item | member_object | primary
+
+        member_dot     : member "." IDENT
+        member_dot_arg : member "." IDENT "(" [exprlist] ")"
+        member_item    : member "[" expr "]"
+        member_object  : member "{" [fieldinits] "}"
+
+        https://github.com/google/cel-spec/blob/master/doc/langdef.md#field-selection
+
+        Method or macro? We Distinguish between these three similar cases.
+
+        - Macros: https://github.com/google/cel-spec/blob/master/doc/langdef.md#macros
+
+        - member "." IDENT "(" [exprlist] ")" -- used for string operations
+
+        - member "." IDENT "(" ")"  -- used for a several timestamp operations.
+        """
+
+        sub_expr: CELFunction
+        result: Result
+        CELBoolFunction = Callable[[celpy.celtypes.BoolType, Result], celpy.celtypes.BoolType]
+
+        member_tree, method_name_token = tree.children[:2]
+
+        if method_name_token.value == "map":
+            member = self.visit(member_tree)
+            sub_expr = self.build_macro_eval(tree)
+            mapping = cast(Iterable[celpy.celtypes.Value], map(sub_expr, member))
+            result = celpy.celtypes.ListType(mapping)
+            return result
+
+        elif method_name_token.value == "filter":
+            member = self.visit(member_tree)
+            sub_expr = self.build_macro_eval(tree)
+            result = celpy.celtypes.ListType(filter(sub_expr, member))
+            return result
+
+        elif method_name_token.value == "all":
+            member = self.visit(member_tree)
+            and_oper = cast(
+                CELBoolFunction,
+                eval_error("no such overload", TypeError)(
+                    celpy.celtypes.logical_and)
+            )
+            sub_expr = self.build_ss_macro_eval(tree)
+            result = reduce(and_oper, map(sub_expr, member), celpy.celtypes.BoolType(True))
+            return result
+
+        elif method_name_token.value == "exists":
+            member = self.visit(member_tree)
+            or_oper = cast(
+                CELBoolFunction,
+                eval_error("no such overload", TypeError)(
+                    celpy.celtypes.logical_or)
+            )
+            sub_expr = self.build_ss_macro_eval(tree)
+            result = reduce(or_oper, map(sub_expr, member), celpy.celtypes.BoolType(False))
+            return result
+
+        elif method_name_token.value == "exists_one":
+            # Is there exactly 1?
+            member = self.visit(member_tree)
+            sub_expr = self.build_macro_eval(tree)
+            count = sum(1 for value in member if sub_expr(value))
+            return celpy.celtypes.BoolType(count == 1)
+
+        else:
+            # Not a macro: a method evaluation.
+            # Evaluate member, method IDENT and (if present) exprlist and apply.
+            if len(tree.children) == 2:
+                member, ident = cast(
+                    Tuple[Result, lark.Token],
+                    self.visit_children(tree)
+                )
+                result = self.method_eval(member, ident)
+            else:
+                # assert len(tree.children) == 3
+                member, ident, exprlist = cast(
+                    Tuple[Result, lark.Token, Iterable[Result]],
+                    self.visit_children(tree)
+                )
+                result = self.method_eval(member, ident, exprlist)
+            return result
+
+    @trace
+    def member_index(self, tree: lark.Tree) -> Result:
+        """
+        member         : member_dot | member_dot_arg | member_item | member_object | primary
+
+        member_dot     : member "." IDENT
+        member_dot_arg : member "." IDENT "(" [exprlist] ")"
+        member_item    : member "[" expr "]"
+        member_object  : member "{" [fieldinits] "}"
+
+        https://github.com/google/cel-spec/blob/master/doc/langdef.md#field-selection
+        """
+        # Mapping or List indexing...
+        func = self.functions["_[_]"]
+        values = self.visit_children(tree)
+        member, index = values
+        try:
+            return func(member, index)
+        except TypeError as ex:
+            logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
+            err = (
+                f"found no matching overload for _[_] "
+                f"applied to '({type(member)}, {type(index)})'"
+            )
+            value = CELEvalError(err, ex.__class__, ex.args, tree=tree)
+            value.__cause__ = ex
+            return value
+        except KeyError as ex:
+            logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
+            value = CELEvalError("no such key", ex.__class__, ex.args, tree=tree)
+            value.__cause__ = ex
+            return value
+        except IndexError as ex:
+            logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
+            value = CELEvalError("invalid_argument", ex.__class__, ex.args, tree=tree)
+            value.__cause__ = ex
+            return value
+
+    @trace
+    def member_object(self, tree: lark.Tree) -> Result:
+        """
+        member         : member_dot | member_dot_arg | member_item | member_object | primary
+
+        member_dot     : member "." IDENT
+        member_dot_arg : member "." IDENT "(" [exprlist] ")"
+        member_item    : member "[" expr "]"
+        member_object  : member "{" [fieldinits] "}"
+
+        https://github.com/google/cel-spec/blob/master/doc/langdef.md#field-selection
+        """
+        # Object constructor...
+        values = self.visit_children(tree)
+        if len(values) == 1:
+            # TODO: implement  member "{" "}"
+            member = values[0]
+            return member
+        elif len(values) == 2:
+            # TODO: implement  member "{" fieldinits "}"
+            member, fieldinits = cast(Tuple[Result, Result], values)
+            raise CELUnsupportedError(
+                f"{tree.data} {tree.children}: "
+                f"{member!r} {{ {fieldinits!r} }} not implemented",
                 line=tree.line,
                 column=tree.column,
             )
-        child = tree.children[0]
-        if child.data == "primary":
-            # No other member-related syntax
-            return self.visit_children(tree)[0]
-
-        elif child.data == "member_dot":
-            # Field Selection. There are four cases.
-            # If e evaluates to a message
-            #   and f is not declared in this message, the runtime error no_such_field is raised.
-            # If e evaluates to a message
-            #   and f is declared, but the field is not set,
-            #   the default value of the field's type will be produced.
-            # If e evaluates to a map, then e.f is equivalent to e['f'].
-            # In all other cases, e.f evaluates to an error.
-            #
-            # TODO: implement member "." IDENT for messages.
-            member_tree, property_name_token = child.children
-            member = self.visit(member_tree)
-            property_name = property_name_token.value
-            if isinstance(member, CELEvalError):
-                result = member
-            elif isinstance(member, celpy.celtypes.MapType):
-                if property_name in member:
-                    result = member[property_name]
-                else:
-                    err = f"no such key: '{property_name}'"
-                    result = CELEvalError(err, KeyError, None, tree=tree)
-            else:
-                err = f"type: '{type(member)}' does not support field selection"
-                result = CELEvalError(err, TypeError, None, tree=tree)
-            return result
-
-        elif child.data == "member_dot_arg":
-            # Method or macro.
-            # member "." IDENT ["(" [exprlist] ")"]
-            # Distinguishes between these three similar cases.
-            # - Macros: https://github.com/google/cel-spec/blob/master/doc/langdef.md#macros
-            # - member "." IDENT "(" [exprlist] ")" -- used for string operations
-            # - member "." IDENT "(" ")"  -- used for a several timestamp operations.
-            member_tree, method_name_token = child.children[:2]
-            # if method_name_token.value in {macros} might be a helpful change.
-            # Macros include m.map(), m.all(), m.exists(), m.exists_one(), and m.filter()
-            if method_name_token.value == "map":
-                member = self.visit(member_tree)
-                sub_expr = self.build_macro_eval(child)
-                result = celpy.celtypes.ListType(map(sub_expr, member))
-                return result
-
-            elif method_name_token.value == "filter":
-                member = self.visit(member_tree)
-                sub_expr = self.build_macro_eval(child)
-                result = celpy.celtypes.ListType(filter(sub_expr, member))
-                return result
-
-            elif method_name_token.value == "all":
-                member = self.visit(member_tree)
-                and_oper = eval_error("no such overload", TypeError)(celpy.celtypes.logical_and)
-                sub_expr = self.build_ss_macro_eval(child)
-                result = reduce(and_oper, map(sub_expr, member), celpy.celtypes.BoolType(True))
-                return result
-
-            elif method_name_token.value == "exists":
-                member = self.visit(member_tree)
-                or_oper = eval_error("no such overload", TypeError)(celpy.celtypes.logical_or)
-                sub_expr = self.build_ss_macro_eval(child)
-                result = reduce(or_oper, map(sub_expr, member), celpy.celtypes.BoolType(False))
-                return result
-
-            elif method_name_token.value == "exists_one":
-                # Is there exactly 1?
-                member = self.visit(member_tree)
-                sub_expr = self.build_macro_eval(child)
-                count = sum(1 for value in member if sub_expr(value))
-                return celpy.celtypes.BoolType(count == 1)
-
-            else:
-                # Not a macro: a method evaluation.
-                # Evaluate member and (if present) exprlist and apply.
-                values = self.visit_children(child)
-                return self.method_eval(*values)
-
-        elif child.data == "member_index":
-            # Mapping or List indexing...
-            func = self.functions["_[_]"]
-            member, index = self.visit_children(child)
-            try:
-                return func(member, index)
-            except TypeError as ex:
-                logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
-                err = (
-                    f"found no matching overload for _[_] "
-                    f"applied to '({type(member)}, {type(index)})'"
-                )
-                value = CELEvalError(err, ex.__class__, ex.args, tree=tree)
-                value.__cause__ = ex
-                return value
-            except KeyError as ex:
-                logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
-                value = CELEvalError("no such key", ex.__class__, ex.args, tree=tree)
-                value.__cause__ = ex
-                return value
-            except IndexError as ex:
-                logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
-                value = CELEvalError("invalid_argument", ex.__class__, ex.args, tree=tree)
-                value.__cause__ = ex
-                return value
-
-        elif child.data == "member_object":
-            # Object constructor...
-            # TODO: implement  member "{" fieldinits "}"
-            # TODO: implement  member "{" "}"
-            values = self.visit_children(child)
-            if len(values) == 1:
-                return values[0]
-            elif len(values) == 2:
-                member, fieldinits = values
-                raise CELUnsupportedError(
-                    f"{tree.data} {tree.children}: "
-                    f"{member!r} {{ {fieldinits!r} }} not implemented",
-                    line=tree.line,
-                    column=tree.column,
-                )
-            else:
-                raise CELSyntaxError(
-                    f"{child.data} {child.children}: bad member_object node",
-                    line=tree.line,
-                    column=tree.column,
-                )
         else:
             raise CELSyntaxError(
-                f"{tree.data} {tree.children}: bad member node",
+                f"{tree.data} {tree.children}: bad member_object node",
                 line=tree.line,
                 column=tree.column,
             )
 
     @trace
-    def primary(self, tree):
+    def primary(self, tree: lark.Tree) -> Result:
         """
         primary        : dot_ident_arg | dot_ident | ident_arg | ident
                        | paren_expr | list_lit | map_lit | literal
@@ -1374,10 +1440,14 @@ class Evaluator(lark.visitors.Interpreter):
         map_lit        : "{" [mapinits] "}"
 
         TODO: Refactor into separate methods to skip this complex elif chain.
+        top-level :py:meth:`primary` is similar to :py:meth:`method`.
+        Each of the individual rules then works with a tree instead of a child of the
+        primary tree.
 
-        This includes function-like macros: has() and dyn(). These are special
-        cases because they're macros; they cannot be overridden.
+        This includes function-like macros: has() and dyn().
+        These are special cases and cannot be overridden.
         """
+        result: Result
         if len(tree.children) != 1:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad primary node",
@@ -1388,11 +1458,13 @@ class Evaluator(lark.visitors.Interpreter):
         child = tree.children[0]
         if child.data == "literal":
             # A literal value
-            return self.visit_children(tree)[0]
+            values = self.visit_children(tree)
+            return values[0]
 
         elif child.data == "paren_expr":
             # A "(" expr ")"
-            return self.visit_children(tree)[0][0]
+            values = self.visit_children(child)
+            return values[0]
 
         elif child.data == "list_lit":
             if len(child.children) == 0:
@@ -1401,7 +1473,8 @@ class Evaluator(lark.visitors.Interpreter):
                 result = celpy.celtypes.ListType()
             else:
                 # exprlist to be packaged as List.
-                result = self.visit_children(child)[0]
+                values = self.visit_children(child)
+                result = values[0]
             return result
 
         elif child.data == "map_lit":
@@ -1415,7 +1488,8 @@ class Evaluator(lark.visitors.Interpreter):
                 # OR. An CELEvalError in case of TypeError cause by invalid key types.
                 # TODO: Refactor into type_eval()
                 try:
-                    result = self.visit_children(child)[0]
+                    values = self.visit_children(child)
+                    result = values[0]
                 except ValueError as ex:
                     result = CELEvalError(ex.args[0], ex.__class__, ex.args, tree=tree)
                 except TypeError as ex:
@@ -1429,35 +1503,39 @@ class Evaluator(lark.visitors.Interpreter):
             # These are the same as ``member_dot_ident`` and ``member_dot_arg`` because
             # With ``.IDENT``  is processed as ``current_package.IDENT``.
             # len(child) == 1 -- "." IDENT
-            # len(child) == 2 -- "." IDENT "(" exprlist ")" -- TODO: Implement this.
+            # len(child) == 2 -- "." IDENT "(" exprlist ")" -- TODO: Implement dot_ident_arg.
             values = self.visit_children(child)
-            # if len(values) == 1:
-            name_token = values[0]
-            return self.ident_value(name_token.value)
-            # else:
-            # TODO: provide exprlist to self.ident_vlaue, also.
+            name_token = cast(lark.Token, values[0])
+            # Should not be a Function, should only be a Result
+            # TODO: seoarate dot_ident_arg uses function_eval().
+            try:
+                result = cast(Result, self.ident_value(name_token.value))
+            except KeyError as ex:
+                result = CELEvalError(ex.args[0], ex.__class__, ex.args, tree=tree)
+            return result
 
         elif child.data == "ident_arg":
             # IDENT ["(" [exprlist] ")"]
             # Can be a proper function or one of the function-like macros: "has()", "dyn()".
-            name, exprlist = child.children
-            if name.value == "has":
+            name_token, exprlist = cast(Tuple[lark.Token, lark.Tree], child.children)
+            if name_token.value == "has":
                 # has() macro. True if the child expression is a member expression that evaluates.
                 # False if the child expression is a member expression that cannot be evaluated.
                 return self.macro_has_eval(exprlist)
-            elif name.value == "dyn":
+            elif name_token.value == "dyn":
                 # dyn() macro does nothing; it's for run-time type-checking.
                 dyn_values = self.visit_children(exprlist)
                 return dyn_values[0]
             else:
                 values = self.visit_children(exprlist)
-                return self.function_eval(name, values)
+                return self.function_eval(name_token, cast(Iterable[celpy.celtypes.Value], values))
 
         elif child.data == "ident":
             # IDENT -- simple identifier from the current activation.
             name_token = child.children[0]
             try:
-                result = self.ident_value(name_token.value)
+                # Should not be a Function, should only be a Result
+                result = cast(Result, self.ident_value(name_token.value))
             except KeyError as ex:
                 err = (
                     f"undeclared reference to '{name_token}' "
@@ -1474,7 +1552,7 @@ class Evaluator(lark.visitors.Interpreter):
             )
 
     @trace
-    def literal(self, tree):
+    def literal(self, tree: lark.Tree) -> Result:
         """
         Create a literal from the token at the top of the parse tree.
 
@@ -1488,6 +1566,7 @@ class Evaluator(lark.visitors.Interpreter):
             )
         value_token = tree.children[0]
         try:
+            result: Result
             if value_token.type == "FLOAT_LIT":
                 result = celpy.celtypes.DoubleType(value_token.value)
             elif value_token.type == "INT_LIT":
@@ -1522,7 +1601,7 @@ class Evaluator(lark.visitors.Interpreter):
         return result
 
     @trace
-    def exprlist(self, tree):
+    def exprlist(self, tree: lark.Tree) -> Result:
         """
         exprlist       : expr ("," expr)*
         """
@@ -1532,11 +1611,12 @@ class Evaluator(lark.visitors.Interpreter):
             return next(errors)
         except StopIteration:
             pass
-        result = celpy.celtypes.ListType(values)
+        # There are no CELEvalError values in the result, so we can narrow the domain.
+        result = celpy.celtypes.ListType(cast(List[celpy.celtypes.Value], values))
         return result
 
     @trace
-    def fieldinits(self, tree):
+    def fieldinits(self, tree: lark.Tree) -> Result:
         """
         fieldinits     : IDENT ":" expr ("," IDENT ":" expr)*
         """
@@ -1547,22 +1627,28 @@ class Evaluator(lark.visitors.Interpreter):
         )
 
     @trace
-    def mapinits(self, tree):
+    def mapinits(self, tree: lark.Tree) -> Result:
         """
         mapinits       : expr ":" expr ("," expr ":" expr)*
 
         Extract the key expr's and value expr's to a list of pairs.
         This raises an exception on a duplicate key.
+
+        TODO: Is ``{'a': 1, 'b': 2/0}['a']`` a meaningful result in CEL?
+        Or is this an error because the entire member is erroneous?
+
         """
         result = celpy.celtypes.MapType()
 
-        keys_values = self.visit_children(tree)
+        # Not sure if this cast is sensible. Should a CELEvalError propagate up from the
+        # sub-expressions? See the error check in :py:func:`exprlist`.
+        keys_values = cast(List[celpy.celtypes.Value], self.visit_children(tree))
         pairs = zip(keys_values[0::2], keys_values[1::2])
         for key, value in pairs:
             if key not in result:
                 result[key] = value
             else:
-                raise ValueError(f"Duplicate key {key}")
+                raise ValueError(f"Duplicate key {key!r}")
 
         return result
 
@@ -1591,7 +1677,7 @@ def celstr(token: lark.Token) -> celpy.celtypes.StringType:
 
     ..  todo:: This can be refactored into celpy.celtypes.StringType.
     """
-    def expand(match_iter: Iterable[Match]) -> Iterator[str]:
+    def expand(match_iter: Iterable[Match[str]]) -> Iterator[str]:
         for match in (m.group() for m in match_iter):
             if len(match) == 1:
                 expanded = match
@@ -1626,7 +1712,7 @@ def celstr(token: lark.Token) -> celpy.celtypes.StringType:
     return celpy.celtypes.StringType(expanded)
 
 
-def celbytes(token: lark.Token) -> bytes:
+def celbytes(token: lark.Token) -> celpy.celtypes.BytesType:
     """
     Evaluate a CEL bytes literal, expanding escapes to create a Python bytes object.
 
@@ -1635,7 +1721,7 @@ def celbytes(token: lark.Token) -> bytes:
 
     ..  todo:: This can be refactored into celpy.celtypes.BytesType.
     """
-    def expand(match_iter: Iterable[Match]) -> Iterator[int]:
+    def expand(match_iter: Iterable[Match[str]]) -> Iterator[int]:
         for match in (m.group() for m in match_iter):
             if len(match) == 1:
                 yield from match.encode('utf-8')

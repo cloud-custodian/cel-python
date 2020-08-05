@@ -17,6 +17,7 @@
 Test celpy package as a whole. Mostly, this means testing the ``__init__.py`` module
 that defines the package.
 """
+import json
 from unittest.mock import sentinel, Mock, call
 from pytest import *
 import celpy
@@ -56,6 +57,54 @@ def test_json_to_cel_unexpected():
     doc = {"bytes": b"Ynl0ZXM="}
     with raises(ValueError):
         actual = celpy.json_to_cel(doc)
+
+
+def test_encoder():
+    cel_obj = celtypes.MapType(
+        {
+            celtypes.StringType("bool"): celtypes.BoolType(True),
+            celtypes.StringType("numbers"):
+                celtypes.ListType([
+                    celtypes.DoubleType(2.71828), celtypes.UintType(42)
+                ]),
+            celtypes.StringType("null"): None,
+            celtypes.StringType("string"): celtypes.StringType('embedded "quote"'),
+            celtypes.StringType("bytes"):
+                celtypes.BytesType(bytes([0x62, 0x79, 0x74, 0x65, 0x73])),
+            celtypes.StringType("timestamp"): celtypes.TimestampType('2009-02-13T23:31:30Z'),
+            celtypes.StringType("duration"): celtypes.DurationType('42s'),
+        }
+    )
+    json_text = json.dumps(cel_obj, cls=celpy.CELJSONEncoder)
+    assert (
+        json_text == '{"bool": true, "numbers": [2.71828, 42], "null": null, '
+                     '"string": "embedded \\"quote\\"", "bytes": "Ynl0ZXM=", '
+                     '"timestamp": "2009-02-13T23:31:30Z", "duration": "42s"}'
+    )
+
+def test_encoder_unknown():
+    cel_obj = sentinel.no_json
+    with raises(TypeError):
+        json_text = json.dumps(cel_obj, cls=celpy.CELJSONEncoder)
+
+
+def test_decoder():
+    json_text = (
+        '{"bool": 1, "numbers": [2.71828, 42], "null": null, '
+        '"string": "embedded \\"quote\\"", "bytes": "Ynl0ZXM=", '
+        '"timestamp": "2009-02-13T23:31:30Z", "duration": "42s"}'
+     )
+    cel_obj = json.loads(json_text, cls=celpy.CELJSONDecoder)
+    assert cel_obj == celtypes.MapType({
+        celtypes.StringType('bool'): celtypes.IntType(1),
+        celtypes.StringType('bytes'): celtypes.StringType('Ynl0ZXM='),
+        celtypes.StringType('duration'): celtypes.StringType('42s'),
+        celtypes.StringType('null'): None,
+        celtypes.StringType('numbers'):
+            celtypes.ListType([celtypes.DoubleType(2.71828), celtypes.IntType(42)]),
+        celtypes.StringType('string'): celtypes.StringType('embedded "quote"'),
+        celtypes.StringType('timestamp'): celtypes.StringType('2009-02-13T23:31:30Z'),
+    })
 
 
 @fixture
