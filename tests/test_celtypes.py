@@ -18,9 +18,10 @@ Test all the celtype methods.
 import datetime
 import math
 from unittest.mock import sentinel
-from pytest import *
-from celpy.evaluation import CELEvalError
+
 from celpy.celtypes import *
+from celpy.evaluation import CELEvalError
+from pytest import *
 
 
 def test_bool_type():

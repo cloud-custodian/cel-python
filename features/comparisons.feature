@@ -800,4 +800,3 @@ Given type_env parameter is TypeEnv(name=b'x', kind='primitive', type_ident='NUL
 Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': Value(value_type='null_value', value=None)}])
  When CEL expression "null < x" is evaluated
  Then eval_error is "no such overload"
-

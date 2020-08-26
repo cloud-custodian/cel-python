@@ -98,14 +98,14 @@ Here's the Pythonic approach, using concept patterned after the Go implementatio
 import base64
 import json  # noqa: F401
 import logging
-from typing import Any, Type, Optional, List, Dict, Union, cast
-import lark  # type: ignore[import]
-from celpy.celparser import CELParser, CELParseError  # noqa: F401
-from celpy.evaluation import (  # noqa: F401
-    Evaluator, Context, CELEvalError, Result, Activation, base_functions, CELFunction
-)
-from celpy import celtypes
+from typing import Any, Dict, List, Optional, Type, Union, cast
 
+import lark  # type: ignore[import]
+from celpy import celtypes
+from celpy.celparser import CELParseError, CELParser  # noqa: F401
+from celpy.evaluation import (Activation, CELEvalError,  # noqa: F401
+                              CELFunction, Context, Evaluator, Result,
+                              base_functions)
 
 JSON = Union[Dict[str, Any], List[Any], bool, float, int, str, None]
 

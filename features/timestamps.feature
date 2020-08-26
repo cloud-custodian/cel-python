@@ -296,4 +296,3 @@ Scenario: "add_under"
 Scenario: "add_over"
  When CEL expression "duration('200000000000s') + duration('200000000000s')" is evaluated
  Then eval_error is "range"
-

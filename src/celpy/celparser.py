@@ -60,12 +60,13 @@ Example::
 
 
 """
-from pathlib import Path
 import re
-from typing import Optional, List, Any
-from lark import Lark, Token, Tree  # type: ignore[import]  # noqa: F401
-from lark.exceptions import ParseError, LexError  # type: ignore[import]
+from pathlib import Path
+from typing import Any, List, Optional
+
 import lark.visitors  # type: ignore[import]
+from lark import Lark, Token, Tree  # type: ignore[import]  # noqa: F401
+from lark.exceptions import LexError, ParseError  # type: ignore[import]
 
 
 class CELParseError(Exception):

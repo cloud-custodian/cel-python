@@ -189,4 +189,3 @@ Given type_env parameter is TypeEnv(name=b'null', kind='primitive', type_ident='
 Given bindings parameter is Bindings(bindings=[{'key': 'null', 'value': Value(value_type='bool_value', value=True)}])
  When CEL expression "null" is evaluated
  Then value is Value(value_type='null_value', value=None)
-

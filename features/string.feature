@@ -205,4 +205,3 @@ Scenario: "right_unit"
 Scenario: "empty_empty"
  When CEL expression "b'' + b''" is evaluated
  Then value is Value(value_type='bytes_value', value=b'')
-

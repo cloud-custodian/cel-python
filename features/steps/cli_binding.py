@@ -16,13 +16,14 @@
 """
 CLI Bindings. This will use subprocess.run() to run celpy as a separate process.
 """
-from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
-from behave import *
+from pathlib import Path
+
 import parse
+from behave import *
 
 
 @given(u'JSON Document \'{json}\'')

@@ -52,16 +52,16 @@ This can explain "return error for overflow" as an vague-looking error response.
 
 Use ``-D match=exact`` to do exact error matching. The default is "any error will do."
 """
-from enum import Enum, auto
-from pathlib import Path
 import re
 import subprocess
 import sys
-from typing import List, Dict, Any, NamedTuple, Type, Union, Callable, Tuple
+from enum import Enum, auto
+from pathlib import Path
+from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Type, Union
 
-from celpy import Environment, CELEvalError
 import celpy.celtypes
 from behave import *
+from celpy import CELEvalError, Environment
 
 
 class Value(NamedTuple):

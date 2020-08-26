@@ -22,12 +22,12 @@ Test the main CLI
 import argparse
 import io
 import sys
-from unittest.mock import Mock, sentinel, call
+from unittest.mock import Mock, call, sentinel
 
-from pytest import *
 import celpy
 import celpy.__main__
 from celpy import celtypes
+from pytest import *
 
 
 @fixture

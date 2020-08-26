@@ -169,16 +169,15 @@ To get Go-like behavior, we need to use absolute values and restore the signs la
     return go_mod
 """
 import datetime
-from functools import wraps, reduce
 import logging
 import re
-from typing import (
-    Any, NoReturn, Mapping, Union, Sequence, Tuple, Optional, Iterable,
-    List, Dict, Type, Callable, TypeVar, cast, overload
-)
+from functools import reduce, wraps
+from typing import (Any, Callable, Dict, Iterable, List, Mapping, NoReturn,
+                    Optional, Sequence, Tuple, Type, TypeVar, Union, cast,
+                    overload)
+
 import dateutil.parser
 import dateutil.tz
-
 
 logger = logging.getLogger("celtypes")
 

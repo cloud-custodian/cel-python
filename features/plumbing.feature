@@ -39,4 +39,3 @@ Scenario: "one_ignored_value_arg"
 Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': Value(value_type='int64_value', value=17)}])
  When CEL expression "'foo'" is evaluated
  Then value is Value(value_type='string_value', value='foo')
-

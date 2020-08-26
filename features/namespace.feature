@@ -31,4 +31,3 @@ Given bindings parameter is Bindings(bindings=[{'key': 'y', 'value': Value(value
 Given container is "x"
  When CEL expression "y" is evaluated
  Then value is Value(value_type='bool_value', value=True)
-
