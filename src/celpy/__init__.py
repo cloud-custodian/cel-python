@@ -95,124 +95,23 @@ Here's the Pythonic approach, using concept patterned after the Go implementatio
     Hello world! I'm CEL.
 
 """
-import base64
 import json  # noqa: F401
 import logging
-from typing import Any, Type, Optional, List, Dict, Union, cast
+from typing import (
+    Type, Optional, List, Dict, cast
+)
 import lark  # type: ignore[import]
 from celpy.celparser import CELParser, CELParseError  # noqa: F401
 from celpy.evaluation import (  # noqa: F401
-    Evaluator, Context, CELEvalError, Result, Activation, base_functions, CELFunction
+    Evaluator, Context, CELEvalError, Result, Activation, base_functions, CELFunction,
+    Annotation
 )
-from celpy import celtypes
-
-
-JSON = Union[Dict[str, Any], List[Any], bool, float, int, str, None]
-
-
-class CELJSONEncoder(json.JSONEncoder):
-    """
-    An Encoder to export CEL objects as JSON text.
-
-    This is **not** a reversible transformation. Some things are coerced to strings
-    without any more detailed type marker.
-    Specifically timestamps, durations, and bytes.
-    """
-    @staticmethod
-    def to_python(
-            cel_object: celtypes.Value) -> Union[celtypes.Value, List[Any], Dict[Any, Any], bool]:
-        """Recursive walk through the CEL object, replacing BoolType with native bool instances.
-        This lets the :py:mod:`json` module correctly represent the obects
-        with JSON ``true`` and ``false``.
-
-        This will also replace ListType and MapType with native ``list`` and ``dict``.
-        All other CEL objects will be left intact. This creates an intermediate hybrid
-        beast that's not quite a :py:class:`celtypes.Value` because a few things have been replaced.
-        """
-        if isinstance(cel_object, celtypes.BoolType):
-            return True if cel_object else False
-        elif isinstance(cel_object, celtypes.ListType):
-            return [CELJSONEncoder.to_python(item) for item in cel_object]
-        elif isinstance(cel_object, celtypes.MapType):
-            return {
-                CELJSONEncoder.to_python(key): CELJSONEncoder.to_python(value)
-                for key, value in cel_object.items()
-            }
-        else:
-            return cel_object
-
-    def encode(self, cel_object: celtypes.Value) -> str:
-        """
-        Override built-in encode to create proper Python :py:class:`bool` objects.
-        """
-        return super().encode(CELJSONEncoder.to_python(cel_object))
-
-    def default(self, cel_object: celtypes.Value) -> JSON:
-        if isinstance(cel_object, celtypes.TimestampType):
-            return str(cel_object)
-        elif isinstance(cel_object, celtypes.DurationType):
-            return str(cel_object)
-        elif isinstance(cel_object, celtypes.BytesType):
-            return base64.b64encode(cel_object).decode("ASCII")
-        else:
-            return cast(JSON, super().default(cel_object))
-
-
-class CELJSONDecoder(json.JSONDecoder):
-    """
-    An Encoder to import CEL objects from JSON to the extent possible.
-
-    This does not handle non-JSON types in any form. Coercion from string
-    to TimestampType or DurationType or BytesType is handled by celtype
-    constructors.
-    """
-    def decode(self, source: str, _w: Any = None) -> Any:
-        raw_json = super().decode(source)
-        return json_to_cel(raw_json)
-
-
-def json_to_cel(document: JSON) -> celtypes.Value:
-    """Convert parsed JSON object from Python to CEL to the extent possible.
-
-    It's difficult to distinguish strings which should be timestamps or durations.
-
-    ::
-
-        >>> from pprint import pprint
-        >>> from celpy import __main__
-        >>> doc = json.loads('["str", 42, 3.14, null, true, {"hello": "world"}]')
-        >>> cel = json_to_cel(doc)
-        >>> pprint(cel)
-        ListType([StringType('str'), IntType(42), DoubleType(3.14), None, BoolType(True), \
-MapType({StringType('hello'): StringType('world')})])
-    """
-    if isinstance(document, bool):
-        return celtypes.BoolType(document)
-    elif isinstance(document, float):
-        return celtypes.DoubleType(document)
-    elif isinstance(document, int):
-        return celtypes.IntType(document)
-    elif isinstance(document, str):
-        return celtypes.StringType(document)
-    elif document is None:
-        return None
-    elif isinstance(document, List):
-        return celtypes.ListType(
-            [json_to_cel(item) for item in document]
-        )
-    elif isinstance(document, Dict):
-        return celtypes.MapType(
-            {json_to_cel(key): json_to_cel(value) for key, value in document.items()}
-        )
-    else:
-        raise ValueError(f"unexpected type {type(document)} in JSON structure {document!r}")
+# from celpy import celtypes
+from celpy.adapter import json_to_cel, CELJSONEncoder, CELJSONDecoder  # noqa: F401
 
 
 # A parsed AST.
 Expression = Type[lark.Tree]
-
-# A CEL type annotation.
-Annotation = celtypes.CELType
 
 
 class Runner:

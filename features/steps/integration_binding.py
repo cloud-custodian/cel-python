@@ -14,27 +14,30 @@
 # See the License for the specific language governing permissions and limitations under the License.
 
 """
-CLI Bindings. This will import and execute celpy features directly.
+CELPY Integration Bindings for Behave testing.
 
-We use an intermediate form of the textproto object values.
+These step definitions import and execute ``celpy`` features directly.
+This is used by the feature files created from the ``.textproto`` source.
+
+We use an intermediate form of the textproto definition of each test case.
 Most simple objects are represented as ``Value(value_type='type_name', source='value')"``.
-The type name is mapped to a celtypes type or a native Python type.
+The type name is mapped to a ``celtypes`` type or a native Python type.
 The value text is then supplied to create the expected object.
 
-This means handling textproto escape rules for string and bytes values. These are not
-the same as native Python escapes.
+This means interpreting textproto escape rules for string and bytes values.
+These are not the same as native Python escapes.
 
 Map and List values are aggregates that work well in this schema.
 
-Protobuf objects can be quite complex.  We'd like to step away from the ``textproto`` syntax,
-if possible, and use something a little easier to work with.
+Protobuf objects can be quite complex, a separate tool creates
+the intermediate form used by these step definitions.
 
 Error Matching
 ===============
 
 We have an error matching problem.
 
-1.  Errors are not named consistently.
+1.  Errors are not named consistently in the tests or the specification.
 
 2.  It may be that the exact error doesn't actually matter.
     Consider two cases, where the error identified appears inconsistent.
@@ -129,10 +132,12 @@ class Value(NamedTuple):
 
 
 class Entries(NamedTuple):
+    """Entries in a List"""
     key_value: List[Dict[str, Any]]
 
 
 class MapValue(NamedTuple):
+    """Key: Value pairs in a Mapping"""
     items: List[Entries]
 
     @property
@@ -146,6 +151,7 @@ class MapValue(NamedTuple):
 
 
 class ListValue(NamedTuple):
+    """A List object; a sequence of Value items"""
     items: List[Value]
 
     @property
@@ -155,6 +161,7 @@ class ListValue(NamedTuple):
 
 
 class ObjectValue(NamedTuple):
+    """An Object; a sequence of Key: Value property definitions"""
     namespace: str
     source: List[Dict[str, Any]]
 

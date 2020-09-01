@@ -1,18 +1,6 @@
 ..  comment
-    # SPDX-Copyright: Copyright (c) Capital One Services, LLC
+    # Copyright 2020 The Cloud Custodian Authors.
     # SPDX-License-Identifier: Apache-2.0
-    # Copyright 2020 Capital One Services, LLC
-    #
-    # Licensed under the Apache License, Version 2.0 (the "License");
-    # you may not use this file except in compliance with the License.
-    # You may obtain a copy of the License at
-    #
-    #     http://www.apache.org/licenses/LICENSE-2.0
-    #
-    # Unless required by applicable law or agreed to in writing, software
-    # distributed under the License is distributed on an "AS IS" BASIS,
-    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    # See the License for the specific language governing permissions and limitations under the License.
 
 ########################
 Application Integration
@@ -21,11 +9,17 @@ Application Integration
 We'll look at the essential base case for integration:
 evaluate a function given some variable bindings.
 
-Then we'll look at providing custom functions to extend
+Then we'll look at providing custom function bindings to extend
 the environment.
 
+We'll also look at additional examples from the Go implementation.
 This will lead us to providing custom type providers
 and custom type adapters.
+
+There are a few exception and error-handling cases that are helpful
+for writing CEL that tolerates certain kinds of data problems.
+
+Finally, we'll look at how CEL can be integrated into Cloud Custodian.
 
 The Essentials
 ==============
@@ -215,7 +209,6 @@ function parameter).
 Here's the Python version::
 
     >>> import celpy
-    >>> from typing import Callable
     >>> cel_source = """
     ... i.greet(you)
     ... """
@@ -223,7 +216,7 @@ Here's the Python version::
     >>> decls = {
     ...     "i": celpy.celtypes.StringType,
     ...     "you": celpy.celtypes.StringType,
-    ...     "greet": Callable}
+    ...     "greet": celpy.celtypes.FunctionType}
     >>> env = celpy.Environment(annotations=decls)
     >>> ast = env.compile(cel_source)
     >>> def greet(lhs: celpy.celtypes.StringType, rhs: celpy.celtypes.StringType) -> celpy.celtypes.StringType:
@@ -278,7 +271,6 @@ In order to declare global function we need to use `NewOverload`:
 Here's the Python version::
 
     >>> import celpy
-    >>> from typing import Callable
     >>> cel_source = """
     ... shake_hands(i,you)
     ... """
@@ -286,7 +278,7 @@ Here's the Python version::
     >>> decls = {
     ...     "i": celpy.celtypes.StringType,
     ...     "you": celpy.celtypes.StringType,
-    ...     "shake_hands": Callable}
+    ...     "shake_hands": celpy.celtypes.FunctionType}
     >>> env = celpy.Environment(annotations=decls)
     >>> ast = env.compile(cel_source)
     >>> def shake_hands(lhs: celpy.celtypes.StringType, rhs: celpy.celtypes.StringType) -> celpy.celtypes.StringType:
@@ -418,3 +410,166 @@ On the other hand,
 
 This will result in a visible :exc:`celpy.EvalError` result from the extension function.
 This will eventually be raised as an exception, so the framework using ``celpy`` can track this run-time error.
+
+Cloud Custodian
+===============
+
+Custodian Filters can be evaluated by CEL.
+
+As noted in https://github.com/cloud-custodian/cloud-custodian/issues/5759, a filter might look like the
+following::
+
+      filters:
+        - type: cel
+           expr: |
+               resource.creationTimestamp < timestamp("2018-08-03T16:00:00-07:00") &&
+               resource.deleteProtection == false &&
+               ((resource.name.startsWith("projects/project-123/zones/us-east1-b/instances/dev") ||
+               (resource.name.startsWith("projects/project-123/zones/us-east1-b/instances/prod"))) &&
+               resource.instanceSize == "m1.standard")
+
+This replaces a complex sequence of nested ``-  and:`` and ``-  or:`` sub-documents with a CEL expression.
+
+C7N processes resources by gathering resources, creating an instance of a subclass of the ``Filter``
+class, and evaluating an expression like ``take_action = list(filter(filter_instance, resource_list))``.
+
+The C7N filter expression in a given policy document is componsed of one or more atomic filter clauses,
+combined by ``and``, ``or``, and ``not`` operators.
+The filter as a whole is handled by the ``__call__()`` methods of subclasses of the ``BooleanGroupFilter`` class.
+
+Central to making this work is making the CEL expression into a function that can be applied to the ``resource`` object.
+It appears that all CEL operations will need to have a number of values in their activations:
+
+:resource:
+    A :py:class:`celtypes.MapType` document with the resource details.
+
+:now:
+    A :py:class:`celtypes.TimestampType` object with the current time.
+
+Additional "global" objects may also be helpful.
+
+Baseline C7N Example
+--------------------
+
+The essence of the integration is to provide a resource to a function and receive a boolean result.
+
+Here's a base example::
+
+    >>> import celpy
+    >>> env = celpy.Environment()
+    >>> CEL = """
+    ... resource.creationTimestamp < timestamp("2018-08-03T16:00:00-07:00") &&
+    ... resource.deleteProtection == false &&
+    ... ((resource.name.startsWith(
+    ...       "projects/project-123/zones/us-east1-b/instances/dev") ||
+    ... (resource.name.startsWith(
+    ...       "projects/project-123/zones/us-east1-b/instances/prod"))) &&
+    ... resource.instanceSize == "m1.standard")
+    ... """
+    >>> ast = env.compile(CEL)
+    >>> functions = {}
+    >>> prgm = env.program(ast, functions)
+    >>> activation = {
+    ...     "resource":
+    ...         celpy.celtypes.MapType({
+    ...            "creationTimestamp": celpy.celtypes.TimestampType("2018-07-06T05:04:03Z"),
+    ...            "deleteProtection": celpy.celtypes.BoolType(False),
+    ...            "name": celpy.celtypes.StringType("projects/project-123/zones/us-east1-b/instances/dev/ec2"),
+    ...            "instanceSize": celpy.celtypes.StringType("m1.standard"),
+    ...             # MORE WOULD GO HERE
+    ...     })
+    ... }
+    >>> prgm.evaluate(activation)
+    BoolType(True)
+
+Bulk Filter Example
+-------------------
+
+Pragmatically, C7N works via code somewhat like the following:
+
+::
+
+    resources = [provider.describe(r) for r in provider.list(resource_type)]
+    map(action, list(filter(cel_program, resources)))
+
+An action is applied to those resources that pass some filter test. The filter looks for items not compliant
+with policies.
+
+The ``cel_program`` in the above example is an executable CEL program wrapped into a C7N ``Filter`` subclass.
+
+::
+
+    >>> import celpy
+    >>> import datetime
+    >>> cel_functions = {}
+
+    >>> class Filter:
+    ...     def __call__(self, resource):
+    ...         raise NotImplementedError
+    ...
+    >>> class CelFilter(Filter):
+    ...     env = celpy.Environment()
+    ...     def __init__(self, object):
+    ...         assert object["type"] == "cel", "Can't create CelFilter without filter: - type: \"cel\""
+    ...         assert "expr" in object, "Can't create CelFilter without filter: - expr: \"CEL expression\""
+    ...         ast = self.env.compile(object["expr"])
+    ...         self.prgm = self.env.program(ast, cel_functions)
+    ...     def __call__(self, resource):
+    ...         now = datetime.datetime.utcnow()
+    ...         activation = {"resource": celpy.json_to_cel(resource), "now": celpy.celtypes.TimestampType(now)}
+    ...         return bool(self.prgm.evaluate(activation))
+
+    >>> tag_policy = {
+    ...     "filter": {
+    ...         "type": "cel",
+    ...         "expr": "! has(resource.tags.owner) || size(resource.tags.owner) == 0"
+    ...     }
+    ... }
+    >>> resources = [
+    ...     {"name": "good", "tags": {"owner": "me"}},
+    ...     {"name": "bad1", "tags": {"not-owner": "oops"}},
+    ...     {"name": "bad2", "tags": {"owner": None}},
+    ... ]
+    >>> tag_policy_filter = CelFilter(tag_policy["filter"])
+    >>> actionable = list(filter(tag_policy_filter, resources))
+    >>> actionable
+    [{'name': 'bad1', 'tags': {'not-owner': 'oops'}}, {'name': 'bad2', 'tags': {'owner': None}}]
+
+
+C7N Filter and Resource Types
+-------------------------------
+
+There are several parts to handling the various kinds of C7N filters in use.
+
+1.  The :py:mod:`c7n.filters` package defines about 23 generic filter classes, all of which need to
+    provide the ``resource`` object in the activation, and possibly provide a library of generic
+    CEL functions used for evaluation.
+    The general cases are of this is handled by the resource definition classes creating  values in a JSON document.
+    These values reflect the state of the resource and any closely-related resources.
+
+2.  The :py:mod:`c7n.resources` package defines a number of additional resource-specific filters.
+    All of these, similarly, need to provide CEL values as part of the resource object.
+    These classes can also provide additional resource-specific CEL functions used for evaluation.
+
+The atomic filter clauses have two general forms:
+
+-   Those with "op". These expose a resource attribute value,
+    a filter comparison value, and an operator.
+    For example, ``resource.creationTimestamp < timestamp("2018-08-03T16:00:00-07:00")``.
+
+-   Those without "op". These tests are based on a boolean function embedded in the C7N resource definition class.
+    For example, ``! resource.deleteProtection`` could rely on a attribute with a complex
+    value computed from one or more resource attribute values.
+
+The breakdown of ``filter`` rules in the C7N policy schema has the following counts.
+
+..  csv-table::
+
+    :header: category, count, notes
+    "('Common', 'Op')",21,"Used for more than one resource type, exposes resource details to CEL"
+    "('Common', 'No-Op')",15,"Used for more than one resource type, does not expose resource details"
+    "('Singleton', 'Op')",27,"Used for exactly one resource type, exposes resource details to CEL"
+    "('Singleton', 'No-Op')",47,"Used for exactly one resource type, does not expose resource details"
+
+(This is based on cloud-custodian-0.8.40.0, newer versions may have slighyly different numbers.)
+

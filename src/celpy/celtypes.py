@@ -197,6 +197,7 @@ Value = Union[
     'UintType',
 ]
 
+# The domain of types used to build Annotations.
 CELType = Union[
     Type['BoolType'],
     Type['BytesType'],
@@ -210,7 +211,6 @@ CELType = Union[
     Type['TimestampType'],
     # Is a TypeType needed?
     Type['UintType'],
-    Callable[..., Value]  # Conversion functions
 ]
 
 
@@ -1222,3 +1222,26 @@ class DurationType(datetime.timedelta):
     def getSeconds(self, tz_name: Optional[str] = None) -> IntType:
         assert tz_name is None
         return IntType(int(self.total_seconds()))
+
+
+class FunctionType:
+    """
+    TBD. May not be needed.
+
+    We need a concrete Annotation object to describe callables to celpy.
+    We need to describe functions as well as callable objects.
+    The description would tend to shadow ``typing.Callable``.
+
+    An ``__isinstance__()`` method, for example, may be helpful for run-time type-checking.
+
+    Superclass for CEL extension functions that are defined at run-time.
+    This permits a formal annotation in the environment construction that creates
+    an intended type for a given name.
+
+    This allows for some run-time type checking to see if the actual object binding
+    matches the declared type binding.
+
+    We *could* define this as three overloads to cover unary, binary, and tertiary cases.
+    """
+    def __call__(self, *args: Value) -> Value:
+        raise NotImplementedError

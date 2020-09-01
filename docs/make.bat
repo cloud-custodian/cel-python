@@ -1,4 +1,6 @@
 @ECHO OFF
+REM Copyright 2020 The Cloud Custodian Authors.
+REM SPDX-License-Identifier: Apache-2.0
 
 pushd %~dp0
 

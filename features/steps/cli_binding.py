@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and limitations under the License.
 
 """
-CLI Bindings. This will use subprocess.run() to run celpy as a separate process.
+CLI Bindings for Behave testing.
+
+These step definitions use ``subprocess.run()`` to run the ``celpy`` app as a separate process.
 """
 from pathlib import Path
 import re
