@@ -91,8 +91,9 @@ import os
 import re
 import sys
 from typing import List, Tuple, Callable, Dict, Optional, Any, cast
-from celpy import Environment, CELJSONEncoder, CELJSONDecoder, Runner
-from celpy.evaluation import CELEvalError, Result
+from celpy import Environment, Runner
+from celpy.adapter import CELJSONEncoder, CELJSONDecoder
+from celpy.evaluation import CELEvalError, Result, Annotation
 from celpy.celparser import CELParseError
 from celpy import celtypes
 
@@ -103,18 +104,29 @@ logger = logging.getLogger("celpy")
 # For argument parsing purposes.
 # Note the reliance on `ast.literal_eval` for ListType and MapType conversions.
 # Other types convert strings directly. These types need some help.
-CLI_ARG_TYPES: Dict[str, celtypes.CELType] = {
-    "int": celtypes.IntType,
-    "uint": celtypes.UintType,
-    "double": celtypes.DoubleType,
-    "bool": celtypes.BoolType,
-    "string": celtypes.StringType,
-    "bytes": celtypes.BytesType,
-    "list": lambda arg: celtypes.ListType(ast.literal_eval(arg)),
-    "map": lambda arg: celtypes.MapType(ast.literal_eval(arg)),
-    "null_type": cast(Callable[[str], celtypes.Value], lambda x: None),
-    "single_duration": celtypes.DurationType,
-    "single_timestamp": celtypes.TimestampType,
+CLI_ARG_TYPES: Dict[str, Annotation] = {
+    "int":
+        celtypes.IntType,
+    "uint":
+        celtypes.UintType,
+    "double":
+        celtypes.DoubleType,
+    "bool":
+        celtypes.BoolType,
+    "string":
+        celtypes.StringType,
+    "bytes":
+        celtypes.BytesType,
+    "list":
+        cast(Callable[..., celtypes.Value], lambda arg: celtypes.ListType(ast.literal_eval(arg))),
+    "map":
+        cast(Callable[..., celtypes.Value], lambda arg: celtypes.MapType(ast.literal_eval(arg))),
+    "null_type":
+        cast(Callable[..., celtypes.Value], lambda arg: None),
+    "single_duration":
+        celtypes.DurationType,
+    "single_timestamp":
+        celtypes.TimestampType,
 
     "int64_value": celtypes.IntType,
     "uint64_value": celtypes.UintType,
@@ -123,11 +135,11 @@ CLI_ARG_TYPES: Dict[str, celtypes.CELType] = {
     "string_value": celtypes.StringType,
     "bytes_value": celtypes.BytesType,
     "number_value": celtypes.DoubleType,  # Ambiguous; can somtimes be integer.
-    "null_value": cast(Callable[[str], celtypes.Value], lambda x: None),
+    "null_value": cast(Callable[..., celtypes.Value], lambda arg: None),
 }
 
 
-def arg_type_value(text: str) -> Tuple[str, celtypes.CELType, celtypes.Value]:
+def arg_type_value(text: str) -> Tuple[str, Annotation, celtypes.Value]:
     """
     Decompose ``-a name:type=value`` argument into a useful triple.
 
@@ -156,7 +168,7 @@ def arg_type_value(text: str) -> Tuple[str, celtypes.CELType, celtypes.Value]:
     ..  todo:: type names can include `.` to support namespacing for protobuf support.
 
     :param text: Argument value
-    :return: Tuple with name, and resulting object.
+    :return: Tuple with name, annotation, and resulting object.
     """
     arg_pattern = re.compile(
         r"^([_a-zA-Z][_a-zA-Z0-9]*)(?::([_a-zA-Z][_a-zA-Z0-9]*))?(?:=(.*))?$"
@@ -168,12 +180,15 @@ def arg_type_value(text: str) -> Tuple[str, celtypes.CELType, celtypes.Value]:
     name, type_name, value_text = match.groups()
     if value_text is None:
         value_text = os.environ.get(name)
-    type_definition: celtypes.CELType
-    value: celtypes.Value
+    type_definition: Annotation  # CELType or a conversion function
+    value: celtypes.Value  # Specific value.
     if type_name:
         try:
             type_definition = CLI_ARG_TYPES[type_name]
-            value = type_definition(value_text)  # type: ignore[arg-type]
+            value = cast(
+                celtypes.Value,
+                type_definition(value_text)  # type: ignore[arg-type, call-arg]
+            )
         except KeyError:
             raise argparse.ArgumentTypeError(f"arg {text} type name not in {list(CLI_ARG_TYPES)}")
         except ValueError:
@@ -376,7 +391,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if options.arg:
         logger.info("Args: %r", options.arg)
 
-    annotations: Optional[Dict[str, celtypes.CELType]]
+    annotations: Optional[Dict[str, Annotation]]
     if options.arg:
         annotations = {
             name: type for name, type, value in options.arg

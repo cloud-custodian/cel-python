@@ -50,8 +50,14 @@ import celpy.celtypes
 import lark.visitors  # type: ignore[import]
 import lark
 
-# A CEL type annotation.
-Annotation = celpy.celtypes.CELType
+# A CEL type annotation. Used in an environment to describe objects as well as functions.
+# This is a list of types, plus Callable for conversion functions
+Annotation = Union[
+    celpy.celtypes.CELType,
+    Callable[..., celpy.celtypes.Value],  # Conversion functions
+    Type[celpy.celtypes.FunctionType],  # Concrete class for annotations
+]
+
 
 logger = logging.getLogger("evaluation")
 

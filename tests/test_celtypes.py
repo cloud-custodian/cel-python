@@ -347,3 +347,9 @@ def test_duration_type():
     assert DurationType("8454s").getMinutes() == IntType(140)
     assert DurationType("8454s").getSeconds() == IntType(8454)
     assert DurationType("8454s").getMilliseconds() == IntType(8454000)
+
+
+def test_function_type():
+    f_1 = FunctionType()
+    with raises(NotImplementedError):
+        f_1(IntType(0))

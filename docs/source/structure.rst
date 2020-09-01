@@ -1,18 +1,6 @@
 ..  comment
-    # SPDX-Copyright: Copyright (c) Capital One Services, LLC
+    # Copyright 2020 The Cloud Custodian Authors.
     # SPDX-License-Identifier: Apache-2.0
-    # Copyright 2020 Capital One Services, LLC
-    #
-    # Licensed under the Apache License, Version 2.0 (the "License");
-    # you may not use this file except in compliance with the License.
-    # You may obtain a copy of the License at
-    #
-    #     http://www.apache.org/licenses/LICENSE-2.0
-    #
-    # Unless required by applicable law or agreed to in writing, software
-    # distributed under the License is distributed on an "AS IS" BASIS,
-    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    # See the License for the specific language governing permissions and limitations under the License.
 
 ###############
 Data Structures
@@ -57,4 +45,30 @@ There are two :py:class:`celpy.Runner` implementations.
 CEL Types
 ==========
 
-TBD
+There are ten extension types that wrap Python built-in types to provide the unique CEL semantics.
+
+-   :py:class:`celtypes.BoolType` wraps ``int`` and creates additional type overload exceptions.
+
+-   :py:class:`celtypes.BytesType` wraps ``bytes`` it handles conversion from :py:class:`celtypes.StringType`.
+
+-   :py:class:`celtypes.DoubleType` wraps ``float`` and creates additional type overload exceptions.
+
+-   :py:class:`celtypes.IntType` wraps ``int`` and adds a 64-bit signed range constraint.
+
+-   :py:class:`celtypes.UintType` wraps ``int`` and adds a 64-bit unsigned range constraint.
+
+-   :py:class:`celtypes.ListType` wraps ``list`` and includes some type overload exceptions.
+
+-   :py:class:`celtypes.MapType` wraps ``dict`` and includes some type overload exceptions.
+    Additionally, the ``MapKeyTypes`` type hint is the subset of types permitted as keys.
+
+-   :py:class:`celtypes.StringType` wraps ``str`` and includes some type overload exceptions.
+
+-   :py:class:`celtypes.TimestampType` wraps ``datetime.datetime`` and includes a number of conversions
+    from ``datetime.datetime``, ``int``, and ``str`` values.
+
+-   :py:class:`celtypes.DurationType` wraps ``datetime.timedelta`` and includes a number of conversions
+    from ``datetime.timedelta``, ``int``, and ``str`` values.
+
+Additionally, a :py:class:`celtypes.NullType` is defined, but does not seem to be needed. It hasn't been deleted, yet.
+but should be considered deprecated.
