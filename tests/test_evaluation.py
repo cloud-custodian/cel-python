@@ -310,18 +310,18 @@ def test_function_eval(monkeypatch):
         tree,
         activation
     )
-    assert isinstance(evaluator.function_eval(lark.lexer.Token("IDENT", "nope")), CELEvalError)
+    assert isinstance(evaluator.function_eval(lark.Token("IDENT", "nope")), CELEvalError)
     error = CELEvalError(sentinel.message)
-    assert evaluator.function_eval(lark.lexer.Token("IDENT", "size"), error) == error
+    assert evaluator.function_eval(lark.Token("IDENT", "size"), error) == error
 
     monkeypatch.setitem(evaluator.functions, "size", Mock(side_effect=ValueError(sentinel.value)))
-    value = evaluator.function_eval(lark.lexer.Token("IDENT", "size"))
+    value = evaluator.function_eval(lark.Token("IDENT", "size"))
     assert isinstance(value, CELEvalError)
     assert value.args[1] == ValueError, f"{value.args} != (..., ValueError, ...)"
     assert value.args[2] == (sentinel.value,), f"{value.args} != (..., ..., (sentinel.value,))"
 
     monkeypatch.setitem(evaluator.functions, "size", Mock(side_effect=TypeError(sentinel.type)))
-    value = evaluator.function_eval(lark.lexer.Token("IDENT", "size"))
+    value = evaluator.function_eval(lark.Token("IDENT", "size"))
     assert isinstance(value, CELEvalError)
     assert value.args[1] == TypeError, f"{value.args} != (..., TypeError, ...)"
     assert value.args[2] == (sentinel.type,), f"{value.args} != (..., ..., (sentinel.type,))"
@@ -337,19 +337,19 @@ def test_method_eval(monkeypatch):
         tree,
         activation
     )
-    assert isinstance(evaluator.method_eval(None, lark.lexer.Token("IDENT", "nope")), CELEvalError)
+    assert isinstance(evaluator.method_eval(None, lark.Token("IDENT", "nope")), CELEvalError)
     error = CELEvalError(sentinel.message)
-    assert evaluator.method_eval(error, lark.lexer.Token("IDENT", "size"), None) == error
-    assert evaluator.method_eval(None, lark.lexer.Token("IDENT", "size"), error) == error
+    assert evaluator.method_eval(error, lark.Token("IDENT", "size"), None) == error
+    assert evaluator.method_eval(None, lark.Token("IDENT", "size"), error) == error
 
     monkeypatch.setitem(evaluator.functions, "size", Mock(side_effect=ValueError(sentinel.value)))
-    value = evaluator.method_eval(None, lark.lexer.Token("IDENT", "size"))
+    value = evaluator.method_eval(None, lark.Token("IDENT", "size"))
     assert isinstance(value, CELEvalError)
     assert value.args[1] == ValueError, f"{value.args} != (..., ValueError, ...)"
     assert value.args[2] == (sentinel.value,), f"{value.args} != (..., ..., (sentinel.value,))"
 
     monkeypatch.setitem(evaluator.functions, "size", Mock(side_effect=TypeError(sentinel.type)))
-    value = evaluator.method_eval(None, lark.lexer.Token("IDENT", "size"))
+    value = evaluator.method_eval(None, lark.Token("IDENT", "size"))
     assert isinstance(value, CELEvalError)
     assert value.args[1] == TypeError, f"{value.args} != (..., TypeError, ...)"
     assert value.args[2] == (sentinel.type,), f"{value.args} != (..., ..., (sentinel.type,))"
@@ -389,7 +389,7 @@ def test_eval_expr_1():
             lark.Tree(
                 data='literal',
                 children=[
-                    lark.lexer.Token(type_="INT_LIT", value="42"),
+                    lark.Token(type_="INT_LIT", value="42"),
                 ]
             ),
         ]
@@ -409,19 +409,19 @@ def mock_expr_tree():
             lark.Tree(
                 data='literal',
                 children=[
-                    lark.lexer.Token(type_="BOOL_LIT", value="true"),
+                    lark.Token(type_="BOOL_LIT", value="true"),
                 ]
             ),
             lark.Tree(
                 data='literal',
                 children=[
-                    lark.lexer.Token(type_="INT_LIT", value="6"),
+                    lark.Token(type_="INT_LIT", value="6"),
                 ]
             ),
             lark.Tree(
                 data='literal',
                 children=[
-                    lark.lexer.Token(type_="INT_LIT", value="7"),
+                    lark.Token(type_="INT_LIT", value="7"),
                 ]
             ),
         ],
@@ -473,7 +473,7 @@ def binop_1_tree(data, lit_type, lit_value):
             lark.Tree(
                 data='literal',
                 children=[
-                    lark.lexer.Token(type_=lit_type, value=lit_value),
+                    lark.Token(type_=lit_type, value=lit_value),
                 ]
             ),
         ]
@@ -498,13 +498,13 @@ def binop_2_tree(data, lit_type, lit_value_1, lit_value_2):
             lark.Tree(
                 data='literal',
                 children=[
-                    lark.lexer.Token(type_=lit_type, value=lit_value_1),
+                    lark.Token(type_=lit_type, value=lit_value_1),
                 ]
             ),
             lark.Tree(
                 data='literal',
                 children=[
-                    lark.lexer.Token(type_=lit_type, value=lit_value_2),
+                    lark.Token(type_=lit_type, value=lit_value_2),
                 ]
             ),
         ],
@@ -661,7 +661,7 @@ def binop_trees(request):
                 lark.Tree(
                     data='literal',
                     children=[
-                        lark.lexer.Token(type_=lit_type, value=expr)
+                        lark.Token(type_=lit_type, value=expr)
                     ]
                 )
                 for expr in lit_value_2
@@ -671,7 +671,7 @@ def binop_trees(request):
         right_hand_side = lark.Tree(
             data='literal',
             children=[
-                lark.lexer.Token(type_=lit_type, value=lit_value_2),
+                lark.Token(type_=lit_type, value=lit_value_2),
             ]
         )
 
@@ -684,10 +684,10 @@ def binop_trees(request):
                     lark.Tree(
                         data='literal',
                         children=[
-                            lark.lexer.Token(type_=lit_type, value=lit_value_1),
+                            lark.Token(type_=lit_type, value=lit_value_1),
                         ]
                     ),
-                    lark.lexer.Token(type_="relop", value="not used"),
+                    lark.Token(type_="relop", value="not used"),
                 ]
             ),
             right_hand_side
@@ -784,7 +784,7 @@ def unop_trees(request):
     right_hand_side = lark.Tree(
         data='literal',
         children=[
-            lark.lexer.Token(type_=lit_type, value=lit_value),
+            lark.Token(type_=lit_type, value=lit_value),
         ]
     )
 
@@ -794,7 +794,7 @@ def unop_trees(request):
             lark.Tree(
                 data=tree_data,
                 children=[
-                    lark.lexer.Token(type_="operator", value="not used"),
+                    lark.Token(type_="operator", value="not used"),
                 ]
             ),
             right_hand_side
@@ -888,7 +888,7 @@ def test_member_dot_good_found(monkeypatch):
                         data="primary",
                         children=[]
                     ),
-                    lark.lexer.Token("IDENT", "name")
+                    lark.Token("IDENT", "name")
                 ],
                 meta = Mock(line=1, column=1)
             )
@@ -915,9 +915,16 @@ def test_member_dot_good_notfound(monkeypatch):
                 children=[
                     lark.Tree(
                         data="primary",
-                        children=[]
+                        children=[
+                            lark.Tree(
+                                data="literal",
+                                children=[
+                                    lark.Token("IDENT", "member")
+                                ]
+                            )
+                        ]
                     ),
-                    lark.lexer.Token("IDENT", "not_the_name")
+                    lark.Token("IDENT", "not_the_name")
                 ],
                 meta = Mock(line=1, column=1)
             )
@@ -943,9 +950,16 @@ def test_member_dot_no_overload(monkeypatch):
                 children=[
                     lark.Tree(
                         data="primary",
-                        children=[]
+                        children=[
+                            lark.Tree(
+                                data="literal",
+                                children=[
+                                    lark.Token("IDENT", "member")
+                                ]
+                            )
+                        ]
                     ),
-                    lark.lexer.Token("IDENT", "name")
+                    lark.Token("IDENT", "name")
                 ],
                 meta = Mock(line=1, column=1)
             )
@@ -974,7 +988,7 @@ def test_member_dot_error(monkeypatch):
                         data="primary",
                         children=[]
                     ),
-                    lark.lexer.Token("IDENT", "name")
+                    lark.Token("IDENT", "name")
                 ],
                 meta = Mock(line=1, column=1)
             )
@@ -991,7 +1005,7 @@ def test_member_dot_arg_method_0(monkeypatch):
     visit_children = Mock(
         return_value=[
             celtypes.TimestampType("2009-02-13T23:31:30Z"),
-            lark.lexer.Token("IDENT", "getMonth"),
+            lark.Token("IDENT", "getMonth"),
         ]
     )
     monkeypatch.setattr(Evaluator, 'visit_children', visit_children)
@@ -1005,7 +1019,7 @@ def test_member_dot_arg_method_0(monkeypatch):
                         data="primary",
                         children=[]
                     ),
-                    lark.lexer.Token("IDENT", "getMonth"),
+                    lark.Token("IDENT", "getMonth"),
                 ],
                 meta = Mock(line=1, column=1)
             )
@@ -1023,7 +1037,7 @@ def test_member_dot_arg_method_1(monkeypatch):
     visit_children = Mock(
         return_value=[
             celtypes.ListType([celtypes.StringType("hello"), celtypes.StringType("world"),]),
-            lark.lexer.Token("IDENT", "contains"),
+            lark.Token("IDENT", "contains"),
             [celtypes.StringType("hello")],
         ]
     )
@@ -1038,7 +1052,7 @@ def test_member_dot_arg_method_1(monkeypatch):
                         data="primary",
                         children=[]
                     ),
-                    lark.lexer.Token("IDENT", "contains"),
+                    lark.Token("IDENT", "contains"),
                     lark.Tree(
                         data="literal",
                         children=[]
@@ -1056,10 +1070,7 @@ def test_member_dot_arg_method_1(monkeypatch):
     assert evaluator_0.member_dot_arg(tree.children[0]) == celtypes.BoolType(True)
 
 
-def test_builld_macro_eval(monkeypatch):
-    visit = Mock(return_value=sentinel.member)
-    monkeypatch.setattr(Evaluator, 'visit', visit)
-
+def test_build_macro_eval(monkeypatch):
     evaluator_0 = Evaluator(
         None,
         activation=Mock()
@@ -1088,11 +1099,11 @@ def test_builld_macro_eval(monkeypatch):
                 data="primary",
                 children=[]
             ),
-            lark.lexer.Token("IDENT", "map"),
+            lark.Token("IDENT", "map"),
             lark.Tree(
                 data="exprlist",
                 children=[
-                    lark.lexer.Token("IDENT", "variable"),
+                    lark.Tree(data="ident", children=[lark.Token("IDENT", "variable")]),
                     sub_expression
                 ]
             ),
@@ -1102,12 +1113,12 @@ def test_builld_macro_eval(monkeypatch):
 
     # `FindIdent` walked the tree to locate the variable name.
     assert mock_find_ident_class.in_tree.mock_calls == [
-        call(lark.lexer.Token("IDENT", 'variable'))
+        call(lark.Tree("ident", [lark.Token("IDENT", 'variable')]))
     ]
 
     # Nested `Evaluator` instance created
     assert mock_evaluator_class.mock_calls == [
-        call(activation=evaluator_0.activation, ast=sub_expression)
+        call(sub_expression, activation=evaluator_0.activation, functions=evaluator_0.functions)
     ]
 
     # When we evaluated the sub-expression created, it uses the nest `Evaluator` instance.
@@ -1125,9 +1136,6 @@ def test_builld_macro_eval(monkeypatch):
 
 
 def test_build_ss_macro_eval(monkeypatch):
-    visit = Mock(return_value=sentinel.member)
-    monkeypatch.setattr(Evaluator, 'visit', visit)
-
     evaluator_0 = Evaluator(
         None,
         activation=Mock()
@@ -1156,11 +1164,11 @@ def test_build_ss_macro_eval(monkeypatch):
                 data="primary",
                 children=[]
             ),
-            lark.lexer.Token("IDENT", "map"),
+            lark.Token("IDENT", "map"),
             lark.Tree(
                 data="exprlist",
                 children=[
-                    lark.lexer.Token("IDENT", "variable"),
+                    lark.Tree(data="ident", children=[lark.Token("IDENT", "variable")]),
                     sub_expression
                 ]
             ),
@@ -1170,12 +1178,12 @@ def test_build_ss_macro_eval(monkeypatch):
 
     # `FindIdent` walked the tree to locate the variable name.
     assert mock_find_ident_class.in_tree.mock_calls == [
-        call(lark.lexer.Token("IDENT", 'variable'))
+        call(lark.Tree("ident", [lark.Token("IDENT", 'variable')]))
     ]
 
     # Nested `Evaluator` instance created
     assert mock_evaluator_class.mock_calls == [
-        call(activation=evaluator_0.activation, ast=sub_expression)
+        call(sub_expression, activation=evaluator_0.activation, functions=evaluator_0.functions)
     ]
 
     # When we evaluated the sub-expression created, it uses the nest `Evaluator` instance.
@@ -1198,8 +1206,79 @@ def test_build_ss_macro_eval(monkeypatch):
         call(),
     ]
 
+def test_build_reduce_macro_eval(monkeypatch):
+    evaluator_0 = Evaluator(
+        None,
+        activation=Mock()
+    )
 
-def member_tree(macro_name):
+    mock_evaluator_class = Mock(
+        return_value=Mock(
+            set_activation=Mock(
+                return_value=Mock(
+                    evaluate=Mock(return_value=sentinel.output)
+                )
+            )
+        )
+    )
+    monkeypatch.setattr(celpy.evaluation, 'Evaluator', mock_evaluator_class)
+    mock_find_ident_class = Mock(
+        in_tree=Mock(return_value=sentinel.variable)
+    )
+    monkeypatch.setattr(celpy.evaluation, 'FindIdent', mock_find_ident_class)
+
+    sub_expression_1 = lark.Tree(data="expr", children=["1"])
+    sub_expression_2 = lark.Tree(data="expr", children=["2"])
+    child = lark.Tree(
+        data="member_dot_arg",
+        children=[
+            lark.Tree(
+                data="primary",
+                children=[]
+            ),
+            lark.Token("IDENT", "reduce"),
+            lark.Tree(
+                data="exprlist",
+                children=[
+                    lark.Tree(data="ident", children=[lark.Token("IDENT", "r")]),
+                    lark.Tree(data="ident", children=[lark.Token("IDENT", "i")]),
+                    sub_expression_1,
+                    sub_expression_2,
+                ]
+            ),
+        ]
+    )
+    subexpr, init_value = evaluator_0.build_reduce_macro_eval(child)
+
+    # `FindIdent` walked the tree to locate the variable name.
+    assert mock_find_ident_class.in_tree.mock_calls == [
+        call(lark.Tree("ident", [lark.Token("IDENT", 'r')])),
+        call(lark.Tree("ident", [lark.Token("IDENT", 'i')]))
+    ]
+
+    # Nested `Evaluator` instance created
+    assert mock_evaluator_class.mock_calls == [
+        call(sub_expression_2, activation=evaluator_0.activation, functions=evaluator_0.functions)
+    ]
+
+    # init_value is the sub_expression
+    assert init_value == sub_expression_1
+
+    # When we evaluated the sub-expression created, it uses the nest `Evaluator` instance.
+    assert subexpr(sentinel.input1, sentinel.input2) == sentinel.output
+
+    # The nested evaluator's top-level activation had the input value set.
+    assert mock_evaluator_class.return_value.set_activation.mock_calls == [
+        call({sentinel.variable: sentinel.input2})
+    ]
+
+    # And. The nested evaluator's evaluate() was used to produce the answer.
+    assert mock_evaluator_class.return_value.set_activation.return_value.evaluate.mock_calls == [
+        call()
+    ]
+
+
+def macro_member_tree(macro_name, *args):
     tree = lark.Tree(
         data="member",
         children=[
@@ -1207,20 +1286,31 @@ def member_tree(macro_name):
                 data="member_dot_arg",
                 children=[
                     lark.Tree(
+                        # monkeypatch to visit mocks member values
                         data="primary",
-                        children=[]  # monkeypatch creates actual member values
-                    ),
-                    lark.lexer.Token("IDENT", macro_name),
-                    lark.Tree(
-                        data="exprlist",
                         children=[
-                            lark.lexer.Token("IDENT", "variable"),
-                            lark.Tree(data="expr", children=[])
+                            lark.Tree("ident", children=[lark.Token("IDENT", "placeholder")])
                         ]
                     ),
-                ]
+                    lark.Token("IDENT", macro_name),
+                    lark.Tree(
+                        data="exprlist",
+                        children=(
+                            # Most macros are variable and expression
+                            # reduce is two variables and two expressions.
+                            [
+                                lark.Tree("ident", children=[lark.Token("IDENT", "variable")]),
+                                lark.Tree("expr", children=[lark.Token("INT", "0")])
+                            ]
+                            if not args else args
+                        ),
+                        meta=Mock(line=1)
+                    ),
+                ],
+                meta=Mock(line=1)
             )
-        ]
+        ],
+        meta=Mock(line=1)
     )
     return tree
 
@@ -1235,7 +1325,7 @@ def test_member_dot_arg_map(monkeypatch):
     )
     monkeypatch.setattr(Evaluator, 'build_macro_eval', build_macro_eval)
 
-    tree = member_tree("map")
+    tree = macro_member_tree("map")
 
     evaluator_0 = Evaluator(
         tree,
@@ -1257,7 +1347,7 @@ def test_member_dot_arg_filter(monkeypatch):
     )
     monkeypatch.setattr(Evaluator, 'build_macro_eval', build_macro_eval)
 
-    tree = member_tree("filter")
+    tree = macro_member_tree("filter")
 
     evaluator_0 = Evaluator(
         tree,
@@ -1270,7 +1360,7 @@ def test_member_dot_arg_filter(monkeypatch):
 
 
 def test_member_dot_arg_all(monkeypatch):
-    """The filter macro [true, false].filter(x, x) == [true]"""
+    """The filter macro [true, false].all(x, x) == [true]"""
     visit = Mock(
         return_value=[celtypes.BoolType(True), celtypes.BoolType(False)]
     )
@@ -1280,7 +1370,7 @@ def test_member_dot_arg_all(monkeypatch):
     )
     monkeypatch.setattr(Evaluator, 'build_ss_macro_eval', build_ss_macro_eval)
 
-    tree = member_tree("all")
+    tree = macro_member_tree("all")
 
     evaluator_0 = Evaluator(
         tree,
@@ -1292,7 +1382,7 @@ def test_member_dot_arg_all(monkeypatch):
 
 
 def test_member_dot_arg_exists(monkeypatch):
-    """The filter macro [true, false].filter(x, x) == [true]"""
+    """The filter macro [true, false].exists(x, x) == [true]"""
     visit = Mock(
         return_value=[celtypes.BoolType(True), celtypes.BoolType(False)]
     )
@@ -1302,7 +1392,7 @@ def test_member_dot_arg_exists(monkeypatch):
     )
     monkeypatch.setattr(Evaluator, 'build_ss_macro_eval', build_ss_macro_eval)
 
-    tree = member_tree("exists")
+    tree = macro_member_tree("exists")
 
     evaluator_0 = Evaluator(
         tree,
@@ -1314,7 +1404,7 @@ def test_member_dot_arg_exists(monkeypatch):
 
 
 def test_member_dot_arg_exists_one(monkeypatch):
-    """The filter macro [true, false].filter(x, x) == [true]"""
+    """The filter macro [true, false].exists_one(x, x) == [true]"""
     visit = Mock(
         return_value=[celtypes.BoolType(True), celtypes.BoolType(False)]
     )
@@ -1324,7 +1414,7 @@ def test_member_dot_arg_exists_one(monkeypatch):
     )
     monkeypatch.setattr(Evaluator, 'build_macro_eval', build_macro_eval)
 
-    tree = member_tree("exists_one")
+    tree = macro_member_tree("exists_one")
 
     evaluator_0 = Evaluator(
         tree,
@@ -1333,6 +1423,72 @@ def test_member_dot_arg_exists_one(monkeypatch):
     assert (
         evaluator_0.member_dot_arg(tree.children[0]) == celtypes.BoolType(True)
     )
+
+
+def test_member_dot_arg_reduce(monkeypatch):
+    """The reduce macro [0, 1, 2].reduce(r, i, 0, r + 2*i +1) == 9"""
+    visit = Mock(
+        side_effect=[
+            [celtypes.IntType(0), celtypes.IntType(1), celtypes.IntType(2)],
+            celtypes.IntType(0)
+        ]
+    )
+    monkeypatch.setattr(Evaluator, 'visit', visit)
+    build_reduce_macro_eval = Mock(
+        return_value=(lambda x, y: x + 2*y+1, 0)
+    )
+    monkeypatch.setattr(Evaluator, 'build_reduce_macro_eval', build_reduce_macro_eval)
+
+    tree = macro_member_tree(
+        "reduce",
+        lark.Tree("ident", children=[lark.Token("IDENT", "r")]),
+        lark.Tree("ident", children=[lark.Token("IDENT", "i")]),
+        lark.Tree(data="expr", children=[]), # Initialization
+        lark.Tree(data="expr", children=[]), # Reduction function
+    )
+
+    evaluator_0 = Evaluator(
+        tree,
+        activation=Mock()
+    )
+    assert (
+        evaluator_0.member_dot_arg(tree.children[0]) == celtypes.IntType(9)
+    )
+
+
+def test_member_dot_arg_min(monkeypatch):
+    """The macro [3, 1, 2].min() == 1"""
+    visit = Mock(
+        return_value=[celtypes.IntType(3), celtypes.IntType(1), celtypes.IntType(2)]
+    )
+    monkeypatch.setattr(Evaluator, 'visit', visit)
+
+    tree = macro_member_tree("min")
+
+    evaluator_0 = Evaluator(
+        tree,
+        activation=Mock()
+    )
+    assert (
+        evaluator_0.member_dot_arg(tree.children[0]) == celtypes.IntType(1)
+    )
+
+
+def test_member_dot_arg_min_error(monkeypatch):
+    """The macro [].min() is an error"""
+    visit = Mock(
+        return_value=[]
+    )
+    monkeypatch.setattr(Evaluator, 'visit', visit)
+
+    tree = macro_member_tree("min")
+
+    evaluator_0 = Evaluator(
+        tree,
+        activation=Mock()
+    )
+    result = evaluator_0.member_dot_arg(tree.children[0])
+    assert isinstance(result, CELEvalError)
 
 
 index_operator_params = [
@@ -1348,7 +1504,7 @@ index_operator_params = [
         celtypes.StringType("nope"), CELEvalError, "_[_]"),
 ]
 
-@fixture(params=index_operator_params, ids=lambda f: "{0}[{1}] == {2}".format(*f))
+@fixture(params=index_operator_params, ids=lambda f: "{0}[{1!r}] == {2}".format(*f))
 def index_trees(request, monkeypatch):
     container, index, expected, function = request.param
     visit_children = Mock(
@@ -1367,11 +1523,20 @@ def index_trees(request, monkeypatch):
                 children=[
                     lark.Tree(
                         data="primary",
-                        children=[]
+                        children=[
+                            lark.Tree(
+                                data="literal",
+                                children=[
+                                    lark.Token(type_="STRING_LIT", value=str(container))
+                                ]
+                            )
+                        ]
                     ),
                     lark.Tree(
                         data="literal",
-                        children=[]
+                        children=[
+                            lark.Token(type_="STRING_LIT", value=str(index))
+                        ]
                     ),
                 ],
                 meta=Mock(line=1, column=1)
@@ -1392,9 +1557,11 @@ def test_member_index(index_trees):
         activation=Mock()
     )
     if isinstance(expected, type):
+        # Does the member_index() method produce a CELEvalError instance?
         assert isinstance(evaluator_0.member_index(tree.children[0]), expected), \
             "{0!r} is not {1}".format(evaluator_0.member(tree), expected)
     else:
+        # Does the member_index() method produce the expected concrete object?
         assert evaluator_0.member_index(tree.children[0]) == expected
 
 
@@ -1429,7 +1596,7 @@ def test_member_object_1():
                     lark.Tree(
                         data='literal',
                         children=[
-                            lark.lexer.Token(type_="INT_LIT", value="42"),
+                            lark.Token(type_="INT_LIT", value="42"),
                         ]
                     ),
                 ],
@@ -1535,7 +1702,7 @@ def test_primary_dot_ident_arg(monkeypatch):
             lark.Tree(
                 data="dot_ident_arg",
                 children=[
-                    lark.lexer.Token("IDENT", "name"),
+                    lark.Token("IDENT", "name"),
                     lark.Tree(
                         data="exprlist",
                         children=[]
@@ -1563,7 +1730,7 @@ def test_primary_dot_ident(monkeypatch):
             lark.Tree(
                 data="dot_ident",
                 children=[
-                    lark.lexer.Token("IDENT", "name"),
+                    lark.Token("IDENT", "name"),
                 ]
             )
         ],
@@ -1587,7 +1754,7 @@ def test_primary_dot_ident_not_found(monkeypatch):
             lark.Tree(
                 data="dot_ident",
                 children=[
-                    lark.lexer.Token("IDENT", "name"),
+                    lark.Token("IDENT", "name"),
                 ]
             )
         ],
@@ -1615,7 +1782,7 @@ def test_primary_ident_arg_has(monkeypatch):
             lark.Tree(
                 data="ident_arg",
                 children=[
-                    lark.lexer.Token("IDENT", "has"),
+                    lark.Token("IDENT", "has"),
                     sub_expr
                 ]
             )
@@ -1644,7 +1811,7 @@ def test_primary_ident_arg_dyn(monkeypatch):
             lark.Tree(
                 data="ident_arg",
                 children=[
-                    lark.lexer.Token("IDENT", "dyn"),
+                    lark.Token("IDENT", "dyn"),
                     sub_expr
                 ]
             )
@@ -1675,7 +1842,7 @@ def test_primary_ident_arg_method(monkeypatch):
             lark.Tree(
                 data="ident_arg",
                 children=[
-                    lark.lexer.Token("IDENT", "name"),
+                    lark.Token("IDENT", "name"),
                     sub_expr
                 ]
             )
@@ -1691,6 +1858,34 @@ def test_primary_ident_arg_method(monkeypatch):
     assert function_eval.mock_calls == [call("name", [sentinel.input])]
 
 
+def test_primary_ident_arg_empty(monkeypatch):
+    """
+    https://github.com/cloud-custodian/cel-python/issues/10
+    """
+    visit_children = Mock(return_value=[sentinel.value])
+    monkeypatch.setattr(Evaluator, 'visit_children', visit_children)
+
+    tree = lark.Tree(
+        data="primary",
+        children=[
+            lark.Tree(
+                data="ident_arg",
+                children=[
+                    lark.Token("IDENT", "shake_hands"),
+                ]
+            )
+        ],
+        meta=Mock(line=1, column=1)
+    )
+    evaluator_0 = Evaluator(
+        tree,
+        activation=Mock(),
+        functions = {"shake_hands": Mock(return_value=sentinel.value)}
+    )
+    assert evaluator_0.primary(tree) == sentinel.value
+    assert visit_children.mock_calls == [call(lark.Tree("exprlist", []))]
+
+
 def test_primary_ident_good(monkeypatch):
     ident_value = Mock(return_value=sentinel.value)
     monkeypatch.setattr(Evaluator, 'ident_value', ident_value)
@@ -1701,7 +1896,7 @@ def test_primary_ident_good(monkeypatch):
             lark.Tree(
                 data="ident",
                 children=[
-                    lark.lexer.Token("IDENT", "name"),
+                    lark.Token("IDENT", "name"),
                 ]
             )
         ],
@@ -1725,7 +1920,7 @@ def test_primary_ident_bad(monkeypatch):
             lark.Tree(
                 data="ident",
                 children=[
-                    lark.lexer.Token("IDENT", "name"),
+                    lark.Token("IDENT", "name"),
                 ]
             )
         ],
@@ -1893,7 +2088,7 @@ def test_primary_literal(monkeypatch):
             lark.Tree(
                 data="literal",
                 children=[
-                    lark.lexer.Token(type_="INT_LIT", value="42")
+                    lark.Token(type_="INT_LIT", value="42")
                 ]
             )
         ],
@@ -1964,7 +2159,7 @@ def literals(request):
     tree = lark.Tree(
         data="literal",
         children=[
-            lark.lexer.Token(type_=token_type, value=token_value)
+            lark.Token(type_=token_type, value=token_value)
         ],
         meta=Mock(line=1, column=1)
     )
@@ -2004,13 +2199,13 @@ def test_mapinits_good():
             lark.Tree(
                 data="literal",
                 children=[
-                    lark.lexer.Token(type_="STRING_LIT", value="'name'")
+                    lark.Token(type_="STRING_LIT", value="'name'")
                 ]
             ),
             lark.Tree(
                 data="literal",
                 children=[
-                    lark.lexer.Token(type_="STRING_LIT", value="'value'")
+                    lark.Token(type_="STRING_LIT", value="'value'")
                 ]
             ),
         ],
@@ -2031,25 +2226,25 @@ def test_mapinits_bad():
             lark.Tree(
                 data="literal",
                 children=[
-                    lark.lexer.Token(type_="STRING_LIT", value="'name'")
+                    lark.Token(type_="STRING_LIT", value="'name'")
                 ]
             ),
             lark.Tree(
                 data="literal",
                 children=[
-                    lark.lexer.Token(type_="STRING_LIT", value="'value'")
+                    lark.Token(type_="STRING_LIT", value="'value'")
                 ]
             ),
             lark.Tree(
                 data="literal",
                 children=[
-                    lark.lexer.Token(type_="STRING_LIT", value="'name'")
+                    lark.Token(type_="STRING_LIT", value="'name'")
                 ]
             ),
             lark.Tree(
                 data="literal",
                 children=[
-                    lark.lexer.Token(type_="STRING_LIT", value="'value'")
+                    lark.Token(type_="STRING_LIT", value="'value'")
                 ]
             ),
         ],

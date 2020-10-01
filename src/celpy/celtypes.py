@@ -171,6 +171,7 @@ To get Go-like behavior, we need to use absolute values and restore the signs la
 import datetime
 from functools import wraps, reduce
 import logging
+from math import fsum
 import re
 from typing import (
     Any, NoReturn, Mapping, Union, Sequence, Tuple, Optional, Iterable,
@@ -257,7 +258,7 @@ def logical_and(x: Value, y: Value) -> Value:
     CEL && is commutative with non-Boolean values, including error objects.
     """
     if not isinstance(x, BoolType) and not isinstance(y, BoolType):
-        raise TypeError(f"{type(x)} and {type(y)}")
+        raise TypeError(f"{type(x)} {x!r} and {type(y)} {y!r}")
     elif not isinstance(x, BoolType) and isinstance(y, BoolType):
         if y:
             return x  # whatever && true == whatever
@@ -305,7 +306,7 @@ def logical_or(x: Value, y: Value) -> Value:
     If the operand(s) are not BoolType, we'll create an CELEvalError.
     """
     if not isinstance(x, BoolType) and not isinstance(y, BoolType):
-        raise TypeError(f"{type(x)} or {type(y)}")
+        raise TypeError(f"{type(x)} {x!r} or {type(y)} {y!r}")
     elif not isinstance(x, BoolType) and isinstance(y, BoolType):
         if y:
             return y  # whatever || true == true
@@ -1134,15 +1135,43 @@ class DurationType(datetime.timedelta):
     https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration
 
     The protobuf implementation is an ordered pair of int64 seconds and int32 nanos.
-
-    "type conversion, duration should be end with "s", which stands for seconds"
-
     Instead of a Tuple[int, int] we use a wrapper for :py:class:`datetime.timedelta`.
+
+    The definition once said this::
+
+        "type conversion, duration should be end with "s", which stands for seconds"
+
+    This is obsolete, however, considering the following issue.
+
+    See https://github.com/google/cel-spec/issues/138
+
+    This refers to the following implementation detail
+    ::
+
+        // A duration string is a possibly signed sequence of
+        // decimal numbers, each with optional fraction and a unit suffix,
+        // such as "300ms", "-1.5h" or "2h45m".
+        // Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
+
+    The real regex, then is this::
+
+        [-+]?([0-9]*(\\.[0-9]*)?[a-z]+)+
 
     """
     MaxSeconds = 315576000000
     MinSeconds = -315576000000
     NanosecondsPerSecond = 1000000000
+
+    scale: Dict[str, float] = {
+        "ns": 1E-9,
+        "us": 1E-6,
+        "µs": 1E-6,
+        "ms": 1E-3,
+        "s": 1.,
+        "m": 60.,
+        "h": 60. * 60.,
+        "d": 24. * 60. * 60.,
+    }
 
     def __new__(
             cls: Type['DurationType'],
@@ -1160,11 +1189,34 @@ class DurationType(datetime.timedelta):
             return cast(DurationType, super().__new__(  # type: ignore[call-arg]
                 cls, seconds=source, microseconds=nanos // 1000))
         elif isinstance(source, str):
-            duration_pat = re.compile(r"^(\d+)s$")
+            duration_pat = re.compile(r"^[-+]?([0-9]*(\.[0-9]*)?[a-z]+)+$")
+
             duration_match = duration_pat.match(source)
             if not duration_match:
                 raise ValueError(f"Invalid duration {source!r}")
-            seconds = int(duration_match.group(1))
+
+            # Consume the sign.
+            sign: float
+            if source.startswith("+"):
+                source = source[1:]
+                sign = +1
+            elif source.startswith("-"):
+                source = source[1:]
+                sign = -1
+            else:
+                sign = +1
+
+            # Sum the remaining time components: number * unit
+            try:
+                seconds = sign * fsum(
+                    map(
+                        lambda n_u: float(n_u.group(1)) * cls.scale[n_u.group(3)],
+                        re.finditer(r"([0-9]*(\.[0-9]*)?)([a-z]+)", source)
+                    )
+                )
+            except KeyError:
+                raise ValueError(f"Invalid duration {source!r}")
+
             if not (cls.MinSeconds <= seconds <= cls.MaxSeconds):
                 raise ValueError("range error: {source}")
             return cast(DurationType, super().__new__(  # type: ignore[call-arg]

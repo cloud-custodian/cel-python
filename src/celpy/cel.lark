@@ -66,8 +66,15 @@ multiplication_mod : multiplication "%"
 //                | "!" "!"* member
 //                | "-" "-"* member
 
-// Expose operators in the AST.
-unary          : [unary_not | unary_neg] member
+// Expose operators in the AST
+// Option 1: zero or more token nodes; requires some care to handle sequence of operations.
+//unary          : [unary_not | unary_neg]* member
+
+// Option 2: separate expressions; doesn't maintain type safetly, allows ~!~!~!~!~x syntax which isn't really ideal.
+unary          : member
+               | unary_not unary
+               | unary_neg unary
+
 unary_not      : "!"
 unary_neg      : "-"
 

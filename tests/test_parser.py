@@ -22,7 +22,7 @@ Test Parser Features
 
 -   Aggregates
 
-TODO: Each production rule.
+TODO: Test *all* production rules separately here.
 
 TODO: Create a better, more useful tree-walker than the Tree.pretty() to examine the resulting AST.
 """
@@ -402,7 +402,9 @@ def test_error_text(parser):
 
 
 def test_dump_ast(parser):
-    """GIVEN parsed AST; WHEN dump; THEN results reflect the source"""
+    """
+    GIVEN parsed AST; WHEN dump; THEN results reflect the source.
+    """
     ast = parser.parse("-(3*4+5-1/2%3==1)?name[index]:f(1,2)||false&&true")
     assert (
         DumpAST.display(ast)
@@ -412,8 +414,10 @@ def test_dump_ast(parser):
         '!true in [1<2, 1<=2, 2>1, 2>=1, 3==3, 4!=1, size(x), now(), {"pi": 3.14}]'
     )
     assert (
-        DumpAST.display(ast2)
-        == '! true in  [1 <  2, 1 <=  2, 2 >  1, 2 >=  1, 3 ==  3, 4 !=  1, size(x), now(), {"pi": 3.14}]'
+        DumpAST.display(ast2) == (
+            '! true in  [1 <  2, 1 <=  2, 2 >  1, 2 >=  1, 3 ==  3, 4 !=  1, '
+            'size(x), now(), {"pi": 3.14}]'
+        )
     )
     ast3 = parser.parse(
         ".name.name / .name() + .name(42) * name.name - name.one(1) % name.zero()"
@@ -424,3 +428,8 @@ def test_dump_ast(parser):
     )
     ast4 = parser.parse("message{field: 1, field: 2} || message{}")
     assert DumpAST.display(ast4) == "message{field: 1, field: 2} || message{}"
+    ast5 = parser.parse("{}.a")
+    assert DumpAST.display(ast5) == "{}.a"
+    # An odd degenerate case
+    ast6 = parser.parse("[].min()")
+    assert DumpAST.display(ast6) == ".min()"

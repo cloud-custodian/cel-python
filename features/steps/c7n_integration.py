@@ -19,356 +19,207 @@ C7N Integration Bindings for Behave testing.
 These step definitions create C7N-like CEL expressions from the source policy YAML and the evaluate
 those CEL expressions with a given document.
 
-The C7N shorthand ``tag:Name`` doesn't translate well to CEL. It extracts a single value
-from a sequence of objects with a ``{"Key": x, "Value": y}`` structure; specifically,
-the value for ``y`` when ``x == "Name"``.
+This builds the global objects expected in an activation
 
-If we want to check the value associated with the "Uptime" tag
-to see if it is in some list of valid values, we have something like this.
+-   ``Resource`` is a CEL representation of the cloud resource
 
-::
+-   ``Now`` is the current time
 
-    resource["Tags"].filter(x, x["Key"] == "Name")[0]["Value"]
+-   ``C7N`` is an opaque reference usable by :mod:`c7nlib` functions to acquire objects
+    from c7n's cache.
 
-This seems bulky, but it's workable within the CEL language.
-
-We can replace this with a ``key(resource, "Name")`` function. This can be used
-as ``resource["Tags"].key("Name")`` preserving the original C7N syntax to an extent.
-It has the ``{"Key": x, "Value": y}`` assumption wired-in.
+This also uses the :py:class:`celpy.c7nlib.C7N_Interpreted_Runner` class to provide
+access to C7N caches to the c7nlib functions.
 """
 from behave import *
 from dateutil.parser import parse as parse_date
-from functools import partial
 import json
-import parse
-import re
-import sys
-from typing import Union, Dict, List, Any, Optional
-import yaml
+from unittest.mock import Mock
+from types import SimpleNamespace
 
 import celpy
 import celpy.c7nlib
 import celpy.celtypes
-
-
-
-
-JSON = Union[Dict[str, Any], List[Any], float, int, str, bool, None]
-
-
-class C7N_Rewriter:
-
-    @staticmethod
-    def key_to_cel(operation_key: str) -> str:
-        """Convert key: clause to CEL"""
-        function_map = {
-            "length": "size",
-        }
-
-        function_pat = re.compile(r"(\w+)\((\w+)\)")
-
-        key: str
-        function_arg_match = function_pat.match(operation_key)
-        if function_arg_match:
-            function, arg = function_arg_match.groups()
-            cel_name = function_map[function]
-            key = f"{cel_name}(resource[\"{arg}\"])"
-        elif "." in operation_key:
-            names = operation_key.split('.')
-            key = f'resource["{names[0]}"]' + "".join(f'["{n}"]' for n in names[1:])
-        elif operation_key.startswith("tag:"):
-            prefix, name = operation_key.split(':')
-            key = f'resource["Tags"].filter(x, x["Key"] == "{name}")[0]["Value"]'
-        else:
-            key = f'resource["{operation_key}"]'
-        return key
-
-
-    @staticmethod
-    def value_to_cel(key: str, op: str, value: str, value_type: Optional[str]) -> str:
-        """
-        Convert value: op: and value_type: clauses to CEL
-        """
-        atomic_op_map = {
-            'eq': '{0} == {1}',
-            'equal': '{0} == {1}',
-            'ne': '{0} != {1}',
-            'not-equal': '{0} != {1}',
-            'gt': '{0} > {1}',
-            'greater-than': '{0} > {1}',
-            'ge': '{0} >= {1}',
-            'gte': '{0} >= {1}',
-            'le': '{0} < {1}',
-            'lte': '{0} <= {1}',
-            'lt': '{0} < {1}',
-            'less-than': '{0} < {1}',
-            'glob': '{0}.glob({1})',
-            'regex': "{0}.matches({1})",
-            'in': "{1}.contains({0})",
-            'ni': "! {1}.contains({0})",
-            'not-in': "! {1}.contains({0})",
-            'contains': "{0}.contains({1})",
-            'difference': '{0}.difference({1})',
-            'intersect': '{0}.intersect({1})',
-        }
-        type_value_map = {
-            "age": lambda sentinel, value: ("timestamp({})".format(value),
-                                            "Now - duration({})".format(
-                                                int(float(sentinel) * 24 * 60 * 60))),
-            "integer": lambda sentinel, value: (sentinel, "int({})".format(value)),
-            "expiration": lambda sentinel, value: (
-                "Now + duration({})".format(int(float(sentinel) * 24 * 60 * 60)),
-                "timestamp({})".format(value)),
-            "normalize": lambda sentinel, value: (sentinel, "normalize({})".format(value)),
-            "size": lambda sentinel, value: (sentinel, "size({})".format(value)),
-            "cidr": lambda sentinel, value: (
-                "parse_cidr({})".format(sentinel), "parse_cidr({})".format(value)),
-            "cidr_size": lambda sentinel, value: (sentinel, "size_parse_cidr({})".format(value)),
-            "swap": lambda sentinel, value: (value, sentinel),
-            "unique_size": lambda sentinel, value: (sentinel, "unique_size({})".format(value)),
-            "date": lambda sentinel, value: (
-                "timestamp({})".format(sentinel), "timestamp({})".format(value)),
-            "version": lambda sentinel, value: (
-                "version({})".format(sentinel), "version({})".format(value)),
-            # expr
-            # resource_count -- no examples; it's not clear how this is different from size()
-        }
-
-        if (
-            isinstance(value, str) and value in ("true", "false")
-            or isinstance(value, bool)
-        ):
-            # Boolean cases
-            # Rewrite == true, != true, == false, and != false
-            if op in ("eq", "equal"):
-                if value in ("true", True):
-                    return f"{key}"
-                else:
-                    return f"! {key}"
-            elif op in ("ne", "not-equal"):
-                if value in ("true", True):
-                    return f"! {key}"
-                else:
-                    return f"{key}"
-            else:
-                raise ValueError(f"Unknown op, value combination in {operation}")
-
-        else:
-            # Ordinary comparisons, including the value_type transformation
-            cel_value: str
-            if isinstance(value, str):
-                cel_value = f'"{value}"'
-            else:
-                cel_value = f'{value}'
-
-            if value_type:
-                type_transform = type_value_map[value_type]
-                cel_value, key = type_transform(cel_value, key)
-
-            return (
-                atomic_op_map[op].format(key, cel_value)
-            )
-
-    @staticmethod
-    def value_from_to_cel(
-        key: str,
-        op: Optional[str],
-        value_from: Dict[str, Any],
-    ):
-        """
-        Convert value_from: and op: clauses to CEL.
-        When the op is either "in" or "ni", this becomes
-        ::
-
-            value_from(url[, format])[.jmes_path_map(expr)].contains(key)
-
-        or
-        ::
-
-            ! value_from(url[, format])[.jmes_path_map(expr)].contains(key)
-
-        The complete domain of ops is::
-
-            Counter({'op: not-in': 943,
-                     'op: ni': 1482,
-                     'op: in': 656,
-                     'op: intersect': 8,
-                     'value_from: op: ni': 32,
-                     'value_from: op: in': 8,
-                     'value_from: op: not-in': 1,
-                     'no op present': 14})
-
-        The intersect variable replaces "contains" with "intersect".
-        The 41 examples with the op buried in the
-        value_from clause follow a similar pattern.
-        The remaining 14 have no explicit operation. Perhaps it's a default "in"?
-        """
-        filter_op_map = {
-            'in': "{1}.contains({0})",
-            'ni': "! {1}.contains({0})",
-            'not-in': "! {1}.contains({0})",
-            'intersect':  "{1}.intersect({0})",
-        }
-        source: str
-        url = value_from["url"]
-        if "format" in value_from:
-            format = value_from["format"]
-            source = f'value_from("{url}", "{format}")'
-        else:
-            # Parse URL to get format from path.
-            source = f'value_from("{url}")'
-        if "expr" in value_from:
-            # if expr is a string, it's jmespath
-            cel_value = f"{source}.jmes_path('{value_from['expr']}')"
-            # TODO: if expr is an integer, we use ``.map(x, x[integer])``
-        else:
-            cel_value = f"{source}"
-        if op is None:
-            # Sometimes the op: is inside the value_from clause.
-            # Sometimes it's omitted, and it seems like "in" could be a default.
-            op = value_from.get("op", "in")
-        return (
-            filter_op_map[op].format(key, cel_value)
-        )
-
-    @staticmethod
-    def type_value_rewrite(operation: Dict[str, Any]) -> str:
-        """
-        Transform one atomic "type: value" clause.
-        Two subtypes: value: and value_from:
-        """
-        key = C7N_Rewriter.key_to_cel(operation["key"])
-
-        if "value" in operation:
-            # Literal value supplied in the filter
-            return C7N_Rewriter.value_to_cel(
-                key,
-                operation["op"],
-                operation["value"],
-                operation.get("value_type")
-            )
-
-        elif "value_from" in operation:
-            # Value fetched from S3 or HTTPS
-            return C7N_Rewriter.value_from_to_cel(
-                key,
-                operation.get("op"),
-                operation["value_from"]
-            )
-
-        else:
-            raise ValueError(f"Missing value/value_type in {operation}")
-
-
-    @staticmethod
-    def logical_connector(filter: Dict[str, Any]) -> str:
-        """Handle `not`, `or`, and `and`. A simple list is an implicit "and".
-        """
-        details: str
-        if isinstance(filter, dict):
-            details: str
-            if set(filter.keys()) == {"not"}:
-                if len(filter["not"]) == 1:
-                    details = C7N_Rewriter.logical_connector(filter["not"][0])
-                else:
-                    details = " && ".join(
-                        C7N_Rewriter.logical_connector(f) for f in filter["not"]
-                    )
-                    details = f"({details})"
-                return f"! {details}"
-            elif set(filter.keys()) == {"or"}:
-                details = " || ".join(
-                    C7N_Rewriter.logical_connector(f) for f in filter["or"]
-                )
-                return f"{details}"
-            elif set(filter.keys()) == {"and"}:
-                details = " && ".join(
-                    C7N_Rewriter.logical_connector(f) for f in filter["and"]
-                )
-                return f"{details}"
-            else:
-                if filter.get("type") == "value":
-                    return C7N_Rewriter.type_value_rewrite(filter)
-                raise ValueError("Unexpected primitive expression for {filter!r}")
-        elif isinstance(filter, list):
-            # And is implied by a list with no explicit connector
-            details = " && ".join(C7N_Rewriter.logical_connector(f) for f in filter)
-            return details
-        else:
-            raise ValueError("Unexpected logic structure for {filter!r}")
-
-    @staticmethod
-    def c7n_rewrite(document: str) -> str:
-        """Rewrite simple C7N filter expressions into CEL.
-        We avoid value_type and value_from (for now).
-
-        ..  parsed-literal::
-
-            filters:
-            - key: *name*
-              op: *operator*
-              type: value
-              value: *value*
-
-        into CEL::
-
-            (name operator value)
-
-        With a number of special cases to handle keys with functions, boolean values, etc.
-        """
-        policy = yaml.load(document, Loader=yaml.SafeLoader)
-        return C7N_Rewriter.logical_connector(policy['filters'])
+from xlate.c7n_to_cel import C7N_Rewriter
 
 
 @given(u'policy text')
 def step_impl(context):
-    context.cel_source = C7N_Rewriter.c7n_rewrite(context.text)
-    decls = {"resource": celpy.celtypes.MapType}
+    context.cel['source'] = C7N_Rewriter.c7n_rewrite(context.text)
+    decls = {
+        "Resource": celpy.celtypes.MapType,
+        "Now": celpy.celtypes.TimestampType,
+        "C7N": celpy.celtypes.Value,  # Generally, this is opaque to CEL
+    }
     decls.update(celpy.c7nlib.DECLARATIONS)
-    context.cel_env = celpy.Environment(annotations=decls)
-    context.cel_ast = context.cel_env.compile(context.cel_source)
-    context.cel_prgm = context.cel_env.program(context.cel_ast, functions=celpy.c7nlib.FUNCTIONS)
-    context.cel_activation = {}
-    print(f"\nCEL: {context.cel_source}\n")
+    context.cel['env'] = celpy.Environment(
+        annotations=decls,
+        runner_class=celpy.c7nlib.C7N_Interpreted_Runner
+    )
+    context.cel['ast'] = context.cel['env'].compile(context.cel['source'])
+    context.cel['prgm'] = context.cel['env'].program(context.cel['ast'], functions=celpy.c7nlib.FUNCTIONS)
+    # C7N namespace has active Policy, resource_manager, and filter_registry
+    context.cel['activation'] = {
+        "C7N": SimpleNamespace(
+            filter=Mock(name="mock filter"),
+            policy=Mock(name="mock policy"),
+        ),
+        "Resource": None,
+        "Now": None
+    }
+    print(f"\nCEL: {context.cel['source']}\n")
 
 
-@given(u'resource value {value}')
+@given(u'Resource value {value}')
 def step_impl(context, value):
     resource = json.loads(value)
-    context.cel_activation["resource"] =  celpy.json_to_cel(resource)
+    context.cel['activation']["Resource"] =  celpy.json_to_cel(resource)
 
 
 @given(u'Now value {timestamp}')
 def step_impl(context, timestamp):
-    assert timestamp[0] == '"' and timestamp[-1] == '"', f"Unrecognized {timestamp!r} string"
-    context.cel_activation["Now"] = celpy.celtypes.TimestampType(parse_date(timestamp[1:-1]))
+    context.cel['activation']["Now"] = celpy.celtypes.TimestampType(parse_date(timestamp))
 
 
-@given(u'source text')
-def step_impl(context):
-    context.value_from_data = context.text
+@given(u'Event value {value}')
+def step_impl(context, value):
+    resource = json.loads(value)
+    context.cel['activation']["Event"] = celpy.json_to_cel(resource)
+
+
+@given(u'url {url} has text')
+def step_impl(context, url):
+    context.value_from_data[url] = context.text
+
+
+@given(u'C7N.filter has get_instance_image result with CreateDate of {timestamp}')
+def step_impl(context, timestamp):
+    """
+    The C7N filter ``get_instance_image()`` response.
+    This method returns the relevant image descruption.
+    """
+    instance_image={
+        "VirtualizationType": "hvm",
+        "Description": "Provided by Red Hat, Inc.",
+        "PlatformDetails": "Red Hat Enterprise Linux",
+        "EnaSupport": True,
+        "Hypervisor": "xen",
+        "State": "available",
+        "SriovNetSupport": "simple",
+        "ImageId": "ami-1234567890EXAMPLE",
+        "UsageOperation": "RunInstances:0010",
+        "BlockDeviceMappings": [
+            {
+                "DeviceName": "/dev/sda1",
+                "Ebs": {
+                    "SnapshotId": "snap-111222333444aaabb",
+                    "DeleteOnTermination": True,
+                    "VolumeType": "gp2",
+                    "VolumeSize": 10,
+                    "Encrypted": False
+                }
+            }
+        ],
+        "Architecture": "x86_64",
+        "ImageLocation": "123456789012/RHEL-8.0.0_HVM-20190618-x86_64-1-Hourly2-GP2",
+        "RootDeviceType": "ebs",
+        "OwnerId": "123456789012",
+        "RootDeviceName": "/dev/sda1",
+        "CreationDate": timestamp,
+        "Public": True,
+        "ImageType": "machine",
+        "Name": "RHEL-8.0.0_HVM-20190618-x86_64-1-Hourly2-GP2"
+    }
+    context.cel['activation']["C7N"].filter.get_instance_image = Mock(
+        return_value=instance_image
+    )
+
+
+@given(u'C7N.filter has get_metric_statistics result with {statistics}')
+def step_impl(context, statistics):
+    """
+    The C7N filter ``get_metric_statistics()`` response.
+
+    Two API's are reflected here an old-style one that may work with current C7N
+    The preferred one after CELFilter is refactored.
+    """
+    # Current API.
+    context.cel['activation']["C7N"].filter.manager.session_factory = Mock(
+        name="mock filter session_factory()",
+        return_value=Mock(
+            name="mock filter session_factory instance",
+            client=Mock(
+                name="mock filter session_factory().client()",
+                return_value=Mock(
+                    name="mock filter client instance",
+                    get_metric_statistics=Mock(
+                        name="mock filter client get_metric_statistics()",
+                        return_value=json.loads(statistics)
+                    )
+                )
+            )
+        )
+    )
+
+    # Preferred API.
+    context.cel['activation']["C7N"].filter.get_resource_statistics = Mock(
+        return_value=json.loads(statistics)["Datapoints"]
+    )
+
+@given(u'C7N.filter manager has get_model result of {model}')
+def step_impl(context, model):
+    context.cel['activation']["C7N"].filter.manager.get_model = Mock(
+        name="mock filter.manager.get_model()",
+        return_value=Mock(
+            name="mock filter.manager.model",
+            dimension=model
+        )
+    )
+
+@given(u'C7N.filter has resource type of {resource_type}')
+def step_impl(context, resource_type):
+    context.cel['activation']["C7N"].filter.manager.resource_type = resource_type
+
+
+@given(u'C7N.filter has get_related result with {sg_document}')
+def step_impl(context, sg_document):
+    context.cel['activation']["C7N"].filter.get_related = Mock(
+        name="mock filter.get_related()",
+        return_value=json.loads(sg_document),
+    )
+
+@given(u'C7N.filter has flow_logs result with {flow_logs}')
+def step_impl(context, flow_logs):
+    context.cel['activation']["C7N"].filter.client = Mock(
+        name="mock filter.client()",
+        return_value=Mock(
+            describe_flow_logs=Mock(
+                return_value={"FlowLogs": json.loads(flow_logs)}
+            )
+        )
+    )
 
 
 @when(u'CEL is built and evaluated')
 def step_impl(context):
     try:
-        context.cel_result = context.cel_prgm.evaluate(context.cel_activation)
+        context.cel['result'] = context.cel['prgm'].evaluate(context.cel['activation'])
     except celpy.CELEvalError as ex:
-        context.cel_result = ex
+        context.cel['result'] = ex
 
 
 @then(u'result is {result}')
 def step_impl(context, result):
-    error_message = f"{context.cel_source} evaluated with {context.cel_activation} is {context.cel_result}, expected {result!r}"
+    error_message = f"{context.cel['source']} evaluated with {context.cel['activation']} is {context.cel['result']}, expected {result!r}"
     if result in ("True", "False"):
         expected = result == "True"
-        assert context.cel_result == expected, error_message
+        assert context.cel['result'] == expected, error_message
     elif result == "CELEvalError":
-        assert isinstance(context.cel_result, celpy.CELEvalError)
+        assert isinstance(context.cel['result'], celpy.CELEvalError)
     else:
         raise Exception(f"Invalid THEN step 'result is {result}'")
 
 
 @then(u'CEL text is {translation}')
 def step_impl(context, translation):
-    assert context.cel_source == translation, f"{context.cel_source!r} != {translation!r}"
+    assert context.cel['source'] == translation, f"{context.cel['source']!r} != {translation!r}"

@@ -97,6 +97,7 @@ Here's the Pythonic approach, using concept patterned after the Go implementatio
 """
 import json  # noqa: F401
 import logging
+import sys
 from typing import (
     Type, Optional, List, Dict, cast
 )
@@ -133,6 +134,14 @@ class Runner:
         self.ast = ast
         self.functions = functions
 
+    def new_activation(self, context: Context) -> Activation:
+        """
+        Builds the working activation from the environmental defaults.
+
+        ..  todo:: this is a mixin, replaced by C7N to introduce the opaque C7N resource.
+        """
+        return self.environment.activation().nested_activation(vars=context)
+
     def evaluate(self, activation: Context) -> Result:  # pragma: no cover
         raise NotImplementedError
 
@@ -145,14 +154,13 @@ class InterpretedRunner(Runner):
 
     The returned value will be a celtypes type.
 
-    Generally, this should raise an CELEvalError for most kinds of ordinary problems.
-    It may raise an CELUnsupportedError for future features.
+    Generally, this should raise an :exc:`CELEvalError` for most kinds of ordinary problems.
+    It may raise an :exc:`CELUnsupportedError` for future features.
     """
     def evaluate(self, context: Context) -> Result:
-        activation = self.environment.activation().nested_activation(vars=context)
         e = Evaluator(
             ast=self.ast,
-            activation=activation,
+            activation=self.new_activation(context),
             functions=self.functions
         )
         value = e.evaluate()
@@ -175,7 +183,7 @@ class CompiledRunner(Runner):
             functions: Optional[List[CELFunction]] = None
     ) -> None:
         super().__init__(environment, ast, functions)
-        # Transform to Python.
+        # Transform AST to Python.
         # compile()
         # cache executable code object.
 
@@ -198,10 +206,13 @@ class Environment:
     def __init__(
             self,
             package: Optional[str] = None,
-            annotations: Optional[Dict[str, Annotation]] = None
+            annotations: Optional[Dict[str, Annotation]] = None,
+            runner_class: Optional[Type[Runner]] = None
     ) -> None:
         """
         Create a new environment.
+
+        This also increases the default recursion limit to handle the defined minimums for CEL.
 
         :param package: An optional package name used to resolve names in an Activation
         :param annotations: Names with type annotations.
@@ -210,11 +221,14 @@ class Environment:
             - Variable names based on :py:mod:``celtypes``
 
             - Function names, using ``typing.Callable``.
+        :param runner_class: the class of Runner to use, either InterpretedRunner or CompiledRunner
         """
+        sys.setrecursionlimit(2500)
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.package: Optional[str] = package
         self.annotations: Dict[str, Annotation] = annotations or {}
         self.logger.info(f"Type Annotations {self.annotations!r}")
-        self.package: Optional[str] = package
+        self.runner_class: Type[Runner] = runner_class or InterpretedRunner
         self.cel_parser = CELParser()
         self.runnable: Runner
 
@@ -229,8 +243,8 @@ class Environment:
             functions: Optional[List[CELFunction]] = None) -> Runner:
         """Transforms the AST into an executable runner."""
         self.logger.info(f"Package {self.package!r}")
-        self.runnable = InterpretedRunner(self, expr, functions)
-        # return CompiledRunner(self, expr, functions)
+        runner_class = self.runner_class
+        self.runnable = runner_class(self, expr, functions)
         return self.runnable
 
     def activation(self) -> Activation:

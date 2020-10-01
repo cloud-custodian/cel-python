@@ -332,7 +332,7 @@ def test_duration_type():
     with raises(ValueError):
         DurationType(datetime.timedelta(seconds=315576000001))
     with raises(ValueError):
-        DurationType("nopes")
+        DurationType("not:a:duration")
     with raises(ValueError):
         DurationType("315576000001s")
     with raises(ValueError):
@@ -347,6 +347,11 @@ def test_duration_type():
     assert DurationType("8454s").getMinutes() == IntType(140)
     assert DurationType("8454s").getSeconds() == IntType(8454)
     assert DurationType("8454s").getMilliseconds() == IntType(8454000)
+    # See https://github.com/google/cel-spec/issues/138
+    assert DurationType("+2m30s").getSeconds() == IntType(150)
+    assert DurationType("-2m30s").getSeconds() == IntType(-150)
+    with raises(ValueError):
+        DurationType("-2w30z")
 
 
 def test_function_type():
