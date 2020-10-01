@@ -46,6 +46,7 @@ from typing import (
     Type, TypeVar, Sequence, Sized, Tuple, Mapping, cast
 )
 import celpy.celtypes
+from celpy.celparser import tree_dump
 
 import lark.visitors  # type: ignore[import]
 import lark
@@ -101,6 +102,19 @@ class CELEvalError(Exception):
         if self.token:
             self.line = self.token.line
             self.column = self.token.column
+
+    def __repr__(self) -> str:
+        cls = self.__class__.__name__
+        if self.tree and self.token:
+            # This is rare
+            return (
+                f"{cls}(*{self.args}) in {tree_dump(self.tree)!r} near {self.token!r}"
+            )  # pragma: no cover
+        elif self.tree:
+            return f"{cls}(*{self.args}) in {tree_dump(self.tree)!r}"
+        else:
+            # Some unit tests do not provide a mock tree.
+            return f"{cls}(*{self.args})"  # pragma: no cover
 
     def with_traceback(self, tb: Any) -> 'CELEvalError':
         return cast('CELEvalError', super().with_traceback(tb))
@@ -270,6 +284,7 @@ def operator_in(item: Result, container: Result) -> Result:
             if c == item:
                 return celpy.celtypes.BoolType(True)
         except TypeError as ex:
+            logger.debug(f"operator_in({item}, {container}) --> {ex}")
             result = CELEvalError("no such overload", ex.__class__, ex.args)
     logger.debug(f"operator_in({item!r}, {container!r}) = {result!r}")
     return result
@@ -674,14 +689,22 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         self.logger.info(f"activation: {self.activation!r}")
         self.logger.info(f"functions: {self.functions!r}")
 
+    def sub_evaluator(self, ast: lark.Tree) -> 'Evaluator':
+        """
+        Build an evaluator for a sub-expression in a macro.
+        :param ast: The AST for the expression in the macro.
+        :return: A new `Evaluator` instance.
+        """
+        return Evaluator(ast, activation=self.activation, functions=self.functions)
+
     def set_activation(self, activation: Context) -> 'Evaluator':
         """
-        Build an activation using the given Context.
+        Chaina new activation using the given Context.
         This is used for two things:
 
         1. Bind external variables like command-line arguments or environment variables.
 
-        2. build local variables for macro evaluation.
+        2. Build local variable(s) for macro evaluation.
         """
         self.activation = self.base_activation.nested_activation(vars=activation)
         self.logger.info(f"Activation: {self.activation!r}")
@@ -702,7 +725,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
 
         -   External clients want the value or the exception.
 
-        -   Internally, we sometimes want to silence the exception so that
+        -   Internally, we sometimes want to silence CELEvalError exceptions so that
             we can apply short-circuit logic and choose a non-exceptional result.
         """
         value = cast(Result, self.visit(self.ast))
@@ -731,13 +754,16 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         """
         function: CELFunction
         try:
+            # TODO: Transitive Lookup of function in all parent activation contexts.
             function = self.functions[name_token.value]
         except KeyError as ex:
             err = (
                 f"undeclared reference to '{name_token}' "
                 f"(in container '{self.package}')"
             )
-            return CELEvalError(err, ex.__class__, ex.args, token=name_token)
+            value = CELEvalError(err, ex.__class__, ex.args, token=name_token)
+            value.__cause__ = ex
+            return value
 
         if isinstance(exprlist, CELEvalError):
             return exprlist
@@ -751,6 +777,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             value.__cause__ = ex
             return value
         except (TypeError, AttributeError) as ex:
+            self.logger.debug(f"function_eval({name_token!r}, {exprlist}) --> {ex}")
             value = CELEvalError(
                 "no such overload", ex.__class__, ex.args, token=name_token)
             value.__cause__ = ex
@@ -767,13 +794,18 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         """
         function: CELFunction
         try:
+            # TODO: Transitive Lookup of function in all parent activation contexts.
             function = self.functions[method_ident.value]
         except KeyError as ex:
+            self.logger.debug(f"method_eval({object!r}, {method_ident!r}, {exprlist}) --> {ex!r}")
+            self.logger.debug(f"functions: {self.functions}")
             err = (
-                f"undeclared reference to '{method_ident!r}' "
+                f"undeclared reference to {method_ident.value!r} "
                 f"(in container '{self.package}')"
             )
-            return CELEvalError(err, ex.__class__, ex.args, token=method_ident)
+            value = CELEvalError(err, ex.__class__, ex.args, token=method_ident)
+            value.__cause__ = ex
+            return value
 
         if isinstance(object, CELEvalError):
             return object
@@ -789,6 +821,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             value.__cause__ = ex
             return value
         except (TypeError, AttributeError) as ex:
+            self.logger.debug(f"method_eval({object!r}, {method_ident!r}, {exprlist}) --> {ex!r}")
             value = CELEvalError("no such overload", ex.__class__, ex.args, token=method_ident)
             value.__cause__ = ex
             return value
@@ -849,7 +882,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             try:
                 return func(cond_value, left, right)
             except TypeError as ex:
-                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
                 err = (
                     f"found no matching overload for _?_:_ "
                     f"applied to '({type(cond_value)}, {type(left)}, {type(right)})'"
@@ -882,7 +915,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             try:
                 return func(left, right)
             except TypeError as ex:
-                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
                 err = (
                     f"found no matching overload for _||_ "
                     f"applied to '({type(left)}, {type(right)})'"
@@ -915,7 +948,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             try:
                 return func(left, right)
             except TypeError as ex:
-                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
                 err = (
                     f"found no matching overload for _&&_ "
                     f"applied to '({type(left)}, {type(right)})'"
@@ -977,7 +1010,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             try:
                 return func(left, right)
             except TypeError as ex:
-                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
                 err = (
                     f"found no matching overload for {left_op.data!r} "
                     f"applied to '({type(left)}, {type(right)})'"
@@ -1029,7 +1062,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             try:
                 return func(left, right)
             except TypeError as ex:
-                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
                 err = (
                     f"found no matching overload for {left_op.data!r} "
                     f"applied to '({type(left)}, {type(right)})'"
@@ -1038,7 +1071,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
                 value.__cause__ = ex
                 return value
             except (ValueError, OverflowError) as ex:
-                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
                 value = CELEvalError("return error for overflow", ex.__class__, ex.args, tree=tree)
                 value.__cause__ = ex
                 return value
@@ -1088,7 +1121,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             try:
                 return func(left, right)
             except TypeError as ex:
-                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
                 err = (
                     f"found no matching overload for {left_op.data!r} "
                     f"applied to '({type(left)}, {type(right)})'"
@@ -1097,12 +1130,12 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
                 value.__cause__ = ex
                 return value
             except ZeroDivisionError as ex:
-                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
                 value = CELEvalError("modulus or divide by zero", ex.__class__, ex.args, tree=tree)
                 value.__cause__ = ex
                 return value
             except (ValueError, OverflowError) as ex:
-                logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
                 value = CELEvalError("return error for overflow", ex.__class__, ex.args, tree=tree)
                 value.__cause__ = ex
                 return value
@@ -1150,7 +1183,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             try:
                 return func(right)
             except TypeError as ex:
-                logger.debug(f"{func.__name__}({right}) --> {ex}")
+                self.logger.debug(f"{func.__name__}({right}) --> {ex}")
                 err = (
                     f"found no matching overload for {op_tree.data!r} "
                     f"applied to '({type(right)})'"
@@ -1159,7 +1192,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
                 value.__cause__ = ex
                 return value
             except ValueError as ex:
-                logger.debug(f"{func.__name__}({right}) --> {ex}")
+                self.logger.debug(f"{func.__name__}({right}) --> {ex}")
                 value = CELEvalError("return error for overflow", ex.__class__, ex.args, tree=tree)
                 value.__cause__ = ex
                 return value
@@ -1171,40 +1204,53 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
                 column=tree.column,
             )
 
-    def build_macro_eval(self, child: lark.Tree) -> Callable[[Any], Result]:
-        """Builds macro function.
+    def build_macro_eval(self, child: lark.Tree) -> Callable[[Result], Result]:
+        """
+        Builds macro function.
 
         For example
 
             ``[1, 2, 3].map(n, n/2)``
 
-        Builds the member = ``[1, 2, 3]`` and the function = ``lambda n: n/2``.
+        Builds the function = ``lambda n: n/2``.
 
         The function will expose exceptions, disabling short-circuit ``||`` and ``&&``.
+
+        The `child` is a `member_dot_arg` construct:
+
+        - [0] is the expression to the left of the '.'
+
+        - [1] is the function, `map`, to the right of the `.`
+
+        - [2] is the arguments in ()'s.
+          Within this, there are two children: a variable and an expression.
         """
         var_tree, expr_tree = child.children[2].children
         identifier = FindIdent.in_tree(var_tree)
-        nested_eval = Evaluator(ast=expr_tree, activation=self.activation)
+        # nested_eval = Evaluator(ast=expr_tree, activation=self.activation)
+        nested_eval = self.sub_evaluator(ast=expr_tree)
 
         def sub_expr(v: Result) -> Result:
             return nested_eval.set_activation({identifier: v}).evaluate()
 
         return sub_expr
 
-    def build_ss_macro_eval(self, child: lark.Tree) -> Callable[[Any], Result]:
-        """Builds macro function for logical evaluation ignoring exception values.
+    def build_ss_macro_eval(self, child: lark.Tree) -> Callable[[Result], Result]:
+        """
+        Builds macro function for short-circuit logical evaluation ignoring exception values.
 
         For example
 
             ``[1, 2, 'hello'].exists(n, n >= 2)``
 
-        Builds the member = ``[1, 2, 3]`` and the function = ``lambda n: n >= 2``.
+        Builds the function = ``lambda n: n >= 2``.
 
         The function will swallow exceptions, enabling short-circuit ``||`` and ``&&``.
         """
         var_tree, expr_tree = child.children[2].children
         identifier = FindIdent.in_tree(var_tree)
-        nested_eval = Evaluator(ast=expr_tree, activation=self.activation)
+        # nested_eval = Evaluator(ast=expr_tree, activation=self.activation)
+        nested_eval = self.sub_evaluator(ast=expr_tree)
 
         def sub_expr(v: Result) -> Result:
             try:
@@ -1213,6 +1259,37 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
                 return ex
 
         return sub_expr
+
+    def build_reduce_macro_eval(
+            self, child: lark.Tree) -> Tuple[Callable[[Result, Result], Result], lark.Tree]:
+        """
+        Builds macro function and intiial expression for reduce().
+
+        For example
+
+            ``[0, 1, 2].reduce(r, i, 0, r + 2*i+1)``
+
+        Builds the function = ``lambda r, i: r + 2*i+1`` and initial value = 0.
+
+        The `child` is a `member_dot_arg` construct:
+
+        - [0] is the expression to the left of the '.'
+
+        - [1] is the function, `reduce`, to the right of the `.`
+
+        - [2] is the arguments in ()'s.
+          Within this, there are four children: two variables and two expressions.
+        """
+        reduce_var_tree, iter_var_tree, init_expr_tree, expr_tree = child.children[2].children
+        reduce_ident = FindIdent.in_tree(reduce_var_tree)
+        iter_ident = FindIdent.in_tree(iter_var_tree)
+        # nested_eval = Evaluator(ast=expr_tree, activation=self.activation)
+        nested_eval = self.sub_evaluator(ast=expr_tree)
+
+        def sub_expr(r: Result, i: Result) -> Result:
+            return nested_eval.set_activation({reduce_ident: r, iter_ident: i}).evaluate()
+
+        return sub_expr, init_expr_tree
 
     @trace
     def member(self, tree: lark.Tree) -> Result:
@@ -1341,6 +1418,27 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             count = sum(1 for value in member if sub_expr(value))
             return celpy.celtypes.BoolType(count == 1)
 
+        elif method_name_token.value == "reduce":
+            # Apply a function to reduce the list to a single value.
+            # The `tree` is a `member_dot_arg` construct with (member, method_name, args)
+            # The args have two variables and two expressions.
+            member = self.visit(member_tree)
+            sub_expr, init_expr_tree = self.build_reduce_macro_eval(tree)
+            initial_value = self.visit(init_expr_tree)
+            result = reduce(sub_expr, member, initial_value)
+            return result
+
+        elif method_name_token.value == "min":
+            # Special case of "reduce()"
+            # with <member>.min() -> <member>.reduce(r, i, int_max, r < i ? r : i)
+            member = self.visit(member_tree)
+            try:
+                result = min(member)
+            except ValueError as ex:
+                err = "Attempt to reduce an empty sequence"
+                result = CELEvalError(err, ex.__class__, ex.args, tree=tree)
+            return result
+
         else:
             # Not a macro: a method evaluation.
             # Evaluate member, method IDENT and (if present) exprlist and apply.
@@ -1378,7 +1476,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         try:
             return func(member, index)
         except TypeError as ex:
-            logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
+            self.logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
             err = (
                 f"found no matching overload for _[_] "
                 f"applied to '({type(member)}, {type(index)})'"
@@ -1387,12 +1485,12 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             value.__cause__ = ex
             return value
         except KeyError as ex:
-            logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
+            self.logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
             value = CELEvalError("no such key", ex.__class__, ex.args, tree=tree)
             value.__cause__ = ex
             return value
         except IndexError as ex:
-            logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
+            self.logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
             value = CELEvalError("invalid_argument", ex.__class__, ex.args, tree=tree)
             value.__cause__ = ex
             return value
@@ -1454,6 +1552,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         These are special cases and cannot be overridden.
         """
         result: Result
+        name_token: lark.Token
         if len(tree.children) != 1:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad primary node",
@@ -1523,7 +1622,19 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         elif child.data == "ident_arg":
             # IDENT ["(" [exprlist] ")"]
             # Can be a proper function or one of the function-like macros: "has()", "dyn()".
-            name_token, exprlist = cast(Tuple[lark.Token, lark.Tree], child.children)
+            exprlist: lark.Tree
+            if len(child.children) == 1:
+                name_token = child.children[0]
+                exprlist = lark.Tree(data="exprlist", children=[])
+            elif len(child.children) == 2:
+                name_token, exprlist = cast(Tuple[lark.Token, lark.Tree], child.children)
+            else:
+                raise CELSyntaxError(  # pragma: no cover
+                    f"{tree.data} {tree.children}: bad primary node",
+                    line=tree.line,
+                    column=tree.column,
+                )
+
             if name_token.value == "has":
                 # has() macro. True if the child expression is a member expression that evaluates.
                 # False if the child expression is a member expression that cannot be evaluated.

@@ -24,6 +24,7 @@ CEL_SIMPLE_TESTDATA ?= $(CEL_SPEC_PATH)/tests/simple/testdata
 
 FEATURES = \
 	basic.feature \
+	parse.feature \
 	integer_math.feature \
 	comparisons.feature \
 	logic.feature \

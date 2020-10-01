@@ -126,9 +126,9 @@ type_name : "type" ":"? "{" type_spec "}"
 type_spec : "primitive" ":" TYPE
     | "message_type" ":" STRING
     | "null" ":" TYPE  // NULL_VALUE
-    | "map_type" ":" "{" map_type_spec "}"
-    | "list_type" ":" "{" type_spec "}"
-    | "elem_type" ":" "{" type_spec "}"
+    | "map_type" ":"? "{" map_type_spec "}"
+    | "list_type" ":"? "{" type_spec "}"
+    | "elem_type" ":"? "{" type_spec "}"
 map_type_spec : "key_type" ":" "{" type_spec "}" "value_type" ":" "{" type_spec "}"
 
 ?bindings : binding_key | binding_value

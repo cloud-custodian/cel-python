@@ -266,8 +266,9 @@ class DumpAST(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
 
     def member_dot(self, tree: lark.Tree) -> None:
         right = tree.children[1].value
-        left = self.stack.pop()
-        self.stack.append(f"{left}.{right}")
+        if self.stack:
+            left = self.stack.pop()
+            self.stack.append(f"{left}.{right}")
 
     def member_dot_arg(self, tree: lark.Tree) -> None:
         if len(tree.children) == 3:
@@ -275,8 +276,11 @@ class DumpAST(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
         else:
             exprlist = ""
         right = tree.children[1].value
-        left = self.stack.pop()
-        self.stack.append(f"{left}.{right}({exprlist})")
+        if self.stack:
+            left = self.stack.pop()
+            self.stack.append(f"{left}.{right}({exprlist})")
+        else:
+            self.stack.append(f".{right}({exprlist})")
 
     def member_index(self, tree: lark.Tree) -> None:
         right = self.stack.pop()
@@ -316,16 +320,21 @@ class DumpAST(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
         self.stack.append(tree.children[0].value)
 
     def paren_expr(self, tree: lark.Tree) -> None:
-        left = self.stack.pop()
-        self.stack.append(f"({left})")
+        if self.stack:
+            left = self.stack.pop()
+            self.stack.append(f"({left})")
 
     def list_lit(self, tree: lark.Tree) -> None:
-        left = self.stack.pop()
-        self.stack.append(f"[{left}]")
+        if self.stack:
+            left = self.stack.pop()
+            self.stack.append(f"[{left}]")
 
     def map_lit(self, tree: lark.Tree) -> None:
-        left = self.stack.pop()
-        self.stack.append(f"{{{left}}}")
+        if self.stack:
+            left = self.stack.pop()
+            self.stack.append(f"{{{left}}}")
+        else:
+            self.stack.append("{}")
 
     def exprlist(self, tree: lark.Tree) -> None:
         items = ", ".join(reversed(list(self.stack.pop() for _ in tree.children)))
@@ -352,7 +361,15 @@ class DumpAST(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
         self.stack.append(items)
 
     def literal(self, tree: lark.Tree) -> None:
-        self.stack.append(tree.children[0].value)
+        if tree.children:
+            self.stack.append(tree.children[0].value)
+
+
+def tree_dump(ast: Tree) -> str:
+    """Dumps the AST to approximate the original source"""
+    d = DumpAST()
+    d.visit(ast)
+    return d.stack[0]
 
 
 if __name__ == "__main__":  # pragma: no cover
