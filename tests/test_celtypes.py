@@ -323,6 +323,18 @@ def test_timestamp_type():
     assert ts_1.getSeconds() == IntType(30)
 
 
+def test_extended_timestamp_type():
+    others = {
+        'et': 'US/Eastern',
+    }
+    TimestampType.TZ_ALIASES.update(others)
+    ts_1 = TimestampType("2009-02-13T23:31:30Z")
+    assert ts_1.getHours("UTC") == 23
+    assert ts_1.getHours("EST") == IntType(18)
+    assert ts_1.getHours("EDT") == IntType(18)
+    assert ts_1.getHours("et") == IntType(18)
+
+
 def test_duration_type():
     d_1_dt = DurationType(datetime.timedelta(seconds=43200))
     d_1_tuple = DurationType(IntType(43200), IntType(0))

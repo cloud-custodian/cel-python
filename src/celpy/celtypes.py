@@ -167,6 +167,23 @@ To get Go-like behavior, we need to use absolute values and restore the signs la
     x_sign = -1 if x < 0 else +1
     go_mod = x_sign * (abs(x) % abs(y))
     return go_mod
+
+Timzone Details
+===============
+
+An implementation may have additional timezone names that must be injected into
+th dateutil.gettz() processing.
+
+For example, there may be the following sequence:
+
+1. A lowercase match for an alias or an existing dateutil timezone.
+
+2. A titlecase match for an existing dateutil timezone.
+
+3. The fallback, which is a +/-HH:MM string.
+
+..  TODO: Permit an extension into the timezone lookup.
+
 """
 import datetime
 from functools import wraps, reduce
@@ -977,7 +994,14 @@ class TimestampType(datetime.datetime):
 
     The ``dateutil`` project (https://pypi.org/project/python-dateutil/)
     is used for TZ handling and timestamp parsing.
+
+    Additionally, there is a ``TZ_ALIASES`` mapping available in this class to permit additional
+    timezone names. By default, the mapping is empty, and the only names
+    available are those recognized by :mod:`dateutil.tz`.
     """
+
+    TZ_ALIASES: Dict[str, str] = {}
+
     def __new__(
             cls: Type['TimestampType'],
             source: Union[int, str, datetime.datetime],
@@ -986,7 +1010,7 @@ class TimestampType(datetime.datetime):
 
         if isinstance(source, datetime.datetime):
             # Wrap a datetime.datetime
-            return cast(TimestampType, super().__new__(  # type: ignore [call-arg]
+            return super().__new__(
                 cls,
                 year=source.year,
                 month=source.month,
@@ -996,21 +1020,21 @@ class TimestampType(datetime.datetime):
                 second=source.second,
                 microsecond=source.microsecond,
                 tzinfo=source.tzinfo or datetime.timezone.utc
-            ))
+            )
 
         elif isinstance(source, int) and len(args) >= 2:
             # Wrap a sequence of integers that datetime.datetime might accept.
-            ts = super().__new__(  # type: ignore [call-arg]
+            ts: TimestampType = super().__new__(
                 cls, source, *args, **kwargs
             )
             if not ts.tzinfo:
-                ts = ts.replace(tzinfo=datetime.timezone.utc)
-            return cast(TimestampType, ts)
+                ts = cast(TimestampType, ts.replace(tzinfo=datetime.timezone.utc))
+            return ts
 
         elif isinstance(source, str):
             # Use dateutil to try a variety of text formats.
             parsed_datetime = dateutil.parser.isoparse(source)
-            return cast(TimestampType, super().__new__(  # type: ignore [call-arg]
+            return super().__new__(
                 cls,
                 year=parsed_datetime.year,
                 month=parsed_datetime.month,
@@ -1020,7 +1044,7 @@ class TimestampType(datetime.datetime):
                 second=parsed_datetime.second,
                 microsecond=parsed_datetime.microsecond,
                 tzinfo=parsed_datetime.tzinfo
-            ))
+            )
 
         else:
             raise TypeError(f"Cannot create {cls} from {source!r}")
@@ -1035,14 +1059,14 @@ class TimestampType(datetime.datetime):
         """Timestamp + Duration -> Timestamp"""
         result = super().__add__(other)
         if result == NotImplemented:
-            return cast(TimestampType, result)
+            return result
         return TimestampType(result)
 
     def __radd__(self, other: Any) -> 'TimestampType':
         """Duration + Timestamp -> Timestamp"""
         result = super().__radd__(other)
         if result == NotImplemented:
-            return cast(TimestampType, result)
+            return result
         return TimestampType(result)
 
     # For more information, check the typeshed definition
@@ -1067,19 +1091,39 @@ class TimestampType(datetime.datetime):
             return DurationType(result)
         return TimestampType(result)
 
+    @classmethod
+    def tz_name_lookup(cls, tz_name: str) -> Optional[datetime.tzinfo]:
+        """
+        The :py:func:`dateutil.tz.gettz` may be extended with additional aliases.
+
+        ..  TODO: Permit an extension into the timezone lookup.
+            Tweak ``celpy.celtypes.TimestampType.TZ_ALIASES``.
+        """
+        tz_lookup = str(tz_name)
+        if tz_lookup in cls.TZ_ALIASES:
+            tz = dateutil.tz.gettz(cls.TZ_ALIASES[tz_lookup])
+        else:
+            tz = dateutil.tz.gettz(tz_lookup)
+        return tz
+
+    @classmethod
+    def tz_offset_parse(cls, tz_name: str) -> Optional[datetime.tzinfo]:
+        tz_pat = re.compile(r"^([+-]?)(\d\d?):(\d\d)$")
+        tz_match = tz_pat.match(tz_name)
+        if not tz_match:
+            raise ValueError(f"Unparsable timezone: {tz_name!r}")
+        sign, hh, mm = tz_match.groups()
+        offset_min = (int(hh) * 60 + int(mm)) * (-1 if sign == '-' else +1)
+        offset = datetime.timedelta(seconds=offset_min * 60)
+        tz = datetime.timezone(offset)
+        return tz
+
     @staticmethod
-    def tz_parse(tz_name: Optional[str]) -> datetime.tzinfo:
+    def tz_parse(tz_name: Optional[str]) -> Optional[datetime.tzinfo]:
         if tz_name:
-            tz = dateutil.tz.gettz(tz_name)
+            tz = TimestampType.tz_name_lookup(tz_name)
             if tz is None:
-                tz_pat = re.compile(r"^([+-]?)(\d\d?):(\d\d)$")
-                tz_match = tz_pat.match(tz_name)
-                if not tz_match:
-                    raise ValueError(f"Unparsable timezone: {tz_name!r}")
-                sign, hh, mm = tz_match.groups()
-                offset_min = (int(hh) * 60 + int(mm)) * (-1 if sign == '-' else +1)
-                offset = datetime.timedelta(seconds=offset_min * 60)
-                tz = datetime.timezone(offset)
+                tz = TimestampType.tz_offset_parse(tz_name)
             return tz
         else:
             return dateutil.tz.UTC

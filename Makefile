@@ -47,3 +47,6 @@ coverage:
 
 clean:
 	rm -rf .tox .Python bin include lib pip-selfcheck.json
+
+benchmarks:
+	PYTHONPATH=src python benches/large_resource_set.py TagAssetBenchmark

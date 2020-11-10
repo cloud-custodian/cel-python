@@ -18,136 +18,172 @@ Functions for C7N features when evaluating CEL expressions.
 
 These functions provide a mapping between C7N features and CEL.
 
+These functions are exposed by the global ``FUNCTIONS`` dictionary that is provided
+to the CEL evaluation run-time to provide necessary C7N features.
+
+The functions rely on implementation details in the ``CELFilter`` class.
+
 The API
 =======
 
 C7N uses this library as follows::
 
+    # Validation:
     decls = {
         "Resource": celpy.celtypes.MapType,
         "Now": celpy.celtypes.TimestampType,
-        "C7N": celpy.celtypes.Value,  # Generally, this is opaque to CEL
     }
     decls.update(celpy.c7nlib.DECLARATIONS)
     cel_env = celpy.Environment(annotations=decls, runner_class=c7nlib.C7N_Interpreted_Runner)
     cel_ast = cel_env.compile(cel_source)
+
+    # Processing:
     cel_prgm = cel_env.program(cel_ast, functions=celpy.c7nlib.FUNCTIONS)
     cel_activation = {
         "Resource": celpy.json_to_cel(resource),
         "Now": celpy.celtypes.TimestampType(datetime.datetime.utcnow()),
-        "C7N": SimpleNamespace(filter=the_filter, policy=the_policy),
     }
-    cel_result = cel_prgm.evaluate(cel_activation)
+    with C7NContext(filter=the_filter):
+        cel_result = cel_prgm.evaluate(cel_activation)
 
-This library of functions is bound into the environment.
+This library of functions is bound into the program that's built from the AST and the functions.
 
-Three globals are bound into the activation:
+Several objects are bound into the activation for use by the CEL expressoin
 
 -   ``Resource``. The JSON document describing the cloud resource.
 
 -   ``Now.`` The current timestamp.
 
--   ``C7N``. A ``SimpleNamespace`` with objects that can be used to reach into C7N.
-    This is a pure Python object, unusable by CEL.
+-   Optionally, ``Event`` may have an AWS CloudWatch Event.
 
-Optionally, other globals may be present, like ``Event`` with an AWS CloudWatch Event.
 
-The Value Features
-==================
+The type: value Features
+========================
 
 The core value features of C7N require a number of CEL extensions.
 
-1.  Comparisons
+-   :func:`glob(string, pattern)` uses Python fnmatch rules. This implements ``op: glob``.
 
-    -   :func:`glob(string, pattern)` uses Python fnmatch rules. This implements ``op: glob``.
+-   :func:`difference(list, list)` creates intermediate sets and computes the difference
+    as a boolean value. Any difference is True.  This implements ``op: difference``.
 
-    -   :func:`difference(list, list)` creates intermediate sets and computes the difference
-        as a boolean value. Any difference is True.  This implements ``op: difference``.
+-   :func:`intersect(list, list)` creats intermediate sets and computes the intersection
+    as a boolean value. Any interection is True.  This implements ``op: intersect``.
 
-    -   :func:`intersect(list, list)` creats intermediate sets and computes the intersection
-        as a boolean value. Any interection is True.  This implements ``op: intersect``.
+-   :func:`normalize(string)` supports normalized comparison between strings.
+    In this case, it means lower cased and trimmed. This implements ``value_type: normalize``.
 
-    -   :func:`normalize(string)` supports normalized comparison between strings.
-        In this case, it means lower cased and trimmed. This implements ``value_type: normalize``.
+-   :func:`net.cidr_contains` checks to see if a given CIDR block contains a specific
+    address.  See https://www.openpolicyagent.org/docs/latest/policy-reference/#net.
 
-    -   :func:`net.cidr_contains` checks to see if a given CIDR block contains a specific
-        address.  See https://www.openpolicyagent.org/docs/latest/policy-reference/#net.
+-   :func:`net.cidr_size` extracts the prefix length of a parsed CIDR block.
 
-    -   :func:`net.cidr_size` extracts the prefix length of a parsed CIDR block.
+-   :func:`version` uses ``disutils.version.LooseVersion`` to compare version strings.
 
-    -   :func:`version` uses ``disutils.version.LooseVersion`` to compare version strings.
+-   :func:`resource_count` function. This is TBD.
 
-    -   :func:`resource_count` function. This is TBD.
+The type: value_from features
+==============================
 
-2.  The ``value_from()`` and ``jmes_path_map()`` functions.
+This relies on  ``value_from()`` and ``jmes_path_map()`` functions
 
-    In context, it looks like this::
+In context, it looks like this::
 
-        value_from("s3://c7n-resources/exemptions.json", "json")
-        .jmes_path_map('exemptions.ec2.rehydration.["IamInstanceProfile.Arn"][].*[].*[]')
-        .contains(resource["IamInstanceProfile"]["Arn"])
+    value_from("s3://c7n-resources/exemptions.json", "json")
+    .jmes_path_map('exemptions.ec2.rehydration.["IamInstanceProfile.Arn"][].*[].*[]')
+    .contains(resource["IamInstanceProfile"]["Arn"])
 
-    The ``value_from()`` function reads values from a given URI.
+The ``value_from()`` function reads values from a given URI.
 
-    -   A full URI for an S3 bucket.
+-   A full URI for an S3 bucket.
 
-    -   A full URI for a server that supports HTTPS GET requests.
+-   A full URI for a server that supports HTTPS GET requests.
 
-    If a format is given, this is used, otherwise it's based on the
-    suffix of the path.
+If a format is given, this is used, otherwise it's based on the
+suffix of the path.
 
-    The ``jmes_path_map()`` function compiles and applies a JMESPath
-    expression against each item in the collection to create a
-    new collection.  To an extent, this repeats functionality
-    from the ``map()`` macro.
-
-
-We could provide mappings for all the C7N "op" values, allowing for a trivial translation
-from C7N to CEL. This would tend to subvert the value of rewriting cryptic "op" extrssions
-into CEL.
+The ``jmes_path_map()`` function compiles and applies a JMESPath
+expression against each item in the collection to create a
+new collection.  To an extent, this repeats functionality
+from the ``map()`` macro.
 
 Additional Functions
 ====================
 
-Examination of C7N suggests the following categories of functions required to implement
-full C7N functionality in CEL.
+A number of C7N subclasses of ``Filter`` provide additional features. There are
+at least 70-odd functions that are expressed or implied by these filters.
 
-..  csv-table::
+Because the CEL expressions are always part of a ``CELFilter``, all of these
+additional C7N features need to be transformed into "mixins" that are implemented
+in two places. The function is part of the legacy subclass of ``Filter``,
+and the function is also part of ``CELFilter``.
 
-    :header: category, count
-    "('Common', 'Non-Bool')",21
-    "('Common', 'Boolean')",15
-    "('Singleton', 'Non-Bool')",27
-    "('Singleton', 'Boolean')",47
+::
 
-36 functions are widely used.  74 other functions are less commonly used.
+    class InstanceImageMixin:
+        def get_instance_image(self):
+            pass
 
-These functions are collected into a global ``FUNCTIONS`` list that can be provided
-to the CEL evaluation run-time to provide necessary C7N features.
 
-C7N Opaque Object
+    class RelatedResourceMixin:
+        def get_related_ids(self):
+            pass
+
+        def get_related(self):
+            pass
+
+    # A lot of mixins.
+
+    class CELFilter(c7n.filters.core.Filter, InstanceImageMixin, RelatedResourceMixin):
+        '''Container for functions used by c7nlib to expose data to CEL'''
+        def __init__(self, data, manager) -> None:
+            super().__init__(data, manager)
+            assert data["type"].lower() == "cel"
+            self.expr = data["expr"]
+            self.parser = c7n.filters.offhours.ScheduleParser()
+
+
+This is not the complete list. See the ``tests/test_c7nlib.py`` for the ``celfilter_instance``
+fixture which contains **all** of the functions required.
+
+C7N Context Object
 ==================
 
 A number of the functions require access to C7N features that are not simply part
-of the resource being filtered.
+of the resource being filtered. There are two alternative ways to handle this dependency:
 
-When evaluating a CEL expression in a C7N context, the module global ``C7N`` is a
-Namespace with a number of attributes used to examine C7N resources. Using a module global
-avoids introducing a non-CEL parameter to the c7nlib functions. This offers a thin veneer
-of simplicity over the external function library.
+-   A global C7N context object that has the current ``CELFilter`` providing
+    access to C7N internals.
 
-The ``C7N`` namespace contains the following attributes:
+-   A ``C7N`` argument to the functions that need C7N access.
+    This would be provided in the activation context for CEL.
+
+To keep the library functions looking simple, the module global ``C7N`` is used.
+This avoids introducing a non-CEL parameter to the c7nlib functions.
+
+The ``C7N`` context object contains the following attributes:
 
 -   ``filter``. The original C7N ``Filter`` object. This provides access to the
     resource manager. It can be used to manage supplemental
     queries using C7N caches and other resource management.
 
--   ``policy``. The original C7N ``Policy`` object. This provides access to the
-    resource type information in cases where the c7nlib
-    functions have variant behavior based on resource type.
+This is set by the :py:class:`C7NContext` prior to CEL evaluation.
 
+Name Resolution
+===============
+
+Note that names are **not** resolved via a lookup in the program object,
+an instance of the :py:class:`celpy.Runner` class. To keep these functions
+simple, the runner is not part of the run-time, and name resolution
+will appear to be "hard-wrired" among these functions.
+
+This is rarely an issue, since most of these functions are independent.
+The :func:`value_from` function relies on :func:`text_from` and :func:`parse_text`.
+Changing either of these functions with an override won't modify the behavior
+of :func:`value_from`.
 """
 import csv
+import dateutil
 from distutils import version as version_lib
 from contextlib import closing
 import jmespath  # type: ignore [import]
@@ -158,31 +194,59 @@ import ipaddress
 import logging
 import os.path
 import sys
-from types import SimpleNamespace
+from types import TracebackType
 from typing import Any, Callable, Dict, List, Union, Optional, Type, Iterator, cast
 import urllib.request
 import zlib
 
 from celpy.adapter import json_to_cel
 from celpy import celtypes, InterpretedRunner
-from celpy.evaluation import Annotation, Context, Activation
+from celpy.evaluation import Annotation, Context, Result, Evaluator
 
 
 logger = logging.getLogger(__name__)
 
 
-# The C7N object extracted from the CEL Activation context for use
-# by the a few functions here that need access to the policy object.
-# Generally this as the following attributes:
-# - ``policy`` the original :py:class:`c7n.policy.Policy` object
-# Others may be added.
-C7N: SimpleNamespace
+class C7NContext:
+    """
+    Saves current C7N filter for use by functions in this module.
+
+    This is essential for making C7N filter available to *some* of these functions.
+
+    ::
+
+        with C7NContext(filter):
+            cel_prgm.evaluate(cel_activation)
+    """
+
+    def __init__(self, filter: Any) -> None:
+        self.filter = filter
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"{self.__class__.__name__}(filter={self.filter!r})"
+
+    def __enter__(self) -> None:
+        global C7N
+        C7N = self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
+        global C7N
+        C7N = cast("C7NContext", None)
+        return
 
 
-def key(
-        source: celtypes.ListType,
-        target: celtypes.StringType
-) -> celtypes.Value:
+# An object used for access to the C7N filter.
+# A module global makes the interface functions much simpler.
+# They can rely on `C7N.filter` providing the current `CELFilter` instance.
+C7N = cast("C7NContext", None)
+
+
+def key(source: celtypes.ListType, target: celtypes.StringType) -> celtypes.Value:
     """
     The C7N shorthand ``tag:Name`` doesn't translate well to CEL. It extracts a single value
     from a sequence of objects with a ``{"Key": x, "Value": y}`` structure; specifically,
@@ -193,11 +257,11 @@ def key(
 
     In effect, the ``key()``    function::
 
-        Resource["Tags"].key("Name")
+        Resource["Tags"].key("Name")["Value"]
 
     is somewhat like::
 
-        Resource["Tags"].filter(x, x["Key"] == "Name")[0]["Value"]
+        Resource["Tags"].filter(x, x["Key"] == "Name")[0]
 
     But the ``key()`` function doesn't raise an exception if the key is not found,
     instead it returns None.
@@ -220,9 +284,7 @@ def key(
         return None
 
 
-def glob(
-    text: celtypes.StringType, pattern: celtypes.StringType
-) -> celtypes.BoolType:
+def glob(text: celtypes.StringType, pattern: celtypes.StringType) -> celtypes.BoolType:
     """Compare a string with a pattern.
 
     While ``"*.py".glob(some_string)`` seems logical because the pattern the more persistent object,
@@ -236,9 +298,7 @@ def glob(
     return celtypes.BoolType(fnmatch.fnmatch(text, pattern))
 
 
-def difference(
-    left: celtypes.ListType, right: celtypes.ListType
-) -> celtypes.BoolType:
+def difference(left: celtypes.ListType, right: celtypes.ListType) -> celtypes.BoolType:
     """
     Compute the difference between two lists. This is ordered set difference: left - right.
     It's true if the result is non-empty: there is an item in the left, not present in the right.
@@ -247,9 +307,7 @@ def difference(
     return celtypes.BoolType(bool(set(left) - set(right)))
 
 
-def intersect(
-    left: celtypes.ListType, right: celtypes.ListType
-) -> celtypes.BoolType:
+def intersect(left: celtypes.ListType, right: celtypes.ListType) -> celtypes.BoolType:
     """
     Compute the intersection between two lists.
     It's true if the result is non-empty: there is an item in both lists.
@@ -327,9 +385,7 @@ def parse_cidr(value):  # type: ignore[no-untyped-def]
     return v
 
 
-def size_parse_cidr(
-    value: celtypes.StringType,
-) -> Optional[celtypes.IntType]:
+def size_parse_cidr(value: celtypes.StringType,) -> Optional[celtypes.IntType]:
     """CIDR prefixlen value"""
     cidr = parse_cidr(value)  # type: ignore[no-untyped-call]
     if cidr:
@@ -352,45 +408,37 @@ class ComparableVersion(version_lib.LooseVersion):
 
 
 def version(
-        value: celtypes.StringType,
+    value: celtypes.StringType,
 ) -> celtypes.Value:  # actually, a ComparableVersion
     return cast(celtypes.Value, ComparableVersion(value))
 
 
-def present(
-        value: celtypes.StringType,
-) -> celtypes.Value:
+def present(value: celtypes.StringType,) -> celtypes.Value:
     return cast(celtypes.Value, bool(value))
 
 
-def absent(
-        value: celtypes.StringType,
-) -> celtypes.Value:
+def absent(value: celtypes.StringType,) -> celtypes.Value:
     return cast(celtypes.Value, not bool(value))
 
 
-def text_from(
-        url: celtypes.StringType,
-) -> celtypes.Value:
+def text_from(url: celtypes.StringType,) -> celtypes.Value:
     """
     Read raw text from a URL. This can be expanded to accept S3 or other URL's.
     """
     req = urllib.request.Request(url, headers={"Accept-Encoding": "gzip"})
     raw_data: str
     with closing(urllib.request.urlopen(req)) as response:
-        if response.info().get('Content-Encoding') == 'gzip':
-            raw_data = (
-                zlib.decompress(response.read(), zlib.MAX_WBITS | 32)
-                .decode('utf8')
+        if response.info().get("Content-Encoding") == "gzip":
+            raw_data = zlib.decompress(response.read(), zlib.MAX_WBITS | 32).decode(
+                "utf8"
             )
         else:
-            raw_data = response.read().decode('utf-8')
+            raw_data = response.read().decode("utf-8")
     return celtypes.StringType(raw_data)
 
 
 def parse_text(
-        source_text: celtypes.StringType,
-        format: celtypes.StringType
+    source_text: celtypes.StringType, format: celtypes.StringType
 ) -> celtypes.Value:
     """
     Parse raw text using a given format.
@@ -418,8 +466,7 @@ def parse_text(
 
 
 def value_from(
-        url: celtypes.StringType,
-        format: Optional[celtypes.StringType] = None,
+    url: celtypes.StringType, format: Optional[celtypes.StringType] = None,
 ) -> celtypes.Value:
     """
     Read values from a URL.
@@ -432,7 +479,7 @@ def value_from(
     C7N will generally replace this with a function
     that leverages a more sophisticated :class:`c7n.resolver.ValuesFrom`.
     """
-    supported_formats = ('json', 'ndjson', 'ldjson', 'jsonl', 'txt', 'csv', 'csv2dict')
+    supported_formats = ("json", "ndjson", "ldjson", "jsonl", "txt", "csv", "csv2dict")
 
     # 1. get format either from arg or URL
     if not format:
@@ -451,8 +498,7 @@ def value_from(
 
 
 def jmes_path(
-    source_data: celtypes.Value,
-    path_source: celtypes.StringType
+    source_data: celtypes.Value, path_source: celtypes.StringType
 ) -> celtypes.Value:
     """
     Apply JMESPath to an object read from from a URL.
@@ -462,8 +508,7 @@ def jmes_path(
 
 
 def jmes_path_map(
-    source_data: celtypes.ListType,
-    path_source: celtypes.StringType
+    source_data: celtypes.ListType, path_source: celtypes.StringType
 ) -> celtypes.ListType:
     """
     Apply JMESPath to a each object read from from a URL.
@@ -471,15 +516,12 @@ def jmes_path_map(
     """
     expression = jmespath.compile(path_source)
     return celtypes.ListType(
-        [
-            json_to_cel(expression.search(row)) for row in source_data
-        ]
+        [json_to_cel(expression.search(row)) for row in source_data]
     )
 
 
 def marked_key(
-        source: celtypes.ListType,
-        target: celtypes.StringType
+    source: celtypes.ListType, target: celtypes.StringType
 ) -> celtypes.Value:
     """
     Examines a list of {"Key": text, "Value": text} mappings
@@ -495,8 +537,8 @@ def marked_key(
     if value is None:
         return None
     try:
-        msg, tgt = cast(celtypes.StringType, value).rsplit(':', 1)
-        action, action_date_str = tgt.strip().split('@', 1)
+        msg, tgt = cast(celtypes.StringType, value).rsplit(":", 1)
+        action, action_date_str = tgt.strip().split("@", 1)
     except ValueError:
         return None
     return celtypes.MapType(
@@ -508,9 +550,7 @@ def marked_key(
     )
 
 
-def image(
-        resource: celtypes.MapType
-) -> celtypes.Value:
+def image(resource: celtypes.MapType) -> celtypes.Value:
     """
     Reach into C7N to get the image details for this EC2 or ASG resource.
 
@@ -537,23 +577,20 @@ def image(
     image = C7N.filter.get_instance_image(resource)
 
     if image:
-        creation_date = image['CreationDate']
+        creation_date = image["CreationDate"]
+        image_name = image["Name"]
     else:
         creation_date = "2000-01-01T01:01:01.000Z"
-    return celtypes.MapType(
-        {
-            celtypes.StringType("CreationDate"): celtypes.TimestampType(creation_date),
-        }
+        image_name = ""
+
+    return json_to_cel(
+        {"CreationDate": dateutil.parser.isoparse(creation_date), "Name": image_name}
     )
 
 
-def get_raw_metrics(
-        request: celtypes.MapType
-) -> celtypes.Value:
+def get_raw_metrics(request: celtypes.MapType) -> celtypes.Value:
     """
     Reach into C7N and make a statistics request using the current C7N filter object.
-
-    This uses the module-global ``C7N`` namespace to access the original filter's manager.
 
     The ``request`` parameter is the request object that is passed through to AWS via
     the current C7N filter's manager. The request is a Mapping with the following keys and values:
@@ -575,39 +612,7 @@ def get_raw_metrics(
     can be used to compute additional details. An ``.exists()`` macro can filter the
     data to look for actionable values.
 
-    Generally, C7N requests in bunches of 50 per client connection.
-    A worker pool processes the batches to keep from overwhelming AWS with
-    metrics requests.
-
-    See :py:class:`c7n.filters.metrics.MetricsFilter`. This filter collects
-    metrics and applies the filter decision to items in each batch.
-    The :py:meth:`process` and :py:meth:`process_resource_set` methods
-    need to be refactored into several pieces:
-
-    -   :py:meth:`process_resource_set`. This is the existing interface.
-        This calls :py:meth:`prepare_query` to create the various query
-        parameters.  It then creates a worker pool and applies :py:meth:`process_resource_set`
-        to chunks of 50 resources.
-
-    -   :py:meth:`prepare_query`. This is new. It prepares the parameters
-        for :py:meth:`client.get_metric_statistics`.
-
-    -   :py:meth:`process_resource_set`. This is the existing interface.
-        It gets a client and then calls :py:meth:`get_resource_statistics` with the client
-        and each resource. It calls :py:meth:`filter_resource_statistics` on the results
-        of :py:meth:`client.get_metric_statistics`.
-
-    -   :py:meth:`get_resource_statistics`. Given a client and a resource,
-        this function will set the resource's ``"c7n.metrics"`` attribute with current
-        statistics. This is the ``['Datapoints']`` value. It returns the [self.statistics]
-        item from each dictionary in the metrics list of dictionaries.
-
-    -   :py:meth:`filter_resource_statistics`. Given a resource, this function will apply the
-        missing-value, the percent-attr and attr-multiplier transformations to the
-        resource's ``"c7n.metrics"``.
-        It will apply the filter op and value. All of these things better represented in CEL.
-
-    We need to be able to use code something like this:
+    We would prefer to refactor C7N and implement this with code something like this:
 
     ::
 
@@ -621,42 +626,25 @@ def get_raw_metrics(
         We want to have the metrics processing in the new :py:class:`CELFilter` instance.
 
     """
-    # The preferred design reaches into the policy for an access strategy to get details.
-    # data = C7N.filter.get_resource_statistics(
-    #     Namespace = request["Namespace"],
-    #     MetricName = request["MetricName"],
-    #     Statistics = [request["Statistics"]],
-    #     StartTime = request["StartTime"],
-    #     EndTime = request["EndTime"],
-    #     Period = request["Period"],
-    #     Dimensions = request["Dimensions"],
-    # )
-
-    # An alternative design which acquires data outside the filter object's cache
-    client = C7N.filter.manager.session_factory().client('cloudwatch')
-    print(f"Client {client}")
+    client = C7N.filter.manager.session_factory().client("cloudwatch")
     data = client.get_metric_statistics(
         Namespace=request["Namespace"],
         MetricName=request["MetricName"],
-        Statistics=[request["Statistics"]],
+        Statistics=request["Statistics"],
         StartTime=request["StartTime"],
         EndTime=request["EndTime"],
         Period=request["Period"],
         Dimensions=request["Dimensions"],
-    )['Datapoints']
-    print(f"data {data}")
+    )["Datapoints"]
 
     return json_to_cel(data)
 
 
 def get_metrics(
-        resource: celtypes.MapType,
-        request: celtypes.MapType
+    resource: celtypes.MapType, request: celtypes.MapType
 ) -> celtypes.Value:
     """
     Reach into C7N and make a statistics request using the current C7N filter.
-
-    This uses the module-global ``C7N`` namespace to access the original filter and policy.
 
     This builds a request object that is passed through to AWS via the :func:`get_raw_metrics`
     function.
@@ -678,39 +666,84 @@ def get_metrics(
         We want to have the metrics processing in the new :py:class:`CELFilter` instance.
 
     """
-    dimension = celtypes.StringType(C7N.filter.manager.get_model().dimension)
-    namespace = celtypes.StringType(C7N.filter.manager.resource_type)
+    dimension = C7N.filter.manager.get_model().dimension
+    namespace = C7N.filter.manager.resource_type
     # TODO: Varies by resource/policy type. Each policy's model may have different dimensions.
-    dimensions = json_to_cel(
-        [
-            {
-                'Name': dimension,
-                'Value': resource.get(dimension)
-            }
-        ]
-    )
-    raw_metrics = cast(celtypes.ListType, get_raw_metrics(
-        celtypes.MapType({
-            celtypes.StringType("Namespace"): namespace,
-            celtypes.StringType("MetricName"): request["MetricName"],
-            celtypes.StringType("Dimensions"): dimensions,
-            celtypes.StringType("Statistics"): [request["Statistic"]],
-            celtypes.StringType("StartTime"): request["StartTime"],
-            celtypes.StringType("EndTime"): request["EndTime"],
-            celtypes.StringType("Period"): request["Period"],
+    dimensions = [{"Name": dimension, "Value": resource.get(dimension)}]
+    raw_metrics = get_raw_metrics(cast(celtypes.MapType, json_to_cel(
+        {
+            "Namespace": namespace,
+            "MetricName": request["MetricName"],
+            "Dimensions": dimensions,
+            "Statistics": [request["Statistic"]],
+            "StartTime": request["StartTime"],
+            "EndTime": request["EndTime"],
+            "Period": request["Period"],
         }
-        )
-    ))
-    return celtypes.ListType(
+    )))
+    return json_to_cel(
         [
-            cast(celtypes.MapType, item).get(request["Statistic"]) for item in raw_metrics
+            cast(Dict[str, celtypes.Value], item).get(request["Statistic"])
+            for item in cast(List[celtypes.Value], raw_metrics)
         ]
     )
 
 
-def get_related_ids(
+def get_raw_health_events(request: celtypes.MapType) -> celtypes.Value:
+    """
+    Reach into C7N and make a health-events request using the current C7N filter.
+
+    The ``request`` parameter is the filter object that is passed through to AWS via
+    the current C7N filter's manager. The request is a List of AWS health events.
+
+    ::
+
+        get_raw_health_events({
+            "services": ["ELASTICFILESYSTEM"],
+            "regions": ["us-east-1", "global"],
+            "eventStatusCodes": ['open', 'upcoming'],
+        })
+    """
+    client = C7N.filter.manager.session_factory().client(
+        'health', region_name='us-east-1')
+    data = client.describe_events(filter=request)['events']
+    return json_to_cel(data)
+
+
+def get_health_events(
         resource: celtypes.MapType,
+        statuses: Optional[List[celtypes.Value]] = None
 ) -> celtypes.Value:
+    """
+    Reach into C7N and make a health-event request using the current C7N filter.
+
+    This builds a request object that is passed through to AWS via the :func:`get_raw_health_events`
+    function.
+
+    ..  todo:: Handle optional list of event types.
+    """
+    if not statuses:
+        statuses = [celtypes.StringType('open'), celtypes.StringType('upcoming')]
+    phd_svc_name_map = {
+        'app-elb': 'ELASTICLOADBALANCING',
+        'ebs': 'EBS',
+        'efs': 'ELASTICFILESYSTEM',
+        'elb': 'ELASTICLOADBALANCING',
+        'emr': 'ELASTICMAPREDUCE'
+    }
+    m = C7N.filter.manager
+    service = phd_svc_name_map.get(m.data['resource'], m.get_model().service.upper())
+    raw_events = get_raw_health_events(cast(celtypes.MapType, json_to_cel(
+        {
+            "services": [service],
+            "regions": [m.config.region, 'global'],
+            "eventStatusCodes": statuses,
+        }
+    )))
+    return raw_events
+
+
+def get_related_ids(resource: celtypes.MapType,) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_ids() request using the current C7N filter.
 
@@ -721,13 +754,11 @@ def get_related_ids(
     """
 
     # Assuming the :py:class:`CELFilter` class has this method extracted from the legacy filter.
-    security_group_ids = C7N.filter.get_related_ids(resource)
-    return json_to_cel(security_group_ids)
+    related_ids = C7N.filter.get_related_ids(resource)
+    return json_to_cel(related_ids)
 
 
-def security_group(
-        security_group_id: celtypes.Value,
-) -> celtypes.Value:
+def security_group(security_group_id: celtypes.Value,) -> celtypes.Value:
     """
     Reach into C7N and make a get_related() request using the current C7N filter to get
     the security group.
@@ -744,9 +775,7 @@ def security_group(
     return json_to_cel(security_groups)
 
 
-def subnet(
-        subnet_id: celtypes.Value,
-) -> celtypes.Value:
+def subnet(subnet_id: celtypes.Value,) -> celtypes.Value:
     """
     Reach into C7N and make a get_related() request using the current C7N filter to get
     the subnet.
@@ -762,27 +791,465 @@ def subnet(
     return json_to_cel(subnets)
 
 
-def flow_logs(
-        resource: celtypes.MapType,
-) -> celtypes.Value:
+def flow_logs(resource: celtypes.MapType,) -> celtypes.Value:
     """
-    Reach into C7N and make a get_related() request using the current C7N filter.
+    Reach into C7N and locate the flow logs using the current C7N filter.
 
     ..  todo:: Refactor C7N
 
         Provide a separate function to get the flow logs, separate from the
         the filter processing.
+
+    ..  todo:: Refactor :func:`c7nlib.flow_logs` -- it exposes too much implementation detail.
+
     """
-    client = C7N.filter.client('ec2')
-    logs = client.describe_flow_logs().get('FlowLogs', ())
+    # TODO: Refactor into a function in ``CELFilter``. Should not be here.
+    client = C7N.filter.manager.session_factory().client("ec2")
+    logs = client.describe_flow_logs().get("FlowLogs", ())
     m = C7N.filter.manager.get_model()
     resource_map: Dict[str, List[Dict[str, Any]]] = {}
     for fl in logs:
-        resource_map.setdefault(fl['ResourceId'], []).append(fl)
+        resource_map.setdefault(fl["ResourceId"], []).append(fl)
     if resource.get(m.id) in resource_map:
         flogs = resource_map[cast(str, resource.get(m.id))]
         return json_to_cel(flogs)
     return json_to_cel([])
+
+
+def vpc(vpc_id: celtypes.Value,) -> celtypes.Value:
+    """
+    Reach into C7N and make a get_related() request using the current C7N filter to get
+    the VPC details.
+
+    ..  todo:: Refactor C7N
+
+        Provide the :py:class:`RelatedResourceFilter` mixin in a :py:class:`CELFilter` class.
+        We want to have the related id's details in the new :py:class:`CELFilter` instance.
+        See :py:class:`VpcFilter` subclass of :py:class:`RelatedResourceFilter`.
+    """
+    # Assuming the :py:class:`CELFilter` class has this method extracted from the legacy filter.
+    vpc = C7N.filter.get_related([vpc_id])
+    return json_to_cel(vpc)
+
+
+def subst(jmes_path: celtypes.StringType,) -> celtypes.StringType:
+    """
+    Reach into C7N and build a set of substitutions to replace text in a JMES path.
+
+    This is based on how :py:class:`c7n.resolver.ValuesFrom` works. There are
+    two possible substitution values:
+
+    -   account_id
+    -   region
+
+    :param jmes_path: the source
+    :return: A JMES with values replaced.
+    """
+
+    config_args = {
+        "account_id": C7N.filter.manager.config.account_id,
+        "region": C7N.filter.manager.config.region,
+    }
+    return celtypes.StringType(jmes_path.format(**config_args))
+
+
+def credentials(vpc_id: celtypes.Value,) -> celtypes.Value:
+    """
+    Reach into C7N and make a get_related() request using the current C7N filter to get
+    the IAM-role credential details.
+
+    See :py:class:`c7n.resources.iam.CredentialReport` filter.
+    The `get_credential_report()` function does what we need.
+
+    ..  todo:: Refactor C7N
+    """
+    return json_to_cel(C7N.filter.get_credential_report())
+
+
+def kms_alias(vpc_id: celtypes.Value,) -> celtypes.Value:
+    """
+    Reach into C7N and make a get_matching_aliases() request using the current C7N filter to get
+    the alias.
+
+    ..  todo:: Refactor C7N
+    """
+    return json_to_cel(C7N.filter.get_matching_aliases())
+
+
+def kms_key(key_id: celtypes.Value,) -> celtypes.Value:
+    """
+    Reach into C7N and make a ``get_related()`` request using the current C7N filter to get
+    the key. We're looking for the c7n.resources.kms.Key resource manager to get the related key.
+
+    ..  todo:: Refactor C7N
+    """
+    key = C7N.filter.get_related([key_id])
+    return json_to_cel(key)
+
+
+def resource_schedule(
+        tag_value: celtypes.Value,
+) -> celtypes.Value:
+    """
+    Reach into C7N and use the the :py:class:`c7n.filters.offhours.ScheduleParser` class
+    to examine the tag's value, the current time, and return a True/False.
+    This parser is the `parser` value of the :py:class:`c7n.filters.offhours.Time` filter class.
+    Using the filter's `parser.parse(value)` provides needed structure.
+
+    The `filter.parser.parse(value)` will transform text of the Tag value
+    into a dictionary. This is further transformed to something we can use in CEL.
+
+    From this
+    ::
+
+        off=[(M-F,21),(U,18)];on=[(M-F,6),(U,10)];tz=pt
+
+    C7N ScheduleParser produces this
+    ::
+
+        {
+          off: [
+            { days: [1, 2, 3, 4, 5], hour: 21 },
+            { days: [0], hour: 18 }
+          ],
+          on: [
+            { days: [1, 2, 3, 4, 5], hour: 6 },
+            { days: [0], hour: 10 }
+          ],
+          tz: "pt"
+        }
+
+    For CEL, we need this
+    ::
+
+        {
+          off: [
+            { days: [1, 2, 3, 4, 5], hour: 21, tz: "pt" },
+            { days: [0], hour: 18, tz: "pt" }
+          ],
+          on: [
+            { days: [1, 2, 3, 4, 5], hour: 6, tz: "pt" },
+            { days: [0], hour: 10, tz: "pt" }
+          ],
+        }
+
+    This lets a CEL expression use
+    ::
+
+        key("maid_offhours").resource_schedule().off.exists(s,
+            Now.getDayOfWeek(s.tz) in s.days && Now.getHour(s.tz) == s.hour)
+
+    ..  todo:: Refactor C7N
+    """
+    c7n_sched_doc = C7N.filter.parser.parse(tag_value)
+    tz = c7n_sched_doc.pop("tz", "et")
+    cel_sched_doc = {
+        state: [
+            {"days": time["days"], "hour": time["hour"], "tz": tz} for time in time_list
+        ]
+        for state, time_list in c7n_sched_doc.items()
+    }
+    return json_to_cel(cel_sched_doc)
+
+
+def get_accounts(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    Reach into C7N filter and get accounts for a given resource.
+    Used by resources like AMI's, log-groups, ebs-snapshot, etc.
+
+    ..  todo:: Refactor C7N
+    """
+    return json_to_cel(C7N.filter.get_accounts())
+
+
+def get_vpcs(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    Reach into C7N filter and get vpcs for a given resource.
+    Used by resources like AMI's, log-groups, ebs-snapshot, etc.
+
+    ..  todo:: Refactor C7N
+    """
+    return json_to_cel(C7N.filter.get_vpcs())
+
+
+def get_vpces(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    Reach into C7N filter and get vpces for a given resource.
+    Used by resources like AMI's, log-groups, ebs-snapshot, etc.
+
+    ..  todo:: Refactor C7N
+    """
+    return json_to_cel(C7N.filter.get_vpces())
+
+
+def get_orgids(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    Reach into C7N filter and get orgids for a given resource.
+    Used by resources like AMI's, log-groups, ebs-snapshot, etc.
+
+    ..  todo:: Refactor C7N
+    """
+    return json_to_cel(C7N.filter.get_orgids())
+
+
+def get_endpoints(resource: celtypes.MapType,) -> celtypes.Value:
+    """For sns resources
+
+    ..  todo:: Refactor C7N
+    """
+    return json_to_cel(C7N.filter.get_endpoints())
+
+
+def get_protocols(resource: celtypes.MapType,) -> celtypes.Value:
+    """For sns resources
+
+    ..  todo:: Refactor C7N
+    """
+    return json_to_cel(C7N.filter.get_protocols())
+
+
+def get_key_policy(resource: celtypes.MapType,) -> celtypes.Value:
+    """For kms resources
+
+    ..  todo:: Refactor C7N
+    """
+    key_id = resource.get(
+        celtypes.StringType("TargetKeyId"),
+        resource.get(celtypes.StringType("KeyId")))
+    return json_to_cel(
+        C7N.filter.client.get_key_policy(
+            KeyId=key_id,
+            PolicyName='default')['Policy']
+    )
+
+
+def get_resource_policy(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    Reach into C7N filter and get the resource policy for a given resource.
+    Used by resources like AMI's, log-groups, ebs-snapshot, etc.
+
+    ..  todo:: Refactor C7N
+    """
+    return json_to_cel(C7N.filter.get_resource_policy())
+
+
+def describe_subscription_filters(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    For log-groups resources.
+
+    ..  todo:: Refactor C7N
+
+        this should be directly available in CELFilter.
+    """
+    return json_to_cel(
+        C7N.filter.manager.retry(
+            C7N.filter.client.describe_subscription_filters,
+            logGroupName=resource['logGroupName']
+        ).get('subscriptionFilters', ())
+    )
+
+
+def describe_db_snapshot_attributes(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    For rds-snapshot and ebs-snapshot resources
+
+    ..  todo:: Refactor C7N
+
+        this should be directly available in CELFilter.
+    """
+    return json_to_cel(
+        C7N.filter.manager.retry(
+            C7N.filter.client.describe_snapshot_attribute,
+            SnapshotId=resource['SnapshotId'],
+            Attribute='createVolumePermission'
+        )
+    )
+
+
+def arn_split(arn: celtypes.StringType, field: celtypes.StringType) -> celtypes.Value:
+    """
+    Parse an ARN, removing a partivular field.
+    The field name must one one of
+    "partition", "service", "region", "account-id", "resource-type", "resource-id"
+    In the case of a ``resource-type/resource-id`` path, this will be a "resource-id" value,
+    and there will be no "resource-type".
+
+    Examples formats
+
+        ``arn:partition:service:region:account-id:resource-id``
+
+        ``arn:partition:service:region:account-id:resource-type/resource-id``
+
+        ``arn:partition:service:region:account-id:resource-type:resource-id``
+    """
+    field_names = {
+        len(names): names
+        for names in [
+            ("partition", "service", "region", "account-id", "resource-id"),
+            ("partition", "service", "region", "account-id", "resource-type", "resource-id"),
+        ]
+    }
+    prefix, *fields = arn.split(":")
+    if prefix != "arn":
+        raise ValueError(f"Not an ARN: {arn}")
+    mapping = dict(zip(field_names[len(fields)], fields))
+    return json_to_cel(mapping[field])
+
+
+def all_images() -> celtypes.Value:
+    """
+    Depends on :py:meth:`CELFilter._pull_ec2_images` and :py:meth:`CELFilter._pull_asg_images`
+
+    See :py:class:`c7n.resources.ami.ImageUnusedFilter`
+    """
+    return json_to_cel(
+        list(
+            C7N.filter._pull_ec2_images() | C7N.filter._pull_asg_images()
+        )
+    )
+
+
+def all_snapshots() -> celtypes.Value:
+    """
+    Depends on :py:meth:`CELFilter._pull_asg_snapshots`
+    and :py:meth:`CELFilter._pull_ami_snapshots`
+
+    See :py:class:`c7n.resources.ebs.SnapshotUnusedFilter`
+    """
+    return json_to_cel(
+        list(
+            C7N.filter._pull_asg_snapshots() | C7N.filter._pull_ami_snapshots()
+        )
+    )
+
+
+def all_launch_configuration_names() -> celtypes.Value:
+    """
+    Depends on :py:meth:`CELFilter.manager.get_launch_configuration_names`
+
+    See :py:class:`c7n.resources.asg.UnusedLaunchConfig`
+    """
+    asgs = C7N.filter.manager.get_resource_manager('asg').resources()
+    used = set([
+        a.get('LaunchConfigurationName', a['AutoScalingGroupName'])
+        for a in asgs if not a.get('LaunchTemplate')])
+    return json_to_cel(list(used))
+
+
+def all_service_roles() -> celtypes.Value:
+    """
+    Depends on :py:meth:`CELFilter.service_role_usage`
+
+    See :py:class:`c7n.resources.iam.UnusedIamRole`
+    """
+    return json_to_cel(C7N.filter.service_role_usage())
+
+
+def all_instance_profiles() -> celtypes.Value:
+    """
+    Depends on :py:meth:`CELFilter.instance_profile_usage`
+
+    See :py:class:`c7n.resources.iam.UnusedInstanceProfiles`
+    """
+    return json_to_cel(C7N.filter.instance_profile_usage())
+
+
+def all_dbsubenet_groups() -> celtypes.Value:
+    """
+    Depends on :py:meth:`CELFilter.get_dbsubnet_group_used`
+
+    See :py:class:`c7n.resources.rds.UnusedRDSSubnetGroup`
+    """
+    rds = C7N.filter.manager.get_resource_manager('rds').resources()
+    used = set([
+        r.get('DBSubnetGroupName', r['DBInstanceIdentifier'])
+        for r in rds])
+    return json_to_cel(list(used))
+
+
+def all_scan_groups() -> celtypes.Value:
+    """
+    Depends on :py:meth:`CELFilter.scan_groups`
+
+    See :py:class:`c7n.resources.vpc.UnusedSecurityGroup`
+    """
+    return json_to_cel(C7N.filter.scan_groups())
+
+
+def get_access_log(resource: celtypes.MapType) -> celtypes.Value:
+    """
+    Depends on :py:meth:`CELFilter.resources`
+
+    See :py:class:`c7n.resources.elb.IsNotLoggingFilter` and
+    :py:class:`c7n.resources.elb.IsLoggingFilter`.
+    """
+    client = C7N.filter.manager.session_factory().client('elb')
+    results = client.describe_load_balancer_attributes(
+        LoadBalancerName=resource['LoadBalancerName'])
+    return json_to_cel(results['LoadBalancerAttributes'])
+
+
+def get_load_balancer(resource: celtypes.MapType) -> celtypes.Value:
+    """
+    Depends on :py:meth:`CELFilter.resources`
+
+    See :py:class:`c7n.resources.appelb.IsNotLoggingFilter` and
+    :py:class:`c7n.resources.appelb.IsLoggingFilter`.
+    """
+    def parse_attribute_value(v: str) -> Union[int, bool, str]:
+        """Lightweight JSON atomic value convertion to native Python."""
+        if v.isdigit():
+            return int(v)
+        elif v == 'true':
+            return True
+        elif v == 'false':
+            return False
+        return v
+
+    client = C7N.filter.manager.session_factory().client('elbv2')
+    results = client.describe_load_balancer_attributes(
+        LoadBalancerArn=resource['LoadBalancerArn'])
+    print(results)
+    return json_to_cel(
+        dict(
+            (item["Key"], parse_attribute_value(item["Value"]))
+            for item in results['Attributes']
+        )
+    )
+
+
+def shield_protection(resource: celtypes.MapType) -> celtypes.Value:
+    """
+    Depends on the :py:meth:`c7n.resources.shield.IsShieldProtected.process` method.
+    This needs to be refactored and renamed to avoid collisions with other ``process()`` variants.
+
+    Applies to most resource types.
+    """
+    client = C7N.filter.manager.session_factory().client('shield', region_name='us-east-1')
+    protections = C7N.filter.get_type_protections(client, C7N.filter.manager.get_model())
+    protected_resources = [p['ResourceArn'] for p in protections]
+    return json_to_cel(protected_resources)
+
+
+def shield_subscription(resource: celtypes.MapType) -> celtypes.Value:
+    """
+    Depends on :py:meth:`c7n.resources.account.ShieldEnabled.process` method.
+    This needs to be refactored and renamed to avoid collisions with other ``process()`` variants.
+
+    Applies to account resources only.
+    """
+    subscriptions = C7N.filter.account_shield_subscriptions(resource)
+    return json_to_cel(subscriptions)
+
+
+def web_acls(resource: celtypes.MapType) -> celtypes.Value:
+    """
+    Depends on :py:meth:`c7n.resources.cloudfront.IsWafEnabled.process` method.
+    This needs to be refactored and renamed to avoid collisions with other ``process()`` variants.
+    """
+    wafs = C7N.filter.manager.get_resource_manager('waf').resources()
+    waf_name_id_map = {w['Name']: w['WebACLId'] for w in wafs}
+    return json_to_cel(waf_name_id_map)
 
 
 DECLARATIONS: Dict[str, Annotation] = {
@@ -808,51 +1275,115 @@ DECLARATIONS: Dict[str, Annotation] = {
     "security_group": celtypes.FunctionType,
     "subnet": celtypes.FunctionType,
     "flow_logs": celtypes.FunctionType,
-    # etc.
+    "vpc": celtypes.FunctionType,
+    "subst": celtypes.FunctionType,
+    "credentials": celtypes.FunctionType,
+    "kms_alias": celtypes.FunctionType,
+    "kms_key": celtypes.FunctionType,
+    "resource_schedule": celtypes.FunctionType,
+    "get_accounts": celtypes.FunctionType,
+    "get_vpcs": celtypes.FunctionType,
+    "get_vpces": celtypes.FunctionType,
+    "get_orgids": celtypes.FunctionType,
+    "get_endpoints": celtypes.FunctionType,
+    "get_protocols": celtypes.FunctionType,
+    "get_key_policy": celtypes.FunctionType,
+    "get_resource_policy": celtypes.FunctionType,
+    "describe_subscription_filters": celtypes.FunctionType,
+    "describe_db_snapshot_attributes": celtypes.FunctionType,
+    "arn_split": celtypes.FunctionType,
+    "all_images": celtypes.FunctionType,
+    "all_snapshots": celtypes.FunctionType,
+    "all_launch_configuration_names": celtypes.FunctionType,
+    "all_service_roles": celtypes.FunctionType,
+    "all_instance_profiles": celtypes.FunctionType,
+    "all_dbsubenet_groups": celtypes.FunctionType,
+    "all_scan_groups": celtypes.FunctionType,
+    "get_access_log": celtypes.FunctionType,
+    "get_load_balancer": celtypes.FunctionType,
+    "shield_protection": celtypes.FunctionType,
+    "shield_subscription": celtypes.FunctionType,
+    "web_acls": celtypes.FunctionType,
+    # "etc.": celtypes.FunctionType,
 }
 
+ExtFunction = Callable[..., celtypes.Value]
 
-FUNCTIONS: List[Callable[..., celtypes.Value]] = [
-    glob,
-    difference,
-    intersect,
-    normalize,
-    parse_cidr,
-    size_parse_cidr,
-    unique_size,
-    version,
-    present,
-    absent,
-    text_from,
-    value_from,
-    jmes_path,
-    jmes_path_map,
-    key,
-    marked_key,
-    image,
-    get_metrics,
-    get_related_ids,
-    security_group,
-    subnet,
-    flow_logs,
-    # etc.
-]
+FUNCTIONS: Dict[str, ExtFunction] = {
+    f.__name__: cast(ExtFunction, f) for f in [
+        glob,
+        difference,
+        intersect,
+        normalize,
+        parse_cidr,
+        size_parse_cidr,
+        unique_size,
+        version,
+        present,
+        absent,
+        text_from,
+        value_from,
+        jmes_path,
+        jmes_path_map,
+        key,
+        marked_key,
+        image,
+        get_metrics,
+        get_related_ids,
+        security_group,
+        subnet,
+        flow_logs,
+        vpc,
+        subst,
+        credentials,
+        kms_alias,
+        kms_key,
+        resource_schedule,
+        get_accounts,
+        get_vpcs,
+        get_vpces,
+        get_orgids,
+        get_endpoints,
+        get_protocols,
+        get_key_policy,
+        get_resource_policy,
+        describe_subscription_filters,
+        describe_db_snapshot_attributes,
+        arn_split,
+        all_images,
+        all_snapshots,
+        all_launch_configuration_names,
+        all_service_roles,
+        all_instance_profiles,
+        all_dbsubenet_groups,
+        all_scan_groups,
+        get_access_log,
+        get_load_balancer,
+        shield_protection,
+        shield_subscription,
+        web_acls,
+        # etc.
+    ]
+}
 
 
 class C7N_Interpreted_Runner(InterpretedRunner):
     """
-    Subclass of the CEL Interpreted Runner.
-    Extends the Evaluation to introduce inject a global variable
-    functions can use to access the C7N opaque object map, ``C7N``.
+    Extends the Evaluation to introduce the C7N CELFilter instance into the exvaluation.
 
     The variable is global to allow the functions to have the simple-looking argument
     values that CEL expects. This allows a function in this module to reach outside CEL for
     access to C7N's caches.
 
-    ..  todo: This is a mixin to the Runner class hierarchy.
+    ..  todo: Refactor to be a mixin to the Runner class hierarchy.
     """
-    def new_activation(self, context: Context) -> Activation:
-        global C7N
-        activation = self.environment.activation().nested_activation(vars=context)
-        C7N = cast(SimpleNamespace, activation.resolve_name("C7N"))
-        return activation
+
+    def evaluate(self, context: Context, filter: Optional[Any] = None) -> Result:
+        e = Evaluator(
+            ast=self.ast,
+            activation=self.new_activation(context),
+            functions=self.functions,
+        )
+        with C7NContext(filter=filter):
+            value = e.evaluate()
+        return value

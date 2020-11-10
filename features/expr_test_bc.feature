@@ -38,7 +38,7 @@ And exit status is 0
 Scenario: Unknown option
 When celpy -x '0xdeadbeef' is run
 Then stdout is ''
-And stderr contains '__main__.py: error: unrecognized arguments: -x'
+And stderr contains 'celpy: error: unrecognized arguments: -x'
 And exit status is 2
 
 Scenario: Variables provided as input arguments
