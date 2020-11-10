@@ -21,7 +21,7 @@
 // https://github.com/googleapis/googleapis/blob/master/google/api/expr/v1alpha1/value.proto
 // https://github.com/googleapis/googleapis/blob/master/google/api/expr/v1alpha1/checked.proto
 // https://github.com/googleapis/googleapis/blob/master/google/api/expr/v1alpha1/eval.proto
-// These depend on profobuf foundational definitions:
+// These depend on protobuf foundational definitions:
 // https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.Any
 // https://github.com/protocolbuffers/protobuf/tree/master/src/google/protobuf
 

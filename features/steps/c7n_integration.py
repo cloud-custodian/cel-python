@@ -25,12 +25,14 @@ This builds the global objects expected in an activation
 
 -   ``Now`` is the current time
 
--   ``C7N`` is an opaque reference usable by :mod:`c7nlib` functions to acquire objects
-    from c7n's cache.
+-   ``Event`` is the activation Event, if needed.
+
+When the CEL is evaluated, the C7NContext manager is used to provide a filter instance.
 
 This also uses the :py:class:`celpy.c7nlib.C7N_Interpreted_Runner` class to provide
 access to C7N caches to the c7nlib functions.
 """
+from ast import literal_eval
 from behave import *
 from dateutil.parser import parse as parse_date
 import json
@@ -45,35 +47,18 @@ from xlate.c7n_to_cel import C7N_Rewriter
 
 @given(u'policy text')
 def step_impl(context):
-    context.cel['source'] = C7N_Rewriter.c7n_rewrite(context.text)
-    decls = {
-        "Resource": celpy.celtypes.MapType,
-        "Now": celpy.celtypes.TimestampType,
-        "C7N": celpy.celtypes.Value,  # Generally, this is opaque to CEL
-    }
-    decls.update(celpy.c7nlib.DECLARATIONS)
-    context.cel['env'] = celpy.Environment(
-        annotations=decls,
-        runner_class=celpy.c7nlib.C7N_Interpreted_Runner
-    )
-    context.cel['ast'] = context.cel['env'].compile(context.cel['source'])
-    context.cel['prgm'] = context.cel['env'].program(context.cel['ast'], functions=celpy.c7nlib.FUNCTIONS)
-    # C7N namespace has active Policy, resource_manager, and filter_registry
-    context.cel['activation'] = {
-        "C7N": SimpleNamespace(
-            filter=Mock(name="mock filter"),
-            policy=Mock(name="mock policy"),
-        ),
-        "Resource": None,
-        "Now": None
-    }
-    print(f"\nCEL: {context.cel['source']}\n")
+    context.cel['policy'] = context.text
+
+@given(u'celtypes.TimestampType configured with TZ_ALIASES {alias_dict}')
+def step_impl(context, alias_dict):
+    aliases = literal_eval(alias_dict)
+    context.cel["TZ_ALIASES"] = aliases
 
 
 @given(u'Resource value {value}')
 def step_impl(context, value):
     resource = json.loads(value)
-    context.cel['activation']["Resource"] =  celpy.json_to_cel(resource)
+    context.cel['activation']["Resource"] = celpy.json_to_cel(resource)
 
 
 @given(u'Now value {timestamp}')
@@ -92,47 +77,60 @@ def step_impl(context, url):
     context.value_from_data[url] = context.text
 
 
-@given(u'C7N.filter has get_instance_image result with CreateDate of {timestamp}')
-def step_impl(context, timestamp):
+def build_mock_resources(context):
     """
-    The C7N filter ``get_instance_image()`` response.
+    Examine a number of GIVEN caches to gather all of the data required to build mocks.
+    If there are values provided in GIVEN steps.
+    """
+    if context.cel.get('get_instance_image'):
+        timestamp = context.cel['get_instance_image'].get("CreateDate", "2020-01-18T19:20:21Z")
+        name = context.cel['get_instance_image'].get("Name", "RHEL-8.0.0_HVM-20190618-x86_64-1-Hourly2-GP2")
+        instance_image={
+            "VirtualizationType": "hvm",
+            "Description": "Provided by Red Hat, Inc.",
+            "PlatformDetails": "Red Hat Enterprise Linux",
+            "EnaSupport": True,
+            "Hypervisor": "xen",
+            "State": "available",
+            "SriovNetSupport": "simple",
+            "ImageId": "ami-1234567890EXAMPLE",
+            "UsageOperation": "RunInstances:0010",
+            "BlockDeviceMappings": [
+                {
+                    "DeviceName": "/dev/sda1",
+                    "Ebs": {
+                        "SnapshotId": "snap-111222333444aaabb",
+                        "DeleteOnTermination": True,
+                        "VolumeType": "gp2",
+                        "VolumeSize": 10,
+                        "Encrypted": False
+                    }
+                }
+            ],
+            "Architecture": "x86_64",
+            "ImageLocation": "123456789012/RHEL-8.0.0_HVM-20190618-x86_64-1-Hourly2-GP2",
+            "RootDeviceType": "ebs",
+            "OwnerId": "123456789012",
+            "RootDeviceName": "/dev/sda1",
+            "CreationDate": timestamp,
+            "Public": True,
+            "ImageType": "machine",
+            "Name": name
+        }
+        context.cel['filter'].get_instance_image = Mock(
+            return_value=instance_image
+        )
+
+
+@given(u'C7N.filter has get_instance_image result with {field} of {value}')
+def step_impl(context, field, value):
+    """
+    Assmble the values to build the filter's :py:meth:`get_instance_image` response.
     This method returns the relevant image descruption.
     """
-    instance_image={
-        "VirtualizationType": "hvm",
-        "Description": "Provided by Red Hat, Inc.",
-        "PlatformDetails": "Red Hat Enterprise Linux",
-        "EnaSupport": True,
-        "Hypervisor": "xen",
-        "State": "available",
-        "SriovNetSupport": "simple",
-        "ImageId": "ami-1234567890EXAMPLE",
-        "UsageOperation": "RunInstances:0010",
-        "BlockDeviceMappings": [
-            {
-                "DeviceName": "/dev/sda1",
-                "Ebs": {
-                    "SnapshotId": "snap-111222333444aaabb",
-                    "DeleteOnTermination": True,
-                    "VolumeType": "gp2",
-                    "VolumeSize": 10,
-                    "Encrypted": False
-                }
-            }
-        ],
-        "Architecture": "x86_64",
-        "ImageLocation": "123456789012/RHEL-8.0.0_HVM-20190618-x86_64-1-Hourly2-GP2",
-        "RootDeviceType": "ebs",
-        "OwnerId": "123456789012",
-        "RootDeviceName": "/dev/sda1",
-        "CreationDate": timestamp,
-        "Public": True,
-        "ImageType": "machine",
-        "Name": "RHEL-8.0.0_HVM-20190618-x86_64-1-Hourly2-GP2"
-    }
-    context.cel['activation']["C7N"].filter.get_instance_image = Mock(
-        return_value=instance_image
-    )
+    # Save the values for later mock object assembly.
+    # There are two variants: CreateDate and Name
+    context.cel.setdefault('get_instance_image', {})[field] = value
 
 
 @given(u'C7N.filter has get_metric_statistics result with {statistics}')
@@ -144,7 +142,7 @@ def step_impl(context, statistics):
     The preferred one after CELFilter is refactored.
     """
     # Current API.
-    context.cel['activation']["C7N"].filter.manager.session_factory = Mock(
+    context.cel['filter'].manager.session_factory = Mock(
         name="mock filter session_factory()",
         return_value=Mock(
             name="mock filter session_factory instance",
@@ -162,13 +160,14 @@ def step_impl(context, statistics):
     )
 
     # Preferred API.
-    context.cel['activation']["C7N"].filter.get_resource_statistics = Mock(
+    context.cel['filter'].get_resource_statistics = Mock(
         return_value=json.loads(statistics)["Datapoints"]
     )
 
+
 @given(u'C7N.filter manager has get_model result of {model}')
 def step_impl(context, model):
-    context.cel['activation']["C7N"].filter.manager.get_model = Mock(
+    context.cel['filter'].manager.get_model = Mock(
         name="mock filter.manager.get_model()",
         return_value=Mock(
             name="mock filter.manager.model",
@@ -176,36 +175,102 @@ def step_impl(context, model):
         )
     )
 
+
+@given(u'C7N.filter manager has config with {name} = {value}')
+def step_impl(context, name, value):
+    setattr(context.cel['filter'].manager.config, name, value)
+
+
 @given(u'C7N.filter has resource type of {resource_type}')
 def step_impl(context, resource_type):
-    context.cel['activation']["C7N"].filter.manager.resource_type = resource_type
+    context.cel['filter'].manager.resource_type = resource_type
 
 
 @given(u'C7N.filter has get_related result with {sg_document}')
 def step_impl(context, sg_document):
-    context.cel['activation']["C7N"].filter.get_related = Mock(
+    context.cel['filter'].get_related = Mock(
         name="mock filter.get_related()",
         return_value=json.loads(sg_document),
     )
 
+
 @given(u'C7N.filter has flow_logs result with {flow_logs}')
 def step_impl(context, flow_logs):
-    context.cel['activation']["C7N"].filter.client = Mock(
-        name="mock filter.client()",
+    context.cel['filter'].manager.session_factory = Mock(
+        name="mock filter session_factory()",
         return_value=Mock(
-            describe_flow_logs=Mock(
-                return_value={"FlowLogs": json.loads(flow_logs)}
+            name="mock filter session_factory instance",
+            client=Mock(
+                name="mock filter session_factory().client()",
+                return_value=Mock(
+                    name="mock filter client instance",
+                    describe_flow_logs=Mock(
+                        name="mock filter client describe_flow_logs()",
+                        return_value={"FlowLogs": json.loads(flow_logs)}
+                    )
+                )
             )
         )
     )
 
+    # Preferred API.
+    context.cel['filter'].get_flow_logs=Mock(
+        return_value={"FlowLogs": json.loads(flow_logs)}
+    )
 
-@when(u'CEL is built and evaluated')
-def step_impl(context):
+
+@given(u'C7N.filter has get_credential_report result with {credential_report}')
+def step_impl(context, credential_report):
+    context.cel['filter'].get_credential_report=Mock(
+        return_value=json.loads(credential_report)
+    )
+
+
+@given(u'C7N.filter has get_matching_aliases result with {alias_detail}')
+def step_impl(context, alias_detail):
+    context.cel['filter'].get_matching_aliases=Mock(
+        return_value=json.loads(alias_detail)
+    )
+
+
+def evaluate(context):
+    """
+    This does not use the :py:class:`celpy.c7nlib.C7NContext`.
+    Instead, it provides the context and filter as arguments to :meth:`evaluate`.
+    """
+    decls = {
+        "Resource": celpy.celtypes.MapType,
+        "Now": celpy.celtypes.TimestampType,
+    }
+    decls.update(celpy.c7nlib.DECLARATIONS)
+    context.cel['env'] = celpy.Environment(
+        annotations=decls,
+        runner_class=celpy.c7nlib.C7N_Interpreted_Runner
+    )
+    context.cel['ast'] = context.cel['env'].compile(context.cel['source'])
+    context.cel['prgm'] = context.cel['env'].program(context.cel['ast'], functions=celpy.c7nlib.FUNCTIONS)
+    build_mock_resources(context)
+    if "TZ_ALIASES" in context.cel:
+        celpy.celtypes.TimestampType.TZ_ALIASES.update(context.cel["TZ_ALIASES"])
     try:
-        context.cel['result'] = context.cel['prgm'].evaluate(context.cel['activation'])
+        context.cel['result'] = context.cel['prgm'].evaluate(
+            context=context.cel['activation'],
+            filter=context.cel['filter'])
     except celpy.CELEvalError as ex:
         context.cel['result'] = ex
+
+
+@when(u'CEL filter is built and evaluated')
+def step_impl(context):
+    context.cel['source'] = C7N_Rewriter.c7n_rewrite(context.cel['policy'])
+    print(f"\nCEL: {context.cel['source']}\n")
+    evaluate(context)
+
+
+@when(u'CEL filter {cel_text} is evaluated')
+def step_impl(context, cel_text):
+    context.cel['source'] = cel_text
+    evaluate(context)
 
 
 @then(u'result is {result}')

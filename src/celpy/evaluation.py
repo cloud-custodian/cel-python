@@ -117,7 +117,7 @@ class CELEvalError(Exception):
             return f"{cls}(*{self.args})"  # pragma: no cover
 
     def with_traceback(self, tb: Any) -> 'CELEvalError':
-        return cast('CELEvalError', super().with_traceback(tb))
+        return super().with_traceback(tb)
 
     def __neg__(self) -> 'CELEvalError':
         return self

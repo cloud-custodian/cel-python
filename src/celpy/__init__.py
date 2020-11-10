@@ -99,7 +99,7 @@ import json  # noqa: F401
 import logging
 import sys
 from typing import (
-    Type, Optional, List, Dict, cast
+    Type, Optional, Dict, cast
 )
 import lark  # type: ignore[import]
 from celpy.celparser import CELParser, CELParseError  # noqa: F401
@@ -127,7 +127,7 @@ class Runner:
             self,
             environment: 'Environment',
             ast: Expression,
-            functions: Optional[List[CELFunction]] = None
+            functions: Optional[Dict[str, CELFunction]] = None
     ) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.environment = environment
@@ -137,8 +137,6 @@ class Runner:
     def new_activation(self, context: Context) -> Activation:
         """
         Builds the working activation from the environmental defaults.
-
-        ..  todo:: this is a mixin, replaced by C7N to introduce the opaque C7N resource.
         """
         return self.environment.activation().nested_activation(vars=context)
 
@@ -156,6 +154,8 @@ class InterpretedRunner(Runner):
 
     Generally, this should raise an :exc:`CELEvalError` for most kinds of ordinary problems.
     It may raise an :exc:`CELUnsupportedError` for future features.
+
+    ..  todo:: Refractor the Evaluator constructor from evaluation.
     """
     def evaluate(self, context: Context) -> Result:
         e = Evaluator(
@@ -180,7 +180,7 @@ class CompiledRunner(Runner):
             self,
             environment: 'Environment',
             ast: Expression,
-            functions: Optional[List[CELFunction]] = None
+            functions: Optional[Dict[str, CELFunction]] = None
     ) -> None:
         super().__init__(environment, ast, functions)
         # Transform AST to Python.
@@ -240,7 +240,7 @@ class Environment:
     def program(
             self,
             expr: Expression,
-            functions: Optional[List[CELFunction]] = None) -> Runner:
+            functions: Optional[Dict[str, CELFunction]] = None) -> Runner:
         """Transforms the AST into an executable runner."""
         self.logger.info(f"Package {self.package!r}")
         runner_class = self.runner_class

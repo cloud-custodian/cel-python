@@ -16,7 +16,12 @@
 """
 Pure Python implementation of CEL.
 
-Test the main CLI
+Test the main CLI.
+
+Python >= 3.9 preserves order of arguments defined in :mod:`argparse`.
+
+Python < 3.9 alphabetizes the arguments. This makes string comparisons
+challenging in expected results.
 """
 
 import argparse
@@ -84,10 +89,10 @@ def test_arg_type_bad(capsys):
     assert exc_info.value.args == (2,)
     out, err = capsys.readouterr()
     assert err.splitlines() == [
-        "usage: pytest [-h] [-v] [-a ARG] [-n] [-s] [-i] [--json-package NAME]",
-        "              [--json-document NAME] [-b] [-f FORMAT]",
-        "              [expr]",
-        "pytest: error: argument -a/--arg: arg name:nope=42 type name not in ['int', "
+        "usage: celpy [-h] [-v] [-a ARG] [-n] [-s] [-i] [--json-package NAME]",
+        "             [--json-document NAME] [-b] [-f FORMAT]",
+        "             [expr]",
+        "celpy: error: argument -a/--arg: arg name:nope=42 type name not in ['int', "
         "'uint', 'double', 'bool', 'string', 'bytes', 'list', 'map', 'null_type', "
         "'single_duration', 'single_timestamp', 'int64_value', 'uint64_value', "
         "'double_value', 'bool_value', 'string_value', 'bytes_value', 'number_value', "
@@ -104,10 +109,10 @@ def test_arg_value_bad(capsys):
     assert exc_info.value.args == (2,)
     out, err = capsys.readouterr()
     assert err.splitlines() == [
-        "usage: pytest [-h] [-v] [-a ARG] [-n] [-s] [-i] [--json-package NAME]",
-        "              [--json-document NAME] [-b] [-f FORMAT]",
-        "              [expr]",
-        "pytest: error: argument -a/--arg: arg name:int=nope value invalid for the supplied type",
+        "usage: celpy [-h] [-v] [-a ARG] [-n] [-s] [-i] [--json-package NAME]",
+        "             [--json-document NAME] [-b] [-f FORMAT]",
+        "             [expr]",
+        "celpy: error: argument -a/--arg: arg name:int=nope value invalid for the supplied type",
     ]
 
 
@@ -115,9 +120,9 @@ def test_arg_combo_bad(capsys):
     """GIVEN invalid arg combinations; WHEN parsing; THEN correct interpretation."""
 
     error_prefix = [
-        "usage: pytest [-h] [-v] [-a ARG] [-n] [-s] [-i] [--json-package NAME]",
-        "              [--json-document NAME] [-b] [-f FORMAT]",
-        "              [expr]",
+        "usage: celpy [-h] [-v] [-a ARG] [-n] [-s] [-i] [--json-package NAME]",
+        "             [--json-document NAME] [-b] [-f FORMAT]",
+        "             [expr]",
     ]
     with raises(SystemExit) as exc_info:
         options = celpy.__main__.get_options(
@@ -126,7 +131,7 @@ def test_arg_combo_bad(capsys):
     assert exc_info.value.args == (2,)
     out, err = capsys.readouterr()
     assert err.splitlines() == error_prefix + [
-        "pytest: error: Interactive mode and an expression provided",
+        "celpy: error: Interactive mode and an expression provided",
     ]
 
     with raises(SystemExit) as exc_info:
@@ -136,7 +141,7 @@ def test_arg_combo_bad(capsys):
     assert exc_info.value.args == (2,)
     out, err = capsys.readouterr()
     assert err.splitlines() == error_prefix + [
-        "pytest: error: No expression provided",
+        "celpy: error: No expression provided",
     ]
 
     with raises(SystemExit) as exc_info:
@@ -146,7 +151,7 @@ def test_arg_combo_bad(capsys):
     assert exc_info.value.args == (2,)
     out, err = capsys.readouterr()
     assert err.splitlines() == error_prefix + [
-        "pytest: error: Either use --json-package or --json-document, not both",
+        "celpy: error: Either use --json-package or --json-document, not both",
     ]
 
 
@@ -400,9 +405,14 @@ def test_main_very_verbose(mock_cel_environment, caplog, capsys):
     status = celpy.__main__.main(argv)
     assert status == 0
     assert mock_cel_environment.mock_calls == [call(annotations=None, package="jq")]
+    expected_namespace = argparse.Namespace(
+        verbose=2, arg=None, null_input=False, slurp=False, interactive=False,
+        package='jq', document=None,
+        boolean=False, format=None,
+        expr='[2, 4, 5].map(x, x/2)'
+    )
     assert caplog.messages == [
-        "Namespace(arg=None, boolean=False, document=None, expr='[2, 4, 5].map(x, x/2)', "
-        "format=None, interactive=False, null_input=False, package='jq', slurp=False, verbose=2)",
+        str(expected_namespace),
         "Expr: '[2, 4, 5].map(x, x/2)'",
     ]
     out, err = capsys.readouterr()
@@ -430,9 +440,14 @@ def test_main_parse_error(mock_cel_environment_syntax_error, caplog, capsys):
     assert mock_cel_environment_syntax_error.mock_calls == [
         call(package=None, annotations=None)
     ]
+    expected_namespace = argparse.Namespace(
+        verbose=0, arg=None, null_input=True, slurp=False, interactive=False,
+        package='jq', document=None,
+        boolean=False, format=None,
+        expr='[nope++]'
+    )
     assert caplog.messages == [
-        "Namespace(arg=None, boolean=False, document=None, expr='[nope++]', format=None, "
-        "interactive=False, null_input=True, package='jq', slurp=False, verbose=0)",
+        str(expected_namespace),
         "Expr: '[nope++]'",
     ]
     out, err = capsys.readouterr()
@@ -463,9 +478,14 @@ def test_main_0_eval_error(mock_cel_environment_eval_error, caplog, capsys):
     assert mock_cel_environment_eval_error.mock_calls == [
         call(package=None, annotations=None)
     ]
+    expected_namespace = argparse.Namespace(
+        verbose=0, arg=None, null_input=True, slurp=False, interactive=False,
+        package='jq', document=None,
+        boolean=False, format=None,
+        expr='2 / 0'
+    )
     assert caplog.messages == [
-        "Namespace(arg=None, boolean=False, document=None, expr='2 / 0', format=None, "
-        "interactive=False, null_input=True, package='jq', slurp=False, verbose=0)",
+        str(expected_namespace),
         "Expr: '2 / 0'",
     ]
     out, err = capsys.readouterr()
@@ -483,9 +503,14 @@ def test_main_pipe_eval_error(mock_cel_environment_eval_error, caplog, capsys):
     assert mock_cel_environment_eval_error.mock_calls == [
         call(package="jq", annotations=None)
     ]
+    expected_namespace = argparse.Namespace(
+        verbose=0, arg=None, null_input=False, slurp=False, interactive=False,
+        package='jq', document=None,
+        boolean=False, format=None,
+        expr='.json.field / 0'
+    )
     assert caplog.messages == [
-        "Namespace(arg=None, boolean=False, document=None, expr='.json.field / 0', format=None, "
-        "interactive=False, null_input=False, package='jq', slurp=False, verbose=0)",
+        str(expected_namespace),
         "Expr: '.json.field / 0'",
         "Encountered (sentinel.arg0, sentinel.arg1) on document '{\"name\": \"CEL\"}\\n'",
     ]
@@ -504,9 +529,14 @@ def test_main_pipe_json_error(mock_cel_environment_eval_error, caplog, capsys):
     assert mock_cel_environment_eval_error.mock_calls == [
         call(package="jq", annotations=None)
     ]
+    expected_namespace = argparse.Namespace(
+        verbose=0, arg=None, null_input=False, slurp=False, interactive=False,
+        package='jq', document=None,
+        boolean=False, format=None,
+        expr='.json.field / 0'
+    )
     assert caplog.messages == [
-        "Namespace(arg=None, boolean=False, document=None, expr='.json.field / 0', format=None, "
-        "interactive=False, null_input=False, package='jq', slurp=False, verbose=0)",
+        str(expected_namespace),
         "Expr: '.json.field / 0'",
         "Expecting value: line 1 column 1 (char 0) on document 'nope, not json\\n'",
     ]
