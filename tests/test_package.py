@@ -25,7 +25,7 @@ from celpy import celtypes
 
 
 def test_json_to_cel():
-    """GIVEN JSON doc; WHEN json_to_cell(); THEN expected conversions applied."""
+    """GIVEN JSON doc; WHEN json_to_cel(); THEN expected conversions applied."""
     doc = [
         {"bool": True},
         {"numbers": [2.71828, 42]},
@@ -53,7 +53,7 @@ def test_json_to_cel():
 
 
 def test_json_to_cel_unexpected():
-    """GIVEN JSON doc with invalid type; WHEN json_to_cell(); THEN exception raised."""
+    """GIVEN JSON doc with invalid type; WHEN json_to_cel(); THEN exception raised."""
     doc = {"bytes": b"Ynl0ZXM="}
     with raises(ValueError):
         actual = celpy.json_to_cel(doc)

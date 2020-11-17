@@ -99,8 +99,7 @@ class PolicyCase(FilterCase):
     """)
 
     def __init__(self) -> None:
-        self.policy = yaml.load(self.policy_doc, Loader=yaml.SafeLoader)
-        self.filter_expr = C7N_Rewriter.logical_connector(self.policy["filters"])
+        self.filter_expr = C7N_Rewriter.c7n_rewrite(self.policy_doc)
 
 
 class TagAssetPolicy(PolicyCase):
@@ -307,7 +306,7 @@ class Benchmark:
         self.errors: Counter[Exception] = collections.Counter()
         self.results: Counter[celpy.celtypes.Value] = collections.Counter()
 
-        decls = {"resource": celpy.celtypes.MapType}
+        decls = {"Resource": celpy.celtypes.MapType}
         decls.update(celpy.c7nlib.DECLARATIONS)
         cel_env = celpy.Environment(annotations=decls)
         ast = cel_env.compile(self.example.filter_expr)
@@ -320,7 +319,7 @@ class Benchmark:
         for resource in self.resources:
             start = time.perf_counter()
             activation = {
-                "resource": celpy.json_to_cel(resource)
+                "Resource": celpy.json_to_cel(resource)
             }
             try:
                 result = program.evaluate(activation)

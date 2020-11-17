@@ -3,7 +3,8 @@ Environment definition for Behave acceptance test suite.
 
 """
 from functools import partial
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import patch, Mock
 import celpy.c7nlib
 
 
@@ -28,6 +29,13 @@ def before_scenario(context, scenario):
 
     # context.cel used by the integration test suite.
     context.cel = {}
+
+    # C7N namespace has active Policy, resource_manager, and filter_registry.
+    context.cel['activation'] = {
+        "Resource": None,
+        "Now": None
+    }
+    context.cel['filter'] = Mock(name="mock filter", manager=Mock(config=Mock()))
 
     # A mapping from URL to text usined by :py:func:`mock_text_from`.
     context.value_from_data = {}

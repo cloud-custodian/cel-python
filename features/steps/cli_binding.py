@@ -45,7 +45,10 @@ def step_impl(context, arguments):
 
     context.data['arguments'] = shlex.split(arguments)
 
-    temp = Path.cwd() / "test.json"
+    env = context.config.userdata['env']
+    test_dir = Path.cwd() / ".test" / env
+    test_dir.mkdir(exist_ok=True, parents=True)
+    temp = test_dir / "test.json"
     temp.write_text("\n".join(context.data['json']) + "\n")
 
     with temp.open() as input:
@@ -58,6 +61,7 @@ def step_impl(context, arguments):
             **extra
         )
     temp.unlink()
+    test_dir.rmdir()
 
     context.data['status'] = result.returncode
     if sys.version_info.minor <= 6:
