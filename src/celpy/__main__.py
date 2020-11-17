@@ -202,7 +202,7 @@ def arg_type_value(text: str) -> Tuple[str, Annotation, celtypes.Value]:
 def get_options(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Parses command-line arguments.
     """
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(prog="celpy", description="Pure Python CEL")
     parser.add_argument(
         "-v", "--verbose", default=0, action='count')
 

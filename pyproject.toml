@@ -12,3 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+[project]
+name = "celpy"
+version = "0.0"
+description = "Pure Python implementation of Google Common Expression Language"
+readme = "README.rst"
+requires-python = ">=3.6"
+license = {file = "LICENSE.txt"}
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python"
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "refactor: tests that need to be refactored to use celfilter_instance"
+]

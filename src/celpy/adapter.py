@@ -13,19 +13,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
 """
-Type Adapter to move Python-native types into CEL structures.
+Type Adapter to convert Python-native types into CEL structures.
 
-Atomic Python objects can be migrated with direct use of types
-in :mod:`celpy.celtypes`.
+Currently, Atomic Python objects have direct use of types in :mod:`celpy.celtypes`.
 
 Non-Atomic Python objects are characterized by JSON and Protobuf
-objects.
-
-This module converts JSON objects to CEL.
+objects. This module has functions to convert JSON objects to CEL.
 
 The protobuf decoder is TBD.
+
+A more sophisticated type injection capability may be needed to permit
+additional types or extensions to :mod:`celpy.celtypes`.
 """
 import base64
+import datetime
 import json
 from typing import List, Dict, Any, Union, cast
 from celpy import celtypes
@@ -127,5 +128,9 @@ MapType({StringType('hello'): StringType('world')})])
         return celtypes.MapType(
             {json_to_cel(key): json_to_cel(value) for key, value in document.items()}
         )
+    elif isinstance(document, datetime.datetime):
+        return celtypes.TimestampType(document)
+    elif isinstance(document, datetime.timedelta):
+        return celtypes.DurationType(document)
     else:
         raise ValueError(f"unexpected type {type(document)} in JSON structure {document!r}")
