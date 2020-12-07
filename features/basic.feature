@@ -22,15 +22,15 @@ Scenario: "self_eval_float_zerowithexp"
 
 Scenario: "self_eval_string_empty"
  When CEL expression "''" is evaluated
- Then value is Value(value_type='string_value', value=b'')
+ Then value is Value(value_type='string_value', value='')
 
 Scenario: "self_eval_string_empty_quotes"
  When CEL expression '""' is evaluated
- Then value is Value(value_type='string_value', value=b'')
+ Then value is Value(value_type='string_value', value='')
 
 Scenario: "self_eval_string_raw_prefix"
  When CEL expression 'r""' is evaluated
- Then value is Value(value_type='string_value', value=b'')
+ Then value is Value(value_type='string_value', value='')
 
 Scenario: "self_eval_bytes_empty"
  When CEL expression 'b""' is evaluated
@@ -54,11 +54,11 @@ Scenario: "self_eval_empty_map"
 
 Scenario: "self_eval_string_raw_prefix_triple_double"
  When CEL expression 'r""""""' is evaluated
- Then value is Value(value_type='string_value', value=b'')
+ Then value is Value(value_type='string_value', value='')
 
 Scenario: "self_eval_string_raw_prefix_triple_single"
  When CEL expression "r''''''" is evaluated
- Then value is Value(value_type='string_value', value=b'')
+ Then value is Value(value_type='string_value', value='')
 
 
 # "self_eval_nonzeroish" -- "Simple self-evaluating forms to non-zero-ish values."
@@ -81,11 +81,11 @@ Scenario: "self_eval_float_negative_exp"
 
 Scenario: "self_eval_string_excl"
  When CEL expression '"!"' is evaluated
- Then value is Value(value_type='string_value', value=b'!')
+ Then value is Value(value_type='string_value', value='!')
 
 Scenario: "self_eval_string_escape"
  When CEL expression "'\''" is evaluated
- Then value is Value(value_type='string_value', value=b"'")
+ Then value is Value(value_type='string_value', value="'")
 
 Scenario: "self_eval_bytes_escape"
  When CEL expression "b'ÿ'" is evaluated
@@ -101,7 +101,7 @@ Scenario: "self_eval_list_singleitem"
 
 Scenario: "self_eval_map_singleitem"
  When CEL expression '{"k":"v"}' is evaluated
- Then value is MapValue(items=[Entries(key_value=[{'key': Value(value_type='string_value', value=b'k'), 'value': Value(value_type='string_value', value=b'v')}])])
+ Then value is MapValue(items=[Entries(key_value=[{'key': Value(value_type='string_value', value='k'), 'value': Value(value_type='string_value', value='v')}])])
 
 Scenario: "self_eval_bool_true"
  When CEL expression "true" is evaluated
@@ -121,21 +121,21 @@ Scenario: "self_eval_uint_hex"
 
 Scenario: "self_eval_unicode_escape_four"
  When CEL expression '"\u270c"' is evaluated
- Then value is Value(value_type='string_value', value=b'\xe2\x9c\x8c')
+ Then value is Value(value_type='string_value', value='✌')
 
 Scenario: "self_eval_unicode_escape_eight"
  When CEL expression '"\U0001f431"' is evaluated
- Then value is Value(value_type='string_value', value=b'\xf0\x9f\x90\xb1')
+ Then value is Value(value_type='string_value', value='🐱')
 
 Scenario: "self_eval_ascii_escape_seq"
  When CEL expression '"\a\b\f\n\r\t\v\"\\'\\"' is evaluated
- Then value is Value(value_type='string_value', value=b'\x07\x08\x0c\n\r\t\x0b"\'\\')
+ Then value is Value(value_type='string_value', value='\x07\x08\x0c\n\r\t\x0b"\'\\')
 
 
 # "variables" -- "Variable lookups."
 
 Scenario: "self_eval_bound_lookup"
-Given type_env parameter is TypeEnv(name=b'x', kind='primitive', type_ident='INT64')
+Given type_env parameter is TypeEnv(name='x', kind='primitive', type_ident='INT64')
 Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': Value(value_type='int64_value', value=123)}])
  When CEL expression "x" is evaluated
  Then value is Value(value_type='int64_value', value=123)
@@ -173,19 +173,19 @@ Given disable_check parameter is true
 # "reserved_const" -- "Named constants should never be shadowed by identifiers."
 
 Scenario: "false"
-Given type_env parameter is TypeEnv(name=b'false', kind='primitive', type_ident='BOOL')
+Given type_env parameter is TypeEnv(name='false', kind='primitive', type_ident='BOOL')
 Given bindings parameter is Bindings(bindings=[{'key': 'false', 'value': Value(value_type='bool_value', value=True)}])
  When CEL expression "false" is evaluated
  Then value is Value(value_type='bool_value', value=False)
 
 Scenario: "true"
-Given type_env parameter is TypeEnv(name=b'true', kind='primitive', type_ident='BOOL')
+Given type_env parameter is TypeEnv(name='true', kind='primitive', type_ident='BOOL')
 Given bindings parameter is Bindings(bindings=[{'key': 'true', 'value': Value(value_type='bool_value', value=False)}])
  When CEL expression "true" is evaluated
  Then value is Value(value_type='bool_value', value=True)
 
 Scenario: "null"
-Given type_env parameter is TypeEnv(name=b'null', kind='primitive', type_ident='BOOL')
+Given type_env parameter is TypeEnv(name='null', kind='primitive', type_ident='BOOL')
 Given bindings parameter is Bindings(bindings=[{'key': 'null', 'value': Value(value_type='bool_value', value=True)}])
  When CEL expression "null" is evaluated
  Then value is Value(value_type='null_value', value=None)

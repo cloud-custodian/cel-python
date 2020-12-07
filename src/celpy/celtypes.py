@@ -227,7 +227,7 @@ CELType = Union[
     Callable[..., None],  # Used instead of NullType
     Type['StringType'],
     Type['TimestampType'],
-    # Is a TypeType needed?
+    Type['TypeType'],  # Used to mark Protobuf Type values
     Type['UintType'],
 ]
 
@@ -336,6 +336,13 @@ def logical_or(x: Value, y: Value) -> Value:
             return y  # false || whatever == whatever
     else:
         return BoolType(cast(BoolType, x) or cast(BoolType, y))
+
+
+class TypeType:
+    """
+    Annotation used to mark protobuf type objects distinct from value objects.
+    """
+    pass
 
 
 class BoolType(int):
@@ -1322,8 +1329,6 @@ class DurationType(datetime.timedelta):
 
 class FunctionType:
     """
-    TBD. May not be needed.
-
     We need a concrete Annotation object to describe callables to celpy.
     We need to describe functions as well as callable objects.
     The description would tend to shadow ``typing.Callable``.
@@ -1337,7 +1342,9 @@ class FunctionType:
     This allows for some run-time type checking to see if the actual object binding
     matches the declared type binding.
 
+    Also used to define protobuf classes provided as an annotation.
+
     We *could* define this as three overloads to cover unary, binary, and tertiary cases.
     """
-    def __call__(self, *args: Value) -> Value:
+    def __call__(self, *args: Value, **kwargs: Value) -> Value:
         raise NotImplementedError
