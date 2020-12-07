@@ -90,13 +90,12 @@ import logging
 import os
 import re
 import sys
-from typing import List, Tuple, Callable, Dict, Optional, Any, cast
-from celpy import Environment, Runner
-from celpy.adapter import CELJSONEncoder, CELJSONDecoder
-from celpy.evaluation import CELEvalError, Result, Annotation
-from celpy.celparser import CELParseError
-from celpy import celtypes
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
+from celpy import Environment, Runner, celtypes
+from celpy.adapter import CELJSONDecoder, CELJSONEncoder
+from celpy.celparser import CELParseError
+from celpy.evaluation import Annotation, CELEvalError, Result
 
 logger = logging.getLogger("celpy")
 

@@ -27,9 +27,11 @@ TODO: Test *all* production rules separately here.
 TODO: Create a better, more useful tree-walker than the Tree.pretty() to examine the resulting AST.
 """
 from textwrap import dedent
-from celpy.celparser import CELParser, CELParseError, DumpAST
+
 from lark import Tree
 from pytest import *  # type: ignore[import]
+
+from celpy.celparser import CELParseError, CELParser, DumpAST
 
 
 @fixture

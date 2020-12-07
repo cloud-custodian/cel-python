@@ -28,3 +28,10 @@ classifiers = [
 markers = [
     "refactor: tests that need to be refactored to use celfilter_instance"
 ]
+
+[tool.isort]
+src_paths = ["src", "tests", "tools", "features/steps", "features/environment.py"]
+skip = [
+  ".bzr", ".direnv", ".eggs", ".git", ".hg", ".mypy_cache", ".nox", ".pants.d", ".svn", ".tox", ".venv", 
+  "_build", "buck-out", "build", "dist", "node_modules", "venv", ".feature", ".textproto", ".rst"
+  ]

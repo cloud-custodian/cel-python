@@ -29,13 +29,15 @@ For member, primary, and literal, we take this approach of invoking the
 visitor method directly.
 
 """
-from unittest.mock import sentinel, Mock, call
-from pytest import *
+from unittest.mock import Mock, call, sentinel
+
 import lark
-from celpy import celparser
+from pytest import *
+
 import celpy.evaluation  # For monkeypatching
+from celpy import celparser, celtypes
 from celpy.evaluation import *
-from celpy import celtypes
+
 
 def test_exception_syntax_error():
     with raises(CELSyntaxError) as exc_info_1:
