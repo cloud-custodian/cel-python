@@ -16,8 +16,9 @@
 """
 Pure Python CEL Implementation.
 """
-from setuptools import setup, find_packages
 from pathlib import Path
+
+from setuptools import find_packages, setup
 
 here = Path(__file__).parent
 
@@ -38,3 +39,4 @@ setup(
     install_requires=(here/"requirements.txt").read_text().splitlines(),
     python_requires='>=3.6, <4',
 )
+

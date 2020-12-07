@@ -17,8 +17,10 @@
 C7N Type Adapter Test Cases.
 """
 import datetime
+
 import celpy.adapter
 import celpy.celtypes
+
 
 def test_json_to_cel():
     assert celpy.adapter.json_to_cel(True) == celpy.celtypes.BoolType(True)

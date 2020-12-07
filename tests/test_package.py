@@ -18,8 +18,10 @@ Test celpy package as a whole. Mostly, this means testing the ``__init__.py`` mo
 that defines the package.
 """
 import json
-from unittest.mock import sentinel, Mock, call
+from unittest.mock import Mock, call, sentinel
+
 from pytest import *
+
 import celpy
 from celpy import celtypes
 

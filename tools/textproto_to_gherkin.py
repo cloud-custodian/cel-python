@@ -37,18 +37,18 @@ for the TestAllTypes protobuf definition that some tests expect to be present.
 
 import argparse
 import contextlib
-from dataclasses import dataclass, asdict, field, InitVar
 import logging
-from pathlib import Path
 import re
 import sys
-from typing import List, Dict, Any, Optional, Union, Tuple, TextIO, Iterator, cast
+from dataclasses import InitVar, asdict, dataclass, field
+from pathlib import Path
+from typing import (Any, Dict, Iterator, List, Optional, TextIO, Tuple, Union,
+                    cast)
 
 import lark
-from lark import Lark  # type: ignore
-import lark.visitors  # type: ignore
 import lark.tree  # type: ignore
-
+import lark.visitors  # type: ignore
+from lark import Lark  # type: ignore
 
 logger = logging.getLogger("parse_textproto")
 
