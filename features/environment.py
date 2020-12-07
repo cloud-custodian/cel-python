@@ -22,18 +22,19 @@ def before_scenario(context, scenario):
     # context.data used by the CEL conformance test suite converted from textproto.
     context.data = {}
     context.data['disable_check'] = False
-    context.data['type_env'] = []
+    context.data['type_env'] = []  # Sequence of TypeEnv(name=, kind=, type_ident=) items.
     context.data['bindings'] = {}
-    context.data['container'] = ""
+    context.data['container'] = ""  # If set, can associate a type binding from local proto files.
     context.data['json'] = []
 
     # context.cel used by the integration test suite.
     context.cel = {}
 
-    # C7N namespace has active Policy, resource_manager, and filter_registry.
+    # Variables to be provided to CEL
     context.cel['activation'] = {
         "Resource": None,
-        "Now": None
+        "Now": None,
+        # "C7N": None,  A namespace with the current filter.
     }
     context.cel['filter'] = Mock(name="mock filter", manager=Mock(config=Mock()))
 

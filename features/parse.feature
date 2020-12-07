@@ -6,12 +6,11 @@ Feature: "parse"
 
 Scenario: "list_index"
           "Member = Member '[' Expr ']'"
-Given type_env parameter is TypeEnv(name=b'a', kind='type_spec', type_ident='INT64')
+Given type_env parameter is TypeEnv(name='a', kind='type_spec', type_ident='INT64')
 Given bindings parameter is Bindings(bindings=[{'key': 'a', 'value': ListValue(items=[Value(value_type='int64_value', value=0)])}])
  When CEL expression "a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[a[0]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]" is evaluated
  Then value is Value(value_type='int64_value', value=0)
 
-@wip
 Scenario: "message_literal"
           "Member = Member '{' [FieldInits] '}'"
 Given container is "google.api.expr.test.v1.proto3"
@@ -76,7 +75,6 @@ Scenario: "unary_neg"
  When CEL expression "--------------------------------19" is evaluated
  Then value is Value(value_type='int64_value', value=19)
 
-@wip
 Scenario: "select"
           "Member = Member '.' IDENT ['(' [ExprList] ')']"
 Given container is "google.api.expr.test.v1.proto3"
@@ -86,7 +84,7 @@ Given container is "google.api.expr.test.v1.proto3"
 Scenario: "index"
           "Member = Member '[' Expr ']'"
  When CEL expression "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[['foo']]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0]" is evaluated
- Then value is Value(value_type='string_value', value=b'foo')
+ Then value is Value(value_type='string_value', value='foo')
 
 Scenario: "list_literal"
           "Primary = '[' [ExprList] ']'"
@@ -96,9 +94,8 @@ Scenario: "list_literal"
 Scenario: "map_literal"
           "Primary = '{' [MapInits] '}'"
  When CEL expression "{0: 'zero', 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine', 10: 'ten', 11: 'eleven', 12: 'twelve', 13: 'thirteen', 14: 'fourteen', 15: 'fifteen', 16: 'sixteen', 17: 'seventeen', 18: 'eighteen', 19: 'nineteen', 20: 'twenty', 21: 'twenty-one', 22: 'twenty-two', 23: 'twenty-three', 24: 'twenty-four', 25: 'twenty-five', 26: 'twenty-six', 27: 'twenty-seven', 28: 'twenty-eight', 29: 'twenty-nine', 30: 'thirty', 31: 'thirty-one'}[17]" is evaluated
- Then value is Value(value_type='string_value', value=b'seventeen')
+ Then value is Value(value_type='string_value', value='seventeen')
 
-@wip
 Scenario: "message_literal"
           "Member = Member '{' [FieldInits] '}'"
 Given container is "google.api.expr.test.v1.proto3"

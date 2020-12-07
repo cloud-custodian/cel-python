@@ -240,7 +240,8 @@ class Environment:
     def program(
             self,
             expr: Expression,
-            functions: Optional[Dict[str, CELFunction]] = None) -> Runner:
+            functions: Optional[Dict[str, CELFunction]] = None
+    ) -> Runner:
         """Transforms the AST into an executable runner."""
         self.logger.info(f"Package {self.package!r}")
         runner_class = self.runner_class

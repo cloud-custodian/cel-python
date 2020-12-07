@@ -10,22 +10,23 @@ Scenario: "toInt_timestamp"
 
 Scenario: "toString_timestamp"
  When CEL expression "string(timestamp('2009-02-13T23:31:30Z'))" is evaluated
- Then value is Value(value_type='string_value', value=b'2009-02-13T23:31:30Z')
+ Then value is Value(value_type='string_value', value='2009-02-13T23:31:30Z')
 
 Scenario: "toType_timestamp"
  When CEL expression "type(timestamp('2009-02-13T23:31:30Z'))" is evaluated
- Then value is Value(value_type='type', value=b'google.protobuf.Timestamp')
+ Then value is Value(value_type='type', value='google.protobuf.Timestamp')
 
 
 # "duration_conversions" -- "Conversions of durations to other types."
 
 Scenario: "toString_duration"
  When CEL expression "string(duration('1000000s'))" is evaluated
- Then value is Value(value_type='string_value', value=b'1000000s')
+ Then value is Value(value_type='string_value', value='1000000s')
+
 
 Scenario: "toType_duration"
  When CEL expression "type(duration('1000000s'))" is evaluated
- Then value is Value(value_type='type', value=b'google.protobuf.Duration')
+ Then value is Value(value_type='type', value='google.protobuf.Duration')
 
 
 # "timestamp_selectors" -- "Timestamp selection operators without timezones"
@@ -246,7 +247,7 @@ Scenario: "get_hours"
 
 Scenario: "get_milliseconds"
           "Need to import a variable to get milliseconds."
-Given type_env parameter is TypeEnv(name=b'x', kind='primitive', type_ident='"google.protobuf.Duration"')
+Given type_env parameter is TypeEnv(name='x', kind='primitive', type_ident='"google.protobuf.Duration"')
 Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': ObjectValue(namespace='type.googleapis.com/google.protobuf.Duration', source=[{'special_value_clause': {'value': '123'}}, {'special_value_clause': {'value': '123456789'}}])}])
  When CEL expression "x.getMilliseconds()" is evaluated
  Then value is Value(value_type='int64_value', value=123123)

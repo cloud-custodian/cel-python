@@ -561,6 +561,9 @@ def test_main_repl(monkeypatch, capsys):
 
 
 def test_repl_class_good_interaction(capsys):
+    """
+    If any print() is added for debugging, this test is likely to break.
+    """
     c = celpy.__main__.CEL_REPL()
     c.preloop()
     assert c.state == {}

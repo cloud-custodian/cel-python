@@ -61,6 +61,7 @@ import re
 import subprocess
 import sys
 from typing import List, Dict, Any, NamedTuple, Type, Union, Callable, Tuple
+from unittest.mock import MagicMock, Mock
 
 from celpy import Environment, CELEvalError
 import celpy.celtypes
@@ -123,10 +124,8 @@ class Value(NamedTuple):
             "uint": celpy.celtypes.UintType,
             "type": type,
 
-            # The ``Value(value_type='type', value=...)`` was left in bytes when the Gherkin was built.
-            # These started as ``value: { type_value: "google.protobuf.Timestamp" }``
-            b"google.protobuf.Duration": celpy.celtypes.DurationType,
-            b"google.protobuf.Timestamp": celpy.celtypes.TimestampType,
+            "google.protobuf.Duration": celpy.celtypes.DurationType,
+            "google.protobuf.Timestamp": celpy.celtypes.TimestampType,
         }
         return name_to_cel[name]
 
@@ -189,12 +188,15 @@ class TypeKind(str, Enum):
 
 class TypeEnv(NamedTuple):
     name: str  # The variable for which we're providing a type
-    kind: TypeKind
-    type_ident: Union[str, List[str]]
+    kind: TypeKind  # Not too useful, except for MAP_TYPE
+    type_ident: Union[str, List[str]]  # The type(s) to define
 
     @property
     def annotation(self) -> Tuple[str, Callable]:
         """Translate Protobuf/Gherkin TypeEnv to a CEL type declaration"""
+        if self.kind == TypeKind.MAP_TYPE:
+            # A mapping, constrained by the self.type_ident array.
+            return (self.name, f"Map[{', '.join(self.type_ident)}]")
         return (self.name, self.type_ident)
 
 
@@ -210,14 +212,14 @@ def step_impl(context, disable_check):
 @given(u'type_env parameter is {type_env}')
 def step_impl(context, type_env):
     """type_env has name, kind, and type information used to create the environment."""
-    # type_env is a TypeEnv literal value
+    # type_env is a TypeEnv literal value, interpret it to create a Value object.
     raw_type_env = eval(type_env)
     context.data['type_env'].append(raw_type_env)
 
 
 @given(u'bindings parameter is {bindings}')
 def step_impl(context, bindings):
-    # Bindings is a Bindings literal value
+    # Bindings is a Bindings literal value, interpret it to create a Value object.
     raw_bindings = eval(bindings)
     new_bindings = {b['key']: b['value'].cel_value for b in raw_bindings.bindings}
     context.data['bindings'].update(new_bindings)
@@ -234,16 +236,55 @@ def cel(context):
 
     TODO: include disable_macros and disable_check in environment.
     """
+    # Some tests seem to assume this binding. Others have it in their environment definition.
+    if context.data['container']:
+        container = context.data['container']
+        test_all_types_instance = MagicMock(name="TestAllTypes Instance", spec=celpy.celtypes.MapType)
+        def test_all_types_get_item(name):
+            if name == "single_sint64": return celpy.celtypes.IntType(30)
+            return MagicMock(name=f"test_all_types_instance.__getitem__({name!r})")
+        test_all_types_instance.__getitem__ = Mock(side_effect=test_all_types_get_item)
+        test_all_types_instance.__contains__ = Mock(return_value=True)
+        test_all_types = MagicMock(name="TestAllTypes Class", return_value=test_all_types_instance)
+        context.data['type_env'].append(
+            TypeEnv(
+                name=f"{container}.TestAllTypes",
+                kind="primitive",
+                type_ident=test_all_types
+            )
+        )
+        nested_test_all_types_instance = MagicMock(name="NestedTestAllTypes Instance", spec=celpy.celtypes.MapType)
+        def nested_test_all_types_get_item(name):
+            if name == "child": return nested_test_all_types_instance
+            elif name == "payload": return nested_test_all_types_instance
+            elif name == "single_int32": return celpy.celtypes.IntType(0)
+            elif name == "single_int64": return celpy.celtypes.IntType(0)
+            return MagicMock(name=f"nested_test_all_types_instance.__getitem__({name!r})")
+        nested_test_all_types_instance.__getitem__ = Mock(side_effect=nested_test_all_types_get_item)
+        nested_test_all_types_instance.__contains__ = Mock(return_value=True)
+        nested_test_all_types = MagicMock(name="NestedTestAllTypes Class", return_value=nested_test_all_types_instance)
+        context.data['type_env'].append(
+            TypeEnv(
+                name=f"{container}.NestedTestAllTypes",
+                kind="primitive",
+                type_ident=nested_test_all_types
+            )
+        )
+        context.data['test_all_types'] = test_all_types
+        context.data['test_all_types_instance'] = test_all_types_instance
+        context.data['nested_test_all_types'] = nested_test_all_types
+        context.data['nested_test_all_types_instance'] = nested_test_all_types_instance
+
     types: Dict[str, Callable] = {}
     if "type_env" in context.data:
         types = dict(te.annotation for te in context.data['type_env'])
 
-    env = Environment(types)
-    env.package = context.data['container']
+    env = Environment(package=context.data['container'], annotations=types)
     ast = env.compile(context.data['expr'])
     prgm = env.program(ast)
 
     activation = context.data['bindings']
+    print(f"GIVEN activation={activation!r}")
     try:
         result = prgm.evaluate(activation)
         context.data['result'] = result
@@ -285,7 +326,7 @@ def step_impl(context, value):
     # value is a "Value(...)" literal, interpret it to create a Value object.
     expected = eval(value)
     context.data['expected'] = expected
-    assert 'result'  in context.data, f"Expected {expected.cel_value!r} in {context.data}"
+    assert 'result' in context.data, f"Error {context.data['error']!r}; no result in {context.data!r}"
     result = context.data['result']
     if expected:
         assert result == expected.cel_value, \

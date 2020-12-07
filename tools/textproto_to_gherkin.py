@@ -362,7 +362,7 @@ def detokenize(token: lark.Token) -> str:
             text = token.value[1:-1]
         match_iter = escapes.finditer(text)
         expanded = bytes(expand_str_escape(m.group()) for m in match_iter)
-        return expanded
+        return expanded.decode('utf-8')
     elif token.type == "BOOL":
         return token.value.lower() == "true"
     elif token.type == "NULL":
@@ -536,8 +536,8 @@ class UnwindTests(lark.visitors.Visitor):
         type_name = type_env_ident.children[0]
         type_spec = type_name.children[0]
         if isinstance(type_spec.children[0], str):
-            # type name is a token. Thiis is TYPE or STRING or possibly NULL_TYPE
-            # It includes "primitive", "message_type",  and "null" rules
+            # type name is a token. This is TYPE or STRING or possibly NULL_TYPE
+            # It includes "primitive", protobuf "message_type", and "null" rules
             type_spec_token = type_spec.children[0]
             self.current_test.type_env.append(
                 TypeEnv(

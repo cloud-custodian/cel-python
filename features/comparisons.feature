@@ -740,63 +740,63 @@ Scenario: "key_in_mixed_key_type_map_error"
 # "bound" -- "Comparing bound variables with literals or other variables"
 
 Scenario: "bytes_gt_left_false"
-Given type_env parameter is TypeEnv(name=b'x', kind='primitive', type_ident='BYTES')
+Given type_env parameter is TypeEnv(name='x', kind='primitive', type_ident='BYTES')
 Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': Value(value_type='bytes_value', value=b'\x00')}])
  When CEL expression "x > b'\x00'" is evaluated
  Then value is Value(value_type='bool_value', value=False)
 
 Scenario: "int_lte_right_true"
-Given type_env parameter is TypeEnv(name=b'x', kind='primitive', type_ident='INT64')
+Given type_env parameter is TypeEnv(name='x', kind='primitive', type_ident='INT64')
 Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': Value(value_type='int64_value', value=124)}])
  When CEL expression "123 <= x" is evaluated
  Then value is Value(value_type='bool_value', value=True)
 
 Scenario: "bool_lt_right_true"
-Given type_env parameter is TypeEnv(name=b'x', kind='primitive', type_ident='BOOL')
+Given type_env parameter is TypeEnv(name='x', kind='primitive', type_ident='BOOL')
 Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': Value(value_type='bool_value', value=True)}])
  When CEL expression "false < x" is evaluated
  Then value is Value(value_type='bool_value', value=True)
 
 Scenario: "double_ne_left_false"
-Given type_env parameter is TypeEnv(name=b'x', kind='primitive', type_ident='DOUBLE')
+Given type_env parameter is TypeEnv(name='x', kind='primitive', type_ident='DOUBLE')
 Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': Value(value_type='double_value', value=9.8)}])
  When CEL expression "x != 9.8" is evaluated
  Then value is Value(value_type='bool_value', value=False)
 
 Scenario: "map_ne_right_false"
-Given type_env parameter is TypeEnv(name=b'x', kind='map_type', type_ident=['STRING', 'STRING'])
-Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': MapValue(items=[Entries(key_value=[{'key': Value(value_type='string_value', value=b'c'), 'value': Value(value_type='string_value', value=b'd')}]), Entries(key_value=[{'key': Value(value_type='string_value', value=b'a'), 'value': Value(value_type='string_value', value=b'b')}])])}])
+Given type_env parameter is TypeEnv(name='x', kind='map_type', type_ident=['STRING', 'STRING'])
+Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': MapValue(items=[Entries(key_value=[{'key': Value(value_type='string_value', value='c'), 'value': Value(value_type='string_value', value='d')}]), Entries(key_value=[{'key': Value(value_type='string_value', value='a'), 'value': Value(value_type='string_value', value='b')}])])}])
  When CEL expression "{'a':'b','c':'d'} != x" is evaluated
  Then value is Value(value_type='bool_value', value=False)
 
 Scenario: "null_eq_left_true"
           "A comparison _==_ against null only binds if the type is determined to be null or we skip the type checking"
-Given type_env parameter is TypeEnv(name=b'x', kind='primitive', type_ident='NULL_VALUE')
+Given type_env parameter is TypeEnv(name='x', kind='primitive', type_ident='NULL_VALUE')
 Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': Value(value_type='null_value', value=None)}])
  When CEL expression "x == null" is evaluated
  Then value is Value(value_type='bool_value', value=True)
 
 Scenario: "list_eq_right_false"
-Given type_env parameter is TypeEnv(name=b'x', kind='type_spec', type_ident='INT64')
+Given type_env parameter is TypeEnv(name='x', kind='type_spec', type_ident='INT64')
 Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': ListValue(items=[Value(value_type='int64_value', value=2), Value(value_type='int64_value', value=1)])}])
  When CEL expression "[1, 2] == x" is evaluated
  Then value is Value(value_type='bool_value', value=False)
 
 Scenario: "string_gte_right_true"
-Given type_env parameter is TypeEnv(name=b'x', kind='primitive', type_ident='STRING')
-Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': Value(value_type='string_value', value=b'abc')}])
+Given type_env parameter is TypeEnv(name='x', kind='primitive', type_ident='STRING')
+Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': Value(value_type='string_value', value='abc')}])
  When CEL expression "'abcd' >= x" is evaluated
  Then value is Value(value_type='bool_value', value=True)
 
 Scenario: "uint_eq_right_false"
-Given type_env parameter is TypeEnv(name=b'x', kind='primitive', type_ident='UINT64')
+Given type_env parameter is TypeEnv(name='x', kind='primitive', type_ident='UINT64')
 Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': Value(value_type='uint64_value', value=1000)}])
  When CEL expression "999u == x" is evaluated
  Then value is Value(value_type='bool_value', value=False)
 
 Scenario: "null_lt_right_no_such_overload"
           "There is no _<_ operation for null, even if both operands are null"
-Given type_env parameter is TypeEnv(name=b'x', kind='primitive', type_ident='NULL_VALUE')
+Given type_env parameter is TypeEnv(name='x', kind='primitive', type_ident='NULL_VALUE')
 Given bindings parameter is Bindings(bindings=[{'key': 'x', 'value': Value(value_type='null_value', value=None)}])
  When CEL expression "null < x" is evaluated
  Then eval_error is "no such overload"
