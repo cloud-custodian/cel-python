@@ -109,7 +109,7 @@ class TagAssetPolicy(PolicyCase):
         resource: ec2
         comment: 'Notify janitorial services about ec2 instances when instances use custodian
           reserved roles but don''t have Custodian''s ASSET Tag.
-        
+
           '
         actions:
         - cc:

@@ -1,9 +1,11 @@
+.. _c7n_functions:
+
 ######################
 C7N Functions Required
 ######################
 
 
-This survey of C7N filter clauses is based on source code and 
+This survey of C7N filter clauses is based on source code and
 on an analysis of working policies. The required functions
 are grouped into four clusters, depending on the presence of absence of
 the "op" operator clause, and the number of resource types using the feature.
@@ -17,14 +19,14 @@ For each individual type of filter clause, we provide the following details:
 
 -   The variant implementations that are registered (if any.)
 
--   If used in the working policies, 
+-   If used in the working policies,
 
     -   the number of policies using the filter clause,
 
-    -   Up to three examples. 
+    -   Up to three examples.
 
 The actions are redacted as are specific values from filters.
-The filter redaction will conceal specific S3 buckets, RESTful services,
+The filter redaction obscures the S3 buckets, RESTful services,
 vpc-names, tag values, and subnet names.
 
 The schema and the examples help to define the domain of CEL functions required.
@@ -32,8 +34,315 @@ The schema and the examples help to define the domain of CEL functions required.
 
 ..  contents:: Contents
 
-Common/Non-Bool
-===============
+Design Principles
+=================
+
+There are a number of general design principles that apply to the C7N-CEL
+interface.
+
+1.  Separate from C7N. The CEL processing is outside C7N, and capable of standing alone.
+    CEL is focused on Protobuf (and JSON) objects.
+    The interface to C7N is via the :mod:`c7nlib` library of functions. These do **not** depend
+    on imports from the C7N project, but rely on a `CELFilter` class offering specific methods.
+    Access to C7N objects and their associated methods is limited to the features exposed
+    through the function library and the expected class definition.
+
+2.  Resource Representation. CEL is focused on Protobuf (and JSON) objects.
+    This means cloud resource descriptions must be provided in this form.
+    For AWS resource descriptions, this works out well since they start as JSON documents.
+    For C7N it works out well because the C7N representation of a resource is a Python dictionary.
+
+3.  The CEL activation context has these expected objects:
+
+    :Resource:
+        This is the cloud resource being examined by C7N.
+        This will be a CEL mapping object built from JSON source data.
+
+    :Now:
+        This is the current time.
+        This will be a CEL timestamp.
+        This promotes testability by removing the need to mock
+        a clock to provide proper ``utcnow()`` values.
+
+    :Event:
+        For lambda-related resources, this is the triggering event.
+        This will be a CEL mapping object built from JSON source data.
+
+4.  C7N Extension functions can rely on a global ``C7N`` object. This is the :py:class:`celpy.c7nlib.C7NContext` instance
+    used to manage C7N CEL Execution. It generally has one attribute, ``filter`` which is the
+    current ``CELFilter`` instance.
+
+C7N Context Object
+==================
+
+A global ``C7N`` object in the :py:mod:`celpy.c7nlib` module contains a reference to the current ``CELFilter`` instance.
+This has a single attribite.
+
+-   ``C7N.filter`` is the current :py:class:`CELFilter` instance.
+    This is a subclass of :py:class:`c7n.filters.core.Filter`.
+    It provides the resource manager, useful to getting cloud provider client connections.
+    The ``C7N.filter.manager`` can be used to gather additional cloud provider data.
+    In many cases, a number of additional functions are also present in this class.
+
+
+A number of filter expressions rely on data not directly avalable in the ``Resource`` or ``Event`` objects.
+These are called *related resource* filters, and there are several examples.
+
+-   ``type: image`` and ``type: image-age`` filters gather details about the image associated with a resource
+    like an ec2.
+    These filter types are handled by the :func:`c7nlib.image` function.
+    This uses ``C7N.filter.get_instance_image()``.
+    The :py:class:`CELFilter` implementation should be a mixin shared by the C7N :py:class:`ImageAge` class.
+
+-   ``type: metrics`` filter provides metrics information for those resources that create CloudWatch metrics.
+    This filter type is handled by the :func:`c7nlib.get_raw_metrics` and :func:`c7nlib.get_metrics` functions.
+    This uses methods extracted from the C7N :py:class:`Metrics` filter class.
+    It also uses the ``C7N.filter.manager.get_model()`` and ``C7N.filter.manager.resource_type``.
+
+-   ``type: security-group`` filter gathers the security group details and security group IDs.
+    These filter types are handled by the :func:`c7nlib.security_group` and :func:`c7nlib.get_related_ids` functions.
+    These use ``C7N.filter.get_related_ids()`` and ``C7N.filter.get_related()`` functions.
+    The :py:class:`CELFilter` implementation should be the C7N :py:class:`RelatedResourceFilter` class.
+
+-   ``type: subnet`` filter gathers the subnet details.
+    This filter type is handled by the :func:`c7nlib.subnet` function.
+    This uses  the ``C7N.filter.get_related()`` function.
+    The :py:class:`CELFilter` implementation should be the C7N :py:class:`RelatedResourceFilter` class.
+
+-   ``type: flow-logs`` filter gathers the flow logs from those resources that support this kind of logging.
+    This filter type is handled by the :func:`c7nlib.flow_logs` function.
+    This uses code extracted from the C7N ``vpc.FlowLogFilter`` class.
+    The :py:class:`CELFilter` implementation should be the C7N :py:class:`vpc.FlowLogFilter` class.
+
+-   ``type: vpc`` filter gather information about the VPC's used to host resources.
+    This filter type is handled by the :func:`c7nlib.vpc` function.
+    This uses  the ``C7N.filter.get_related()`` function.
+    The :py:class:`CELFilter` implementation should be the C7N :py:class:`RelatedResourceFilter` class.
+
+-   ``type: credentials`` filter gathers information about IAM role credentials.
+    This filter type is handled by the :func:`c7nlib.credentials` function.
+    This uses the ``C7N.filter.get_credential_report()`` function.
+    The :py:class:`CELFilter` implementation should be a mixin shared by the C7N :py:class:`iam.CredentialReport` class.
+
+-   ``type: kms-alias`` filter gathers information about KMS alias attributes.
+    This filter type is handled by the :func:`c7nlib.kms_alias` function.
+    This uses the ``C7N.filter.get_matching_aliases()`` function.
+    The :py:class:`CELFilter` implementation should be the mixin shared by the C7N :py:class:`ebs.KmsKeyAlias` class.
+
+-   ``type: kms-key`` filter gathers information about KMS key attributes.
+    This filter type is handled by the :func:`c7nlib.kms_key` function.
+    This uses the ``C7N.filter.get_related()`` function.
+    The :py:class:`CELFilter` implementation should be the C7N :py:class:`RelatedResourceFilter` class.
+
+Note that this implies refactoring of C7N filters to provide a unified access to a number of pieces of data
+from a single ``CELFilter`` class.
+Currently, the functionality is scattered among several :py:class:`Filter` subclasses and mixins.
+
+CELFilter Design
+=================
+
+This processing must be refactored into a :py:class:`CELFilter` subclass of :py:class:`Filter`.
+All the mixins currently part of more specialized filters need to be collected into this class.
+In some cases, functionality must be extracted from existing filters to create mixins which can be shared
+by the  :py:class:`CELFilter` class.
+
+For example, t:py:class:`ImageAge` filter is a composite, built from :py:class:`AgeFilter` and :py:class:`InstanceImageBase`.
+In this case, the :py:class:`c7n.resources.ec2.InstanceImageBase` class gathers AMI image details.
+The :py:class:`CELFilter` needs to have the  :py:class:`InstanceImageBase` mixin available to gather
+the required data for the CEL operation.
+
+This is a subclass of Subclass of c7n.filters.core.Filter.
+See the :py:mod:`celpy.c7nlib` module for additional information on this interface.
+
+::
+
+    class InstanceImageMixin:
+        # from :py:class:`InstanceImageBase` refactoring
+        def get_instance_image(self):
+            pass
+
+    class RelatedResourceMixin:
+        # from :py:class:`RelatedResourceFilter` mixin
+        def get_related_ids(self):
+            pass
+
+        def get_related(self):
+            pass
+
+    class CredentialReportMixin:
+        # from :py:class:`c7n.resources.iam.CredentialReport` filter.
+        def get_credential_report(self):
+            pass
+
+    class ResourceKmsKeyAliasMixin:
+        # from :py:class:`c7n.resources.kms.ResourceKmsKeyAlias`
+        def get_matching_aliases(self, resource):
+            pass
+
+    class CrossAccountAccessMixin:
+        # from :py:class:`c7n.filters.iamaccessfilter.CrossAccountAccessFilter`
+        def get_accounts(self, resource):
+            pass
+        def get_vpcs(self, resource):
+            pass
+        def get_vpces(self, resource):
+            pass
+        def get_orgids(self, resource):
+            pass
+        # from :py:class:`c7n.resources.secretsmanager.CrossAccountAccessFilter`
+        def get_resource_policy(self, resource):
+            pass
+
+    class SNSCrossAccountMixin:
+        # from :py:class:`c7n.resources.sns.SNSCrossAccount`
+        def get_endpoints(self, resource):
+            pass
+        def get_protocols(self, resource):
+            pass
+
+    class ImagesUnusedMixin:
+        # from :py:class:`c7n.resources.ami.ImageUnusedFilter`
+        def _pull_ec2_images(self, resource):
+            pass
+        def _pull_asg_images(self, resource):
+            pass
+
+    class SnapshotUnusedMixin:
+        # from :py:class:`c7n.resources.ebs.SnapshotUnusedFilter`
+        def _pull_asg_snapshots(self, resource):
+            pass
+        def _pull_ami_snapshots(self, resource):
+            pass
+
+    class IamRoleUsageMixin:
+        # from :py:class:`c7n.resources.iam.IamRoleUsage`
+        def service_role_usage(self, resource):
+            pass
+        def instance_profile_usage(self, resource):
+            pass
+
+    class SGUsageMixin:
+        # from :py:class:`c7n.resources.vpc.SGUsage`
+        def scan_groups(self, resource):
+            pass
+
+    class IsShieldProtectedMixin:
+        # from :py:mod:`c7n.resources.shield`
+        def get_type_protections(self, resource):
+            pass
+
+    class ShieldEnabledMixin:
+        # from :py:class:`c7n.resources.account.ShieldEnabled`
+        def account_shield_subscriptions(self, resource):
+            pass
+
+    class CELFilter(
+        InstanceImageMixin, RelatedResourceMixin, CredentialReportMixin,
+        ResourceKmsKeyAliasMixin, CrossAccountAccessMixin, SNSCrossAccountMixin,
+        ImagesUnusedMixin, SnapshotUnusedMixin, IamRoleUsageMixin, SGUsageMixin,
+        c7n.filters.core.Filter,
+    ):
+        """
+        State a filter as a CEL expression.
+
+        The activation environment for CEL has all the functions in ``c7nlib``.
+
+        It also includes three global objects:
+
+        -   ``Resource`` the cloud resource to be examined.
+
+        -   ``Now`` the current time as a CEL timestamp.
+
+        -   ``Event`` an Event for those resources where the C7N check is triggered by a CloudWatch event.
+
+        """
+        schema = type_schema(
+            'cel',
+            'type': {'enum': ['cel']},
+            'expr': {'type': 'string'}
+        )
+
+        decls: Dict[str, celpy.Annotation] = {
+            "Resource": celpy.celtypes.MapType,
+            "Now": celpy.celtypes.TimestampType,
+            "Event": celpy.celtypes.MapType,
+        }
+        decls.update(celpy.c7nlib.DECLARATIONS)
+
+        env = celpy.Environment(annotations=CELFilter.decls)
+
+        def __init__(self, data, manager) -> None:
+            super().__init__(data, manager)
+            assert data["type"].lower() == "cel"
+            self.expr = data["expr"]
+            self.parser = c7n.filters.offhours.ScheduleParser()
+
+        def validate(self) -> None:
+            """Compile and build CEL"""
+            cel_env = celpy.Environment(
+                annotations=self.decls,
+                runner_class=c7nlib.C7N_Interpreted_Runner)
+            cel_ast = cel_env.compile(self.expr)
+            self.pgm = cel_env.program(cel_ast, functions=celpy.c7nlib.FUNCTIONS)
+
+        def process(self,
+            resources: Iterable[celpy.celtypes.MapType]) -> Iterator[celpy.celtypes.MapType]:
+            """Apply CEL to the various resources."""
+            now = datetime.datetime.utcnow()
+            for resource in resources:
+                with C7NContext(filter=the_filter):
+                    cel_activation = {
+                        "Resource": celpy.json_to_cel(resource),
+                        "Now": celpy.celtypes.TimestampType(now),
+                        # "Event": ...,
+                    }
+                    if self.pgm.evaluate(cel_activation):
+                        yield resource
+
+This is a suggested interface. It seems to fit the outline of many other filters.
+It's not perfectly clear how event-based filters fit this model.
+
+C7N Cache
+==========
+
+Within C7N, related resource information is cached to avoid repeatedly looking it up.
+The CEL activation makes use of these caches through several global objects.
+
+-   The ``Resource`` provided is a JSON-to-CEL mapping of the original C7N dictionary.
+
+-   The ``C7NContext`` instance is used by The CEL functions in the :py:mod:`c7nlib` module to access c7n modules and classes.
+    This allows them to use C7N's caching and avoid extra describe operations.
+    *All* cloud resource access must go through existing C7N ``CELFilter`` methods and resource caches.
+
+
+Common C7N Constructs
+=====================
+
+The C7N shorthand ``tag:Name`` doesn't translate well to CEL. It extracts a single value
+from a sequence of objects with a ``{"Key": x, "Value": y}`` structure; specifically,
+the value for ``y`` when ``x == "Name"``.
+
+If we want to check the value associated with the "Uptime" tag
+to see if it is in some list of valid values, we have something like this.
+
+::
+
+    Resource["Tags"].filter(x, x["Key"] == "Name")[0]["Value"]
+
+This seems bulky, but it's workable within the CEL language.
+
+We can replace this with a ``key(Resource, "Name")`` function. This can be used
+as ``Resource["Tags"].key("Name")`` preserving the original C7N syntax to an extent.
+It has the ``{"Key": x, "Value": y}`` assumption wired-in.
+
+
+Common/Non-Bool Filters
+=======================
+
+These are functions that provide data that is not trivially a boolean
+decision. Because an explicit ``op:`` is provided in C7N, we can
+map this to an CEL operator. This leads us to a function to extract
+data from the C7N resource description, in a form that CEL can use.
 
 value
 -----
@@ -156,6 +465,9 @@ Policies studied have 5103 examples.
     actions:
       # REDACTED #
 
+The ``type: value`` clauses are the base case. There's nothing particularly special of complex here.
+These are handled directly by translating the C7N ``op:`` field to a CEL operator.
+
 op Implementations
 -------------------
 
@@ -185,9 +497,11 @@ op Implementations
 
 There are three additional functions required:
 
--   An extension is required for glob to implement ``fnmatch.fnmatch(value, pattern)``.
+-   :py:func:`c7nlib.glob` to implement ``fnmatch.fnmatch(value, pattern)``.
 
--   Extensions are required for ``difference`` and ``intersect``.
+-   :py:func:`c7nlib.difference`
+
+-   :py:func:`c7nlib.intersect`
 
 
 value_type Conversions
@@ -262,15 +576,30 @@ Some of these are directly available in CEL. See https://github.com/google/cel-s
     'version', *
     'resource_count', *
 
-The string normalization, CIDR-parsing, version-matching, and resource-counting all require extensions.
+Additional functions are needed for a few of these operations:
+
+-   :py:func:`c7nlib.normalize`
+
+-   :py:func:`c7nlib.unique_size`
+
+-   :py:func:`c7nlib.parse_cidr`
+
+-   :py:func:`c7nlib.size_parse_cidr`
+
+-   :py:func:`c7nlib.version`
+
+-   :py:func:`c7nlib.present`
+
+-   :py:func:`c7nlib.absent`
+
 It would be sensible to follow some of the design patterns used by OPA for these extensions.
 See https://www.openpolicyagent.org/docs/latest/policy-reference/#net for examples of CIDR-parsing.
 
 
 'swap' is not needed because CEL allows reordering operands.
 
-value_from
-----------
+value_from External Data
+-------------------------
 
 There are several sources for values other than literal values. This is defined by a ``values_from`` sub-clause.
 The sub-clause includes up to three additional parameters
@@ -290,8 +619,10 @@ The sub-clause includes up to three additional parameters
 
 Text files are expected to be line delimited values.
 
-While CEL doesn't directly use JMESpath, it has some similarities. For this to work correctly,
-this is a kind of macro.
+While CEL doesn't directly use JMESPath, it has some similarities.
+We can use a :py:func:`celpy.c7nlib.jmes_path` function to explicitly handle C7N JMESPath.
+We can also use the existing ``map()`` macro for simpler cases, like
+extracting a column from a CSV.
 
 C7N Examples::
 
@@ -312,13 +643,28 @@ C7N Examples::
        # inferred from extension
        format: [json, csv, csv2dict, txt]
 
+(Yes, there's a spelling mistake in one of the examples.)
+
 Proposed CEL Examples::
 
-    s3("s3://bucket/xyz/foo.json").value_from(x, x.AppId)
+    value_from("s3://bucket/xyz/foo.json").map(x, x.AppId)
 
-    http("http://foobar.com/mydata", "json").Region.["us-east-1"].value_from(x, x.ImageId)
+    value_from("http://foobar.com/mydata", "json").jmes_path('Region.["us-east-1"]').map(x, x.ImageId)
 
-    s3("s3://bucket/abc/foo.csv").value_from(x, x[1])
+    value_from("s3://bucket/abc/foo.csv").map(x, x[1])
+
+This requires a suite of functions:
+
+-   :py:func:`c7nlib.text_from`
+
+-   :py:func:`c7nlib.parse_text`
+
+-   :py:func:`c7nlib.value_from`
+
+-   :py:func:`c7nlib.jmes_path`
+
+-   :py:func:`c7nlib.jmes_path_map`
+
 
 marked-for-op
 -------------
@@ -546,6 +892,46 @@ Policies studied have 490 examples.
     actions:
       # REDACTED #
 
+The ``type: marked-for-op`` filter is the obverse to the ``mark-for-ap`` action.
+Both work with a complex tag value format.
+
+::
+
+    message:action@action_date
+
+For a filter, there is a multi-step search.
+
+1.  Examine Tags, looking for the target Key  (default "custodian_status").
+
+2.  Parse the value to get the three fields: mssage, action, and action_date.
+
+3.  Examine the action to see if it matches the ``op:`` value (default "stop")
+
+4.  Compare the action_date with the current time, ``Now`` possibly offset
+    by the ``skew:`` and ``skew_hours:`` as well as ``tz:`` values.
+
+The two comparisons (operation and date) can be exposed as basic CEL.
+This leaves the parsing of the tag as a feature for the interface library.
+
+The following will parse the value, creating a Mapping that can be
+used for subsequent processing.
+
+::
+
+    Resource["Tags"].marked_key("custodian_status")
+
+We expect something like this::
+
+    Resource["Tags"].marked_key("custodian_status").action == "stop"
+    && Now >= Resource["Tags"].marked_key("custodian_status").action_date
+
+This will find items marked for action that are past due.
+
+This requires one new function:
+
+-   :py:func:`c7nlib.marked_key`
+
+
 image-age
 ---------
 
@@ -755,6 +1141,19 @@ Policies studied have 318 examples.
     actions:
       # REDACTED #
 
+A ``type: image-age`` filter examines data not directly part of the current ``Resource`` object.
+An EC2, or ASG has an associated AMI, named with the ``ImageId`` attribute.
+The AMI description has the ``CreationDate``. This is one of many examples of related resource processing.
+
+The value of ``Now - Resource.image().CreationDate`` is the image age,
+as a :py:class:`celtypes.DurationType` object.
+
+This requires one new function:
+
+-   :py:func:`c7nlib.image` depends on :py:meth:`CELFilter.get_instance_image`.
+
+
+
 event
 -----
 
@@ -856,8 +1255,13 @@ Policies studied have 125 examples.
     actions:
       # REDACTED #
 
+The ``type: event`` filter examines data not directly part of a resource.
+A Lambda is changed by an event. This ``Event`` detail is available in the activation along with the ``Resource``.
+
 metrics
 -------
+
+See `health-event`_ for a similar function.
 
 Schema
 
@@ -1091,6 +1495,56 @@ Policies studied have 111 examples.
     actions:
       # REDACTED #
 
+There are two parts to this.
+
+1.  Getting raw metric statistics from the cloud provider.
+    The :py:func:`celpy.c7nlib.get_raw_metrics` is refactored
+    from the ``Metrics`` filter into :py:func:`celpy.c7nlib.get_raw_metrics` function.
+
+2.  Getting metric statistics for a specific resource.
+    The :py:func:`celpy.c7nlib.get_metrics` function takes parameters for period, start, end,
+    and the statistics value to compute. The dimension comes from the Resource.
+    This uses :py:func:`celpy.c7nlib.get_raw_metrics`.
+
+Generally, C7N requests in bunches of 50 per client connection.
+A worker pool processes the batches to keep from overwhelming AWS with
+metrics requests.
+
+See :py:class:`c7n.filters.metrics.MetricsFilter`. This filter collects
+metrics and applies the filter decision to items in each batch.
+The :py:meth:`process` and :py:meth:`process_resource_set` methods
+need to be refactored into several pieces:
+
+-   :py:meth:`process_resource_set`. This is the existing interface.
+    This calls :py:meth:`prepare_query` to create the various query
+    parameters.  It then creates a worker pool and applies :py:meth:`process_resource_set`
+    to chunks of 50 resources.
+
+-   :py:meth:`prepare_query`. This is new. It prepares the parameters
+    for :py:meth:`client.get_metric_statistics`.
+
+-   :py:meth:`process_resource_set`. This is the existing interface.
+    It gets a client and then calls :py:meth:`get_resource_statistics` with the client
+    and each resource. It calls :py:meth:`filter_resource_statistics` on the results
+    of :py:meth:`client.get_metric_statistics`.
+
+-   :py:meth:`get_resource_statistics`. Given a client and a resource,
+    this function will set the resource's ``"c7n.metrics"`` attribute with current
+    statistics. This is the ``['Datapoints']`` value. It returns the [self.statistics]
+    item from each dictionary in the metrics list of dictionaries.
+
+-   :py:meth:`filter_resource_statistics`. Given a resource, this function will apply the
+    missing-value, the percent-attr and attr-multiplier transformations to the
+    resource's ``"c7n.metrics"``.
+    It will apply the filter op and value. All of these things better represented in CEL.
+
+This requires two extension functions:
+
+-   :py:func:`c7nlib.get_raw_metrics` depends on :py:attr:`CELFilter.manager`.
+
+-   :py:func:`c7nlib.get_metrics` depends on :py:func:`c7nlib.get_raw_metrics`
+
+
 age
 ---
 
@@ -1305,6 +1759,29 @@ Policies studied have 101 examples.
 
     actions:
       # REDACTED #
+
+The ``type: age`` filter refers to an attribute with slightly varying names across resource types.
+The C7N DSL conceals these variations.
+There doesn't seem to be a good reason to conceal the slight variations in the attribute
+name.
+
+This leads to a number of variants, depending on the resource type
+
+-   launch-config: ``Now - timestamp(Resource.CreatedTime) > duration("21d")``
+
+-   ebs-snapshot: ``Now - timestamp(Resource.StartTime) > duration("21d")``
+
+-   cache-snapshot: ``Now - timestamp(Resource.NodeSnaphots.min(x, x.SnapshotCreateTime)) > duration("21d")``
+
+-   rds-snapshot: ``Now - timestamp(Resource.SnapshotCreateTime) > duration("21d")``
+
+-   rds-cluster-snapshot: ``Now - timestamp(Resource.SnapshotCreateTime) > duration("21d")``
+
+-   redshift-snapshot: ``Now - timestamp(Resource.SnapshotCreateTime) > duration("21d")``
+
+This requires one extension function:
+
+-   :py:func:`c7nlib.image` which depends on :py:meth:`CELFilter.get_instance_image`
 
 security-group
 --------------
@@ -1565,6 +2042,20 @@ Policies studied have 48 examples.
 
     actions:
       # REDACTED #
+
+The ``type: security-group`` filter looks at a related resource. This is similar to the way ``image-age``
+looks at an associated resource. The linkage varies slightly among resource types.
+
+The :py:func:`celpy.c7nlib.security_group` and :py:func:`celpy.c7nlib.get_related_ids` functions
+fetch the related resource.
+This can then be examined to check group name, group id, or tags.
+
+This requires two extension functions:
+
+-   :py:func:`c7nlib.get_related_ids` which depends on :py:meth:`CELFilter.get_related_ids`
+
+-   :py:func:`c7nlib.security_group` which depends on :py:meth:`CELFilter.get_related`
+
 
 subnet
 ------
@@ -1865,6 +2356,16 @@ Policies studied have 16 examples.
     actions:
       # REDACTED #
 
+The ``type: subnet`` filter looks at a related resource. This is similar to the way ``security-group``
+looks at an associated resource. The linkage varies slightly among resource types.
+
+See the :py:func:`celpy.c7nlib.subnet` function fetches the related resource.
+This can then be examined to check group name, group id, or tags.
+
+This requires one extension function:
+
+-   :py:func:`c7nlib.subnet` which depends on :py:meth:`CELFilter.get_related`.
+
 flow-logs
 ---------
 
@@ -1970,6 +2471,17 @@ Policies studied have 9 examples.
     actions:
       # REDACTED #
 
+The ``type: flow-logs`` fklter looks at a related resource. This is similar to the way ``security-group`` and ``subnet`` work.
+This looks at an associated resource. The linkage varies slightly among resource types.
+
+See the :py:func:`celpy.c7nlib.flow_logs` function to fetch the related resource.
+This can then be examined to check group name, group id, or tags.
+
+This requires one extension function:
+
+-   :py:func:`c7nlib.flow_logs` which depends on :py:meth:`CELFilter.get_flow_logs`
+
+
 tag-count
 ---------
 
@@ -2028,6 +2540,11 @@ Policies studied have 5 examples.
 
     actions:
       # REDACTED #
+
+The ``type: tag-count`` filter doesn't require any extra functions.
+The filter generally translates to something like the following:
+
+    ``size(Resource["Tags"].filter(x, ! matches(x.Key, "^aws:.*"))) >= 8``
 
 vpc
 ---
@@ -2239,6 +2756,17 @@ Policies studied have 4 examples.
     actions:
       # REDACTED #
 
+
+The ``type: vpc`` filter looks at a related resource. This is similar to the way ``security-group`` and ``subnet`` work.
+This looks at an associated resource. The linkage varies slightly among resource types.
+
+See the :py:func:`celpy.c7nlib.vpc` function to fetch the related resource.
+This can then be examined to check group name, group id, or tags.
+
+This requires one extension function:
+
+-   :py:func:`c7nlib.vpc` which depends on :py:meth:`CELFilter.get_related`
+
 credential
 ----------
 
@@ -2311,6 +2839,17 @@ Policies studied have 2 examples.
     actions:
       # REDACTED #
 
+There are two examples of ``type: credential`` filters. These look at the credentials associated with IAM roles.
+See the :py:func:`celpy.c7nlib.credentials` function to fetch the related resource.
+
+This requires two extension functions:
+
+-   :py:func:`c7nlib.subst`
+
+-   :py:func:`c7nlib.credentials` which depends on :py:meth:`CELFilter.get_credential_report`
+
+
+
 image
 -----
 
@@ -2368,7 +2907,7 @@ Policies studied have 2 examples.
 
     resource: ec2
     filters:
-      - tag:cof-proxy: absent
+      - tag:proxy: absent
       - tag:aws:autoscaling:groupName: absent
       - days: 25
         op: gte
@@ -2395,7 +2934,7 @@ Policies studied have 2 examples.
       - key: Name
         op: regex
         type: image
-        value: (?!COF-WIN.*)
+        value: (?!WIN.*)
 
     actions:
       # REDACTED #
@@ -2407,7 +2946,7 @@ Policies studied have 2 examples.
 
     resource: ec2
     filters:
-      - tag:cof-proxy: absent
+      - tag:proxy: absent
       - tag:aws:autoscaling:groupName: absent
       - days: 30
         op: gte
@@ -2431,10 +2970,21 @@ Policies studied have 2 examples.
       - key: Name
         op: regex
         type: image
-        value: (?!COF-WIN.*)
+        value: (?!WIN.*)
 
     actions:
       # REDACTED #
+
+Like the ``type: image-age``, the ``type: image`` filter looks at the related Image resource.
+See the :py:func:`celpy.c7nlib.image` function to fetch the related resource, the ImageName
+and CreationDate are available in the related resource.
+
+Note the complex regex: ``(?!WIN.*)``. This does not translated trivially to CEL: a manual
+revision to this filter is strongly suggested, something like this:
+
+    ``! Resource.image().Name.matches("WIN.*")``
+
+
 
 kms-alias
 ---------
@@ -2501,6 +3051,13 @@ Policies studied have 2 examples.
     actions:
       # REDACTED #
 
+The ``type: kms-alias`` filter looks at related information.
+See the :py:func:`celpy.c7nlib.kms_alias` function to fetch the related resource
+
+This requires one extension function:
+
+-   :py:func:`c7nlib.kms_alias` which depends on :py:meth:`CELFilter.get_matching_aliases`.
+
 kms-key
 -------
 
@@ -2564,18 +3121,26 @@ Policies studied have 1 examples.
 ..  code::  yaml
 
     name: enterprise-dynamodb-table-app-kms-key-unmark
-    description: SC-28.AWS.16 - DynamoDB Tables in CDE must be encrypted with a cof key or an app specific KMS key
+    description: SC-28.AWS.16 - DynamoDB Tables in CDE must be encrypted with a enterprise key or an app specific KMS key
 
     resource: dynamodb-table
     filters:
       - key: c7n:AliasName
         op: regex
         type: kms-key
-        value: ^(alias/cof)
+        value: ^(alias/enterprise)
       - 'tag: enterprise-controls-SC-28.AWS.16': not-null
 
     actions:
       # REDACTED #
+
+The ``type: kms-alias`` filter looks at related information.
+See the :py:func:`celpy.c7nlib.kms_key` function to fetch the related resource
+
+
+This requires one extension function:
+
+-   :py:func:`c7nlib.kms_key` which depends on :py:meth:`CELFilter.get_related`
 
 config-compliance (no examples)
 -------------------------------
@@ -2879,8 +3444,16 @@ Resource Type Implementations for {function.name}:
 
 Policies studied have 0 examples.
 
-Common/Boolean
-==============
+Common/Boolean Filters
+======================
+
+These are functions that examine and make a decision, providing a boolean result.
+Because no explicit ``op:`` is provided in C7N, we must examine the semantics of each individual DSL
+construct to map it to both a source of data, and a CEL operator.
+
+In principle, this leads us to a function to extract
+data from the C7N resource description, in a form that CEL can use. The operation should be exposed
+instead of implied.
 
 offhour
 -------
@@ -2911,7 +3484,7 @@ Resource Type Implementations for {function.name}:
         class RDSOffHour
 
     Scheduled action on rds instance.
-    
+
 
 -   In :file:`c7n/resources/ec2.py` 455
 
@@ -3050,8 +3623,115 @@ Policies studied have 125 examples.
     actions:
       # REDACTED #
 
+An Offhour (as well as an Onhour) filter is used to compare the current time against
+a scheduled on or off time.
+
+These policies are focused very narrowly on the current time.
+
+    These policies are evaluated hourly; during each run (once an hour),
+    cloud-custodian will act on **only** the resources tagged for that **exact**
+    hour.
+
+In CEL, the common case is ``getHours(Now) == 19``, where the policy had ``offhour: 19``.
+
+C7N has the following features and CEL implentations.
+
+-   **weekends**: default true, whether to leave resources off for the weekend, i.e., do nothing on the weekend.
+    In effect, silence the filter on weekends.
+    CEL: ``! getDayOfWeek(Now) in [0, 6]``
+
+-   **weekend-only**: default false, whether to turn the resource off only on, i.e., take action only on the weekend.
+    In effect, silence the filter on weekdays.
+    CEL: ``getDayOfWeek(Now) in [0, 6]``
+
+-   **default_tz**: which timezone to utilize when evaluating time **(REQUIRED)**
+    The timezone is a second parameter to the extraction function.
+    CEL: ``Now.getDayOfWeek("PST")`` applies PST before extracting the day-of-week value.
+
+-   **tag**: which resource tag name to use for per-resource configuration
+    (schedule and timezone overrides and opt-in/opt-out); default is
+    ``maid_offhours``. This is troublingly difficult because the tag's syntax
+    implies a CEL expression that becomes invisible.
+    CEL: ``key_value("maid_offhours").resource_schedule(Now)``
+
+-   **opt-out**: Determines the behavior for resources which do not have a tag
+    matching the one specified for **tag**. Values can be either ``false`` (the
+    default) where the policy operates on an opt-in basis and resources must have
+    the tag in order to be acted on by the policy, or ``true`` where the policy
+    operates on an opt-out basis, and resources without the tag are acted on by
+    the policy.
+    CEL for ``opt-out: false``: ``Resource.Tags.exists(x, x.key=="maid_offhours") ? key_value("maid_offhours").resource_schedule(Now) || (other rules) : false``.
+    CEL for ``opt-out: true``: ``Resource.Tags.exists(x, x.key=="maid_offhours") ? false : (other rules)``.
+
+-   **onhour**: the default time to start/run resources, specified as 0-23.
+    CEL: ``Now.getHour() == onhour``.
+
+-   **offhour**: the default time to stop/suspend resources, specified as 0-23.
+    CEL: ``Now.getHour() == offhour``.
+
+-   **skip-days**: a list of dates to skip. Dates must use format YYYY-MM-DD.
+    CEL: ``! getDate(Now) in ["YYYY-MM-DD"].map(d, getDate(timestamp(d)))``
+
+-   **skip-days-from**: a list of dates to skip stored at a url. **expr**,
+    **format**, and **url** must be passed as parameters. Same syntax as
+    ``value_from``. Can not specify both **skip-days-from** and **skip-days**.
+    CEL: ``! getDate(Now) in value_from("url").jmes_path("date").map(d, getDate(timestamp(d)))``
+
+
+The ``resource_schedule()`` function uses the C7N schedule sublanguage for a specific resource.
+This describes the on-hour and off-hour processing for a single resource. Here is the special
+tag value syntax.
+
+    A semicolon-separated string composed of one or more of the following
+    components, which override the defaults specified in the policy:
+
+      * ``tz=<timezone>`` to evaluate with a resource-specific timezone, where
+        ``<timezone>`` is either one of the supported timezone aliases defined in
+        :py:attr:`c7n.filters.offhours.Time.TZ_ALIASES` (such as ``pt``) or the name
+        of a geographic timezone identifier in
+        [IANA's tzinfo database](https://www.iana.org/time-zones), such as
+        ``Americas/Los_Angeles``. *(Note all timezone aliases are
+        referenced to a locality to ensure taking into account local daylight
+        savings time, if applicable.)*
+
+      * ``off=(time spec)`` and/or ``on=(time spec)`` matching time specifications
+        supported by :py:class:`c7n.filters.offhours.ScheduleParser` as described
+        in the next section.
+
+    Each time specification follows the format ``(days,hours)``. Multiple time
+    specifications can be combined in square-bracketed lists, i.e.
+    ``[(days,hours),(days,hours),(days,hours)]``.
+
+    Days are M, T, W, H, F, S, U.
+
+    **Examples**::
+
+        # up mon-fri from 7am-7pm; eastern time
+        off=(M-F,19);on=(M-F,7)
+        # up mon-fri from 6am-9pm; up sun from 10am-6pm; pacific time
+        off=[(M-F,21),(U,18)];on=[(M-F,6),(U,10)];tz=pt
+
+The :py:`resource_schedule` function reaches into the :py:class:`c7n.filters.offhours.ScheduleParser` class
+to parse the schedule text and compare it against the current day and hour in the given ``Now`` value.
+
+An alternative is to eschew this special language and replace it with CEL.
+These are *long* tag values, making this unwieldy.
+
+-   ``{"off": Now.getDayOfWeek() in [1,2,3,4,5] && Now.getHour() == 19, "on": Now.getDayOfWeek() in [1,2,3,4,5] && Now.getHour() == 7}``.
+
+-   ``{"off": (Now.getDayOfWeek("PT") in [1,2,3,4,5] && Now.getHour() == 21) || (Now.getDayOfWeek("PT") == 0 && Now.getHour() == 18),
+    "on": (Now.getDayOfWeek("PT") in [1,2,3,4,5] && Now.getHour() == 6) || (Now.getDayOfWeek("PT") == 0 && Now.getHour() == 10)}``.
+
+The terse tag language should probably be left in place.
+
+This requires one extension function:
+
+-   :py:func:`c7nlib.resource_schedule` which depends on :py:meth:`CELFilter.parser.parse`
+
 onhour
 ------
+
+See offhour_.
 
 Schema
 
@@ -3264,10 +3944,10 @@ Schema
     everyone_only: {'type': 'boolean'}
     type: {'enum': ['cross-account']}
     whitelist: {'type': 'array', 'items': {'type': 'string'}}
+    whitelist_from: {'type': 'object', 'additionalProperties': 'False', 'required': ['url'], 'properties': {'url': {'type': 'string'}, 'format': {'enum': ['csv', 'json', 'txt', 'csv2dict']}, 'expr': {'oneOf': [{'type': 'integer'}, {'type': 'string'}]}}}
     whitelist_conditions: {'type': 'array', 'items': {'type': 'string'}}
     whitelist_endpoints: {'type': 'array', 'items': {'type': 'string'}}
     whitelist_endpoints_from: {'type': 'object', 'additionalProperties': 'False', 'required': ['url'], 'properties': {'url': {'type': 'string'}, 'format': {'enum': ['csv', 'json', 'txt', 'csv2dict']}, 'expr': {'oneOf': [{'type': 'integer'}, {'type': 'string'}]}}}
-    whitelist_from: {'type': 'object', 'additionalProperties': 'False', 'required': ['url'], 'properties': {'url': {'type': 'string'}, 'format': {'enum': ['csv', 'json', 'txt', 'csv2dict']}, 'expr': {'oneOf': [{'type': 'integer'}, {'type': 'string'}]}}}
     whitelist_orgids: {'type': 'array', 'items': {'type': 'string'}}
     whitelist_orgids_from: {'type': 'object', 'additionalProperties': 'False', 'required': ['url'], 'properties': {'url': {'type': 'string'}, 'format': {'enum': ['csv', 'json', 'txt', 'csv2dict']}, 'expr': {'oneOf': [{'type': 'integer'}, {'type': 'string'}]}}}
     whitelist_protocols: {'type': 'array', 'items': {'type': 'string', 'enum': ['http', 'https', 'email', 'email-json', 'sms', 'sqs', 'application', 'lambda']}}
@@ -3289,7 +3969,7 @@ Resource Type Implementations for {function.name}:
         class RedshiftSnapshotCrossAccount
 
     Filter all accounts that allow access to non-whitelisted accounts
-    
+
 
 -   In :file:`c7n/resources/vpc.py` 1410
 
@@ -3538,8 +4218,40 @@ Policies studied have 86 examples.
     actions:
       # REDACTED #
 
+Each of these is a unique path to access an account (or organization or VPC or VPC-endpoints, etc.)
+
+There are a few common cases and a large number of unique, special cases.
+This, in turn, leads to a raft of special functions required to extract the information.
+
+-   :py:func:`c7nlib.get_accounts` which depends on :py:meth:`CELFilter.get_accounts`
+
+-   :py:func:`c7nlib.get_vpcs` which depends on :py:meth:`CELFilter.get_vpcs`
+
+-   :py:func:`c7nlib.get_vpces` which depends on :py:meth:`CELFilter.get_vpces`
+
+-   :py:func:`c7nlib.get_orgids` which depends on :py:meth:`CELFilter.get_orgids`
+
+-   :py:func:`c7nlib.get_endpoints` which depends on :py:meth:`CELFilter.get_endpoints`
+
+-   :py:func:`c7nlib.get_protocols` which depends on :py:meth:`CELFilter.get_protocols`
+
+-   :py:func:`c7nlib.get_resource_policy` which depends on :py:meth:`CELFilter.get_protocols`
+
+-   :py:func:`c7nlib.get_key_policy` which depends on :py:meth:`CELFilter.get_key_policy`
+
+-   :py:func:`c7nlib.describe_subscription_filters` which depends on :py:attr:`CELFilter.manager
+
+-   :py:func:`c7nlib.describe_db_snapshot_attributes` which depends on :py:attr:`CELFilter.manager
+
+-   :py:func:`c7nlib.arn_split`
+
+Generally, these functions reach back into the :py:class:`CELFilter` instance for similarly-named
+methods that acquire the required data. Some of these seem to map directly to AWS boto3 functions.
+
 unused
 ------
+
+See used_.
 
 Schema
 
@@ -3748,8 +4460,85 @@ Policies studied have 43 examples.
     actions:
       # REDACTED #
 
+Each resource type is slightly different:
+
+-   ami. See :py:class:`c7n.resources.ami.ImageUnusedFilter`. This looks at a union of all EC2 and ASG images.
+
+    ::
+
+        ! Resource["ImageId"] in (
+                set(C7N.filter._pull_ec2_images()) +
+                set(C7N.filter._pull_asg_images())
+        )
+
+
+-   asg. See :py:class:`c7n.resources.asg.UnusedLaunchConfig`.
+
+    ::
+
+        ! Resource['LaunchConfigurationName'] in (
+            C7N.filter.manager.get_launch_configuration_names()
+        )
+
+
+-   ebs. See :py:class:`c7n.resources.ebs.SnapshotUnusedFilter`.  This looks at all AMI and ASG snapshots,
+    as well as launch templates.
+
+    ::
+
+        ! Resource['SnapshotId'] in (set(C7N.filter._pull_asg_snapshots() + set(C7N.filter._pull_ami_snapshots()))
+
+-   iam.
+
+    -   Role. See :py:class:`c7n.resources.iam.UnusedIamRole`. Gets ARN's using the role.
+
+        ::
+
+            ! Resource['Arn'] in C7N.filter.service_role_usage() && ! Resource['RoleName'] in C7N.filter.service_role_usage()
+
+
+    -   Policy. See :py:class:`c7n.resources.iam.UnusedIamPolicies`.
+
+        ::
+
+            ! (Resource['AttachmentCount'] > 0 || Resource.get('PermissionsBoundaryUsageCount', 0) > 0)
+
+
+    -   Instance. See :py:class:`c7n.resources.iam.UnusedInstanceProfiles`.
+
+        ::
+
+            ! Resource['Arn'] in C7N.filter.instance_profile_usage() && ! Resource['InstanceProfileName'] in C7N.filter.instance_profile_usage()
+
+
+-   rds-subnet-group. See :py:class:`c7n.resources.rds.UnusedRDSSubnetGroup`.
+
+    ::
+
+        ! Resource['DBSubnetGroupName'] in C7N.filter.get_dbsubnet_group_used()
+
+-   vpc. See :py:class:`c7n.resources.vpc.UnusedSecurityGroup`.
+
+    ::
+
+        ! Resource['GroupId'] in C7N.filter.scan_groups() and 'VpcId' in Resource
+
+This leads to a number of functions in the ``CELFilter`` class, depending
+on the resource type.
+
+-   :py:func:`c7nlib.all_images` which depends on :py:meth:`CELFilter._pull_ec2_images` and :py:meth:`CELFilter._pull_asg_images`.
+-   :py:func:`c7nlib.all_snapshots` which depends on :py:meth:`CELFilter._pull_asg_snapshots` and :py:meth:`CELFilter._pull_ami_snapshots`
+-   :py:func:`c7nlib.all_launch_configuration_names` which depends on :py:meth:`CELFilter.manager.get_launch_configuration_names`
+-   :py:func:`c7nlib.all_service_roles` which depends on :py:meth:`CELFilter.service_role_usage`
+-   :py:func:`c7nlib.all_instance_profiles` which depends on :py:meth:`CELFilter.instance_profile_usage`
+-   :py:func:`c7nlib.all_dbsubenet_groups` which depends on :py:meth:`CELFilter.get_dbsubnet_group_used`
+-   :py:func:`c7nlib.all_scan_groups` which depends on :py:meth:`CELFilter.scan_groups`
+
+
 is-not-logging
 --------------
+
+See `is_logging`_.
 
 Schema
 
@@ -3824,7 +4613,7 @@ Policies studied have 40 examples.
     name: classic-elb-require-logging-us-east-1
     resource: elb
     filters:
-      - bucket: cof-redacted
+      - bucket: redacted
         prefix: Logs
         type: is-not-logging
 
@@ -3836,7 +4625,7 @@ Policies studied have 40 examples.
     name: classic-elb-require-logging-us-west-2
     resource: elb
     filters:
-      - bucket: cof-redacted
+      - bucket: redacted
         prefix: Logs
         type: is-not-logging
 
@@ -3849,15 +4638,29 @@ Policies studied have 40 examples.
     resource: app-elb
     filters:
       - Type: application
-      - bucket: cof-redacted
+      - bucket: redacted
         prefix: Logs
         type: is-not-logging
 
     actions:
       # REDACTED #
 
+
+This leads to a two functions in the ``CELFilter`` class, depending
+on the resource type.
+
+-   :py:func:`c7nlib.get_access_log` is for `elb`, and depends on
+    :py:class:`c7n.resources.elb.IsNotLoggingFilter` and
+    :py:class:`c7n.resources.elb.IsLoggingFilter`.
+
+-   :py:func:`c7nlib.get_load_balancer` is for `app-elb` and depends on
+    :py:class:`c7n.resources.appelb.IsNotLoggingFilter` and
+    :py:class:`c7n.resources.appelb.IsLoggingFilter`.
+
 health-event
 ------------
+
+See `metrics`_.
 
 Schema
 
@@ -3940,6 +4743,29 @@ Policies studied have 32 examples.
     actions:
       # REDACTED #
 
+This may require some rework in the :py:class:`c7n.filters.health.HealthEventFilter` class.
+The class  :py:meth:`c7n.filters.health.HealthEventFilter.process` method
+appears to provide all Health events for a given list of resources.
+
+It may be that a CEL ``Resource.get_health_events()`` should evaluate a
+``C7N.health_events`` function that is a refactirubg of the ``process()`` method of
+the :py:class:`c7n.filters.health.HealthEventFilter` class. Because the filter features
+are mixins, they cannot reuse names like ``process``.
+
+There are two parts to this.
+
+1.  Getting raw health-events from the cloud provider.
+    The :py:func:`celpy.c7nlib.get_raw_health_events` is refactored
+    from the ``HealthEventFilter`` filter into :py:func:`celpy.c7nlib.get_raw_health_events` function.
+
+2.  Getting health events for a specific resource.
+    The :py:func:`celpy.c7nlib.get_health_events` function builds a filter unique to the resource.
+    This uses :py:func:`celpy.c7nlib.get_raw_health_events`.
+
+Generally, C7N requests in bunches of 10 per client connection.
+A worker pool processes the batches to keep from overwhelming AWS with
+health event requests.
+
 shield-enabled
 --------------
 
@@ -3996,8 +4822,19 @@ Policies studied have 15 examples.
     actions:
       # REDACTED #
 
+This leads to two functions in the ``CELFilter`` class, depending on the resource type.
+
+-   :py:func:`c7nlib.shield_protection` which depends on the :py:meth:`c7n.resources.shield.IsShieldProtected.process` method.
+    This needs to be refactored and renamed to avoid collisions with other ``process()`` variants.
+    Also depends on :py:meth:`c7n.resources.shield.IsShieldProtected.get_type_protections`, unmodified.
+
+-   :py:func:`c7nlib.shield_subscription` which depends on :py:meth:`c7n.resources.account.ShieldEnabled.process` method.
+    This needs to be refactored and renamed to avoid collisions with other ``process()`` variants.
+
 is-logging
 ----------
+
+See `is-not-logging`_.
 
 Schema
 
@@ -4121,8 +4958,12 @@ Policies studied have 8 examples.
     actions:
       # REDACTED #
 
+This is based on `is-not-logging`_.
+
 used
 ----
+
+See unused_.
 
 Schema
 
@@ -4322,6 +5163,15 @@ Policies studied have 3 examples.
     actions:
       # REDACTED #
 
+There appear to be two parts to this: (1) getting ACL-ids, and then (2) checking to see
+if the filter's web-acl value is in the list of ACL-ids for this resource.
+
+This leads to a a function in the ``CELFilter`` class:
+
+-   :py:func:`c7nlib.web_acls` depends on
+    :py:meth:`c7n.resources.cloudfront.IsWafEnabled.process` to get the ACL-ids.
+    The rest of the prcessing can be exposed in CEL.
+
 network-location
 ----------------
 
@@ -4401,6 +5251,45 @@ Policies studied have 2 examples.
 
     actions:
       # REDACTED #
+
+A number of resources depend on :py:class:`c7n.filters.vpc.NetworkLocation` for the core implementation.
+The "ec2" implementation diverges slightly from the superclass.
+
+From the documentation.
+
+    On a network attached resource, determine intersection of
+    security-group attributes, subnet attributes, and resource attributes.
+
+    The use case is a bit specialized, for most use cases using `subnet`
+    and `security-group` filters suffice. but say for example you wanted to
+    verify that an ec2 instance was only using subnets and security groups
+    with a given tag value, and that tag was not present on the resource.
+
+It appears that the "compare-ignore" rules can be optimized into an explicit
+CEL expression to describe the related items and their relationshiup.
+
+This legacy filter
+
+::
+
+    resource: ec2
+    filters:
+      - type: network-location
+        compare: ["resource","security-group"]
+        key: "tag:TEAM_NAME"
+        ignore:
+          - "tag:TEAM_NAME": Enterprise
+
+May be this
+
+::
+
+    Resource.SubnetId.subnet()["Tags"]["TEAM_NAME"] == Resource["Tags"]["TEAM_NAME"]
+    && Resource["Tags"]["TEAM_NAME"] != "Enterprise"
+
+This doesn't seem to require an additional c7nlib function. The features
+appear to be available in other functions to fetch the related subnet
+and security group for a resource.
 
 finding (no examples)
 ---------------------
@@ -4605,7 +5494,6 @@ Resource Type Implementations for {function.name}:
         class DefaultVpc
 
     Matches if an ec2 database is in the default vpc
-    
 
 -   In :file:`c7n/resources/elb.py` 748
 
@@ -4687,8 +5575,8 @@ Resource Type Implementations for {function.name}:
 
 Policies studied have 0 examples.
 
-Singleton/Non-Bool
-==================
+Singleton/Non-Bool Filters
+==========================
 
 launch-config
 -------------
@@ -4756,7 +5644,7 @@ Policies studied have 103 examples.
 
     name: asg-large-instance-notify
     comment: Notify any user who creates an ASG that will launch instances
-    that use an instance type that is considered "large" 
+    that use an instance type that is considered "large"
     (generally > $1/hour)
 
     resource: asg
@@ -5509,7 +6397,7 @@ Policies studied have 7 examples.
     name: enterprise-unused-stopped-ec2-with-ancient-images
     resource: ec2
     filters:
-      - tag:cof-proxy: absent
+      - tag:proxy: absent
       - days: 60
         op: gte
         type: image-age
@@ -5578,7 +6466,7 @@ Policies studied have 7 examples.
     name: enterprise-unused-stopped-ec2-with-ancient-image-delete
     resource: ec2
     filters:
-      - tag:cof-proxy: absent
+      - tag:proxy: absent
       - days: 60
         op: gte
         type: image-age
@@ -6734,8 +7622,8 @@ Resource Type Implementations for {function.name}:
 
 Policies studied have 0 examples.
 
-Singleton/Boolean
-=================
+Singleton/Boolean Filters
+=========================
 
 skip-ami-snapshots
 ------------------
@@ -7818,7 +8706,7 @@ Policies studied have 7 examples.
       - key: Name
         op: regex
         type: value
-        value: (?!cf-templates-.*|.*cloudformation.*|cof.*s3-access-logs-us.*|cof.*elb-access-logs-us.*|elasticbeanstalk-us.*|.*cloud-maid.*)
+        value: (?!cf-templates-.*|.*cloudformation.*|ent.*s3-access-logs-us.*|ent.*elb-access-logs-us.*|elasticbeanstalk-us.*|.*cloud-maid.*)
 
     actions:
       # REDACTED #
@@ -7833,7 +8721,7 @@ Policies studied have 7 examples.
       - key: Name
         op: regex
         type: value
-        value: (?!cf-templates-.*|.*cloudformation.*|cof.*s3-access-logs-us.*|cof.*elb-access-logs-us.*|elasticbeanstalk-us.*|.*cloud-maid.*)
+        value: (?!cf-templates-.*|.*cloudformation.*|ent.*s3-access-logs-us.*|ent.*elb-access-logs-us.*|elasticbeanstalk-us.*|.*cloud-maid.*)
 
     actions:
       # REDACTED #
@@ -7848,7 +8736,7 @@ Policies studied have 7 examples.
       - key: Name
         op: regex
         type: value
-        value: (?!cf-templates-.*|.*cloudformation.*|cof.*s3-access-logs-us.*|cof.*elb-access-logs-us.*|elasticbeanstalk-us.*|.*cloud-maid.*)
+        value: (?!cf-templates-.*|.*cloudformation.*|ent.*s3-access-logs-us.*|ent.*elb-access-logs-us.*|elasticbeanstalk-us.*|.*cloud-maid.*)
 
     actions:
       # REDACTED #
@@ -8143,7 +9031,7 @@ Policies studied have 5 examples.
 ..  code::  yaml
 
     name: azure-policy-deny-byol-enable
-    comments: Ensure that denial of bring your own license azure policy enabled. 
+    comments: Ensure that denial of bring your own license azure policy enabled.
     If not, it applies the azure policy which will enable
     auditing.
 
@@ -8164,7 +9052,7 @@ Policies studied have 5 examples.
 ..  code::  yaml
 
     name: azure-policy-allowed-resources-enable
-    comments: Ensure that allowed resources azure policy enabled. 
+    comments: Ensure that allowed resources azure policy enabled.
     If not, it applies the azure policy which will enable
     auditing.
 
@@ -8436,7 +9324,6 @@ Resource Type Implementations for {function.name}:
         class LatestSnapshot
 
     Return the latest snapshot for each database.
-    
 
 Policies studied have 3 examples.
 
