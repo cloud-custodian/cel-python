@@ -51,7 +51,7 @@ jobs:
           tox -e ${{ matrix.tox-target }}
 
   Coverage:
-    needs: Lint
+    needs: Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -64,10 +64,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install tox
 
-      - name: Coverage Create XML
+      - name: Coverage Create and Upload XML
         run: |
-          tox -e lint
-
-      - name: Coverage Upload XML
-        run: |
+          tox -e lint && \
           bash <(curl -s https://codecov.io/bash) -Z -v -f coverage.xml
