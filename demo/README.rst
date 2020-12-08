@@ -21,15 +21,15 @@ For more information see https://docs.conda.io/en/latest/index.html
 (Much of this can be done with PIP, also.)
 
 Create and activate a Conda virtual environment, we've used the name "cel"::
-    
+
     conda create -n cel python=3.8
     conda activate cel
 
 Install Jupyter Lab::
 
     conda install jupyterlab
-    
-    
+
+
 Start a lab server::
 
     PYTHONPATH=$(pwd)/src jupyter lab
@@ -50,4 +50,4 @@ and examine the notebooks. We'll look at this from a Cloud Custodian (C7N) persp
 -   `demo/complex_policy.ipynb`_ shows a complex policy and how we can build -- and debug -- the policy
     filter expression.
 
-These should help youo build an understanding of 
+These should help youo build an understanding of

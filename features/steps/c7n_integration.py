@@ -32,12 +32,13 @@ When the CEL is evaluated, the C7NContext manager is used to provide a filter in
 This also uses the :py:class:`celpy.c7nlib.C7N_Interpreted_Runner` class to provide
 access to C7N caches to the c7nlib functions.
 """
+import json
 from ast import literal_eval
+from types import SimpleNamespace
+from unittest.mock import Mock
+
 from behave import *
 from dateutil.parser import parse as parse_date
-import json
-from unittest.mock import Mock
-from types import SimpleNamespace
 
 import celpy
 import celpy.c7nlib

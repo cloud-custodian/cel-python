@@ -141,4 +141,3 @@ Scenario: "no_overload"
 Given disable_check parameter is true
  When CEL expression "!0" is evaluated
  Then eval_error is "no matching overload"
-

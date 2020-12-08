@@ -17,8 +17,10 @@
 C7N Integration Translation Test Cases.
 """
 from unittest.mock import Mock, call, sentinel
-from xlate.c7n_to_cel import C7N_Rewriter
+
 from pytest import *
+
+from xlate.c7n_to_cel import C7N_Rewriter
 
 
 def test_q():

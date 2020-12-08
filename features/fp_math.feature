@@ -127,4 +127,3 @@ Scenario: "fp_underflow"
           "DBL_MIN(2^-1074) divided by two"
  When CEL expression "1e-324  / 2.0" is evaluated
  Then value is Value(value_type='double_value', value=0.0)
-

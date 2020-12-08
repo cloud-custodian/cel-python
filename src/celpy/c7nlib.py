@@ -26,29 +26,43 @@ The functions rely on implementation details in the ``CELFilter`` class.
 The API
 =======
 
-C7N uses this library as follows::
+C7N uses CEL and the :py:mod:`c7nlib` module as follows::
 
-    # Validation:
-    decls = {
-        "Resource": celpy.celtypes.MapType,
-        "Now": celpy.celtypes.TimestampType,
-    }
-    decls.update(celpy.c7nlib.DECLARATIONS)
-    cel_env = celpy.Environment(annotations=decls, runner_class=c7nlib.C7N_Interpreted_Runner)
-    cel_ast = cel_env.compile(cel_source)
+    class CELFilter(c7n.filters.core.Filter):  # See below for the long list of mixins.
+        decls = {
+            "Resource": celpy.celtypes.MapType,
+            "Now": celpy.celtypes.TimestampType,
+            "Event": celpy.celtypes.MapType,
+        }
+        decls.update(celpy.c7nlib.DECLARATIONS)
 
-    # Processing:
-    cel_prgm = cel_env.program(cel_ast, functions=celpy.c7nlib.FUNCTIONS)
-    cel_activation = {
-        "Resource": celpy.json_to_cel(resource),
-        "Now": celpy.celtypes.TimestampType(datetime.datetime.utcnow()),
-    }
-    with C7NContext(filter=the_filter):
-        cel_result = cel_prgm.evaluate(cel_activation)
+        def __init__(self, expr: str) -> None:
+            self.expr = expr
 
-This library of functions is bound into the program that's built from the AST and the functions.
+        def validate(self) -> None:
+            cel_env = celpy.Environment(
+                annotations=self.decls,
+                runner_class=c7nlib.C7N_Interpreted_Runner)
+            cel_ast = cel_env.compile(self.expr)
+            self.pgm = cel_env.program(cel_ast, functions=celpy.c7nlib.FUNCTIONS)
 
-Several objects are bound into the activation for use by the CEL expressoin
+        def process(self,
+            resources: Iterable[celpy.celtypes.MapType]) -> Iterator[celpy.celtypes.MapType]:
+            now = datetime.datetime.utcnow()
+            for resource in resources:
+                with C7NContext(filter=the_filter):
+                    cel_activation = {
+                        "Resource": celpy.json_to_cel(resource),
+                        "Now": celpy.celtypes.TimestampType(now),
+                    }
+                    if self.pgm.evaluate(cel_activation):
+                        yield resource
+
+This isn't the whole story, this is the starting point.
+
+This library of functions is bound into the program that's built from the AST.
+
+Several objects are required in activation for use by the CEL expressoin
 
 -   ``Resource``. The JSON document describing the cloud resource.
 
@@ -121,20 +135,91 @@ and the function is also part of ``CELFilter``.
 ::
 
     class InstanceImageMixin:
+        # from :py:class:`InstanceImageBase` refactoring
         def get_instance_image(self):
             pass
 
-
     class RelatedResourceMixin:
+        # from :py:class:`RelatedResourceFilter` mixin
         def get_related_ids(self):
             pass
 
         def get_related(self):
             pass
 
-    # A lot of mixins.
+    class CredentialReportMixin:
+        # from :py:class:`c7n.resources.iam.CredentialReport` filter.
+        def get_credential_report(self):
+            pass
 
-    class CELFilter(c7n.filters.core.Filter, InstanceImageMixin, RelatedResourceMixin):
+    class ResourceKmsKeyAliasMixin:
+        # from :py:class:`c7n.resources.kms.ResourceKmsKeyAlias`
+        def get_matching_aliases(self, resource):
+            pass
+
+    class CrossAccountAccessMixin:
+        # from :py:class:`c7n.filters.iamaccessfilter.CrossAccountAccessFilter`
+        def get_accounts(self, resource):
+            pass
+        def get_vpcs(self, resource):
+            pass
+        def get_vpces(self, resource):
+            pass
+        def get_orgids(self, resource):
+            pass
+        # from :py:class:`c7n.resources.secretsmanager.CrossAccountAccessFilter`
+        def get_resource_policy(self, resource):
+            pass
+
+    class SNSCrossAccountMixin:
+        # from :py:class:`c7n.resources.sns.SNSCrossAccount`
+        def get_endpoints(self, resource):
+            pass
+        def get_protocols(self, resource):
+            pass
+
+    class ImagesUnusedMixin:
+        # from :py:class:`c7n.resources.ami.ImageUnusedFilter`
+        def _pull_ec2_images(self, resource):
+            pass
+        def _pull_asg_images(self, resource):
+            pass
+
+    class SnapshotUnusedMixin:
+        # from :py:class:`c7n.resources.ebs.SnapshotUnusedFilter`
+        def _pull_asg_snapshots(self, resource):
+            pass
+        def _pull_ami_snapshots(self, resource):
+            pass
+
+    class IamRoleUsageMixin:
+        # from :py:class:`c7n.resources.iam.IamRoleUsage`
+        def service_role_usage(self, resource):
+            pass
+        def instance_profile_usage(self, resource):
+            pass
+
+    class SGUsageMixin:
+        # from :py:class:`c7n.resources.vpc.SGUsage`
+        def scan_groups(self, resource):
+            pass
+
+    class IsShieldProtectedMixin:
+        # from :py:mod:`c7n.resources.shield`
+        def get_type_protections(self, resource):
+            pass
+
+    class ShieldEnabledMixin:
+        # from :py:class:`c7n.resources.account.ShieldEnabled`
+        def account_shield_subscriptions(self, resource):
+            pass
+
+    class CELFilter(
+        InstanceImageMixin, RelatedResourceMixin, CredentialReportMixin,
+        ResourceKmsKeyAliasMixin, CrossAccountAccessMixin, SNSCrossAccountMixin,
+        ImagesUnusedMixin, SnapshotUnusedMixin, IamRoleUsageMixin, SGUsageMixin,
+        Filter,
+    ):
         '''Container for functions used by c7nlib to expose data to CEL'''
         def __init__(self, data, manager) -> None:
             super().__init__(data, manager)
@@ -142,6 +227,11 @@ and the function is also part of ``CELFilter``.
             self.expr = data["expr"]
             self.parser = c7n.filters.offhours.ScheduleParser()
 
+        def validate(self):
+            pass  # See above example
+
+        def process(self, resources):
+            pass  # See above example
 
 This is not the complete list. See the ``tests/test_c7nlib.py`` for the ``celfilter_instance``
 fixture which contains **all** of the functions required.
@@ -183,26 +273,27 @@ Changing either of these functions with an override won't modify the behavior
 of :func:`value_from`.
 """
 import csv
-import dateutil
-from distutils import version as version_lib
-from contextlib import closing
-import jmespath  # type: ignore [import]
-import json
 import fnmatch
 import io
 import ipaddress
+import json
 import logging
 import os.path
 import sys
-from types import TracebackType
-from typing import Any, Callable, Dict, List, Union, Optional, Type, Iterator, cast
 import urllib.request
 import zlib
+from contextlib import closing
+from distutils import version as version_lib
+from types import TracebackType
+from typing import (Any, Callable, Dict, Iterator, List, Optional, Type, Union,
+                    cast)
 
+import dateutil
+import jmespath  # type: ignore [import]
+
+from celpy import InterpretedRunner, celtypes
 from celpy.adapter import json_to_cel
-from celpy import celtypes, InterpretedRunner
-from celpy.evaluation import Annotation, Context, Result, Evaluator
-
+from celpy.evaluation import Annotation, Context, Evaluator, Result
 
 logger = logging.getLogger(__name__)
 
@@ -818,7 +909,7 @@ def flow_logs(resource: celtypes.MapType,) -> celtypes.Value:
 
 def vpc(vpc_id: celtypes.Value,) -> celtypes.Value:
     """
-    Reach into C7N and make a get_related() request using the current C7N filter to get
+    Reach into C7N and make a ``get_related()`` request using the current C7N filter to get
     the VPC details.
 
     ..  todo:: Refactor C7N
@@ -862,6 +953,10 @@ def credentials(vpc_id: celtypes.Value,) -> celtypes.Value:
     The `get_credential_report()` function does what we need.
 
     ..  todo:: Refactor C7N
+
+        Refactor the :py:class:`c7n.resources.iam.CredentialReport` filter into a
+        ``CredentialReportMixin`` mixin to the :py:class:`CELFilter` class.
+        The ``get_credential_report()`` function does what we need.
     """
     return json_to_cel(C7N.filter.get_credential_report())
 
@@ -871,7 +966,14 @@ def kms_alias(vpc_id: celtypes.Value,) -> celtypes.Value:
     Reach into C7N and make a get_matching_aliases() request using the current C7N filter to get
     the alias.
 
+    See :py:class:`c7n.resources.kms.ResourceKmsKeyAlias`.
+    The `get_matching_aliases()` function does what we need.
+
     ..  todo:: Refactor C7N
+
+        Refactor the :py:class:`c7n.resources.kms.ResourceKmsKeyAlias` filter into a
+        ``ResourceKmsKeyAliasMixin`` mixin to the :py:class:`CELFilter` class.
+        The ``get_matching_aliases()`` dfunction does what we need.
     """
     return json_to_cel(C7N.filter.get_matching_aliases())
 
@@ -882,6 +984,8 @@ def kms_key(key_id: celtypes.Value,) -> celtypes.Value:
     the key. We're looking for the c7n.resources.kms.Key resource manager to get the related key.
 
     ..  todo:: Refactor C7N
+
+        Provide the :py:class:`RelatedResourceFilter` mixin in a :py:class:`CELFilter` class.
     """
     key = C7N.filter.get_related([key_id])
     return json_to_cel(key)
@@ -938,8 +1042,6 @@ def resource_schedule(
 
         key("maid_offhours").resource_schedule().off.exists(s,
             Now.getDayOfWeek(s.tz) in s.days && Now.getHour(s.tz) == s.hour)
-
-    ..  todo:: Refactor C7N
     """
     c7n_sched_doc = C7N.filter.parser.parse(tag_value)
     tz = c7n_sched_doc.pop("tz", "et")
@@ -958,6 +1060,9 @@ def get_accounts(resource: celtypes.MapType,) -> celtypes.Value:
     Used by resources like AMI's, log-groups, ebs-snapshot, etc.
 
     ..  todo:: Refactor C7N
+
+        Provide the :py:class:`c7n.filters.iamaccessfilter.CrossAccountAccessFilter`
+        as a mixin to ``CELFilter``.
     """
     return json_to_cel(C7N.filter.get_accounts())
 
@@ -968,6 +1073,9 @@ def get_vpcs(resource: celtypes.MapType,) -> celtypes.Value:
     Used by resources like AMI's, log-groups, ebs-snapshot, etc.
 
     ..  todo:: Refactor C7N
+
+        Provide the :py:class:`c7n.filters.iamaccessfilter.CrossAccountAccessFilter`
+        as a mixin to ``CELFilter``.
     """
     return json_to_cel(C7N.filter.get_vpcs())
 
@@ -978,6 +1086,10 @@ def get_vpces(resource: celtypes.MapType,) -> celtypes.Value:
     Used by resources like AMI's, log-groups, ebs-snapshot, etc.
 
     ..  todo:: Refactor C7N
+
+        Provide the :py:class:`c7n.filters.iamaccessfilter.CrossAccountAccessFilter`
+        as a mixin to ``CELFilter``.
+
     """
     return json_to_cel(C7N.filter.get_vpces())
 
@@ -988,6 +1100,9 @@ def get_orgids(resource: celtypes.MapType,) -> celtypes.Value:
     Used by resources like AMI's, log-groups, ebs-snapshot, etc.
 
     ..  todo:: Refactor C7N
+
+        Provide the :py:class:`c7n.filters.iamaccessfilter.CrossAccountAccessFilter`
+        as a mixin to ``CELFilter``.
     """
     return json_to_cel(C7N.filter.get_orgids())
 
@@ -996,6 +1111,9 @@ def get_endpoints(resource: celtypes.MapType,) -> celtypes.Value:
     """For sns resources
 
     ..  todo:: Refactor C7N
+
+        Provide the :py:class:`c7n.filters.iamaccessfilter.CrossAccountAccessFilter`
+        as a mixin to ``CELFilter``.
     """
     return json_to_cel(C7N.filter.get_endpoints())
 
@@ -1016,8 +1134,9 @@ def get_key_policy(resource: celtypes.MapType,) -> celtypes.Value:
     key_id = resource.get(
         celtypes.StringType("TargetKeyId"),
         resource.get(celtypes.StringType("KeyId")))
+    client = C7N.filter.manager.session_factory().client("kms")
     return json_to_cel(
-        C7N.filter.client.get_key_policy(
+        client.get_key_policy(
             KeyId=key_id,
             PolicyName='default')['Policy']
     )
@@ -1041,9 +1160,10 @@ def describe_subscription_filters(resource: celtypes.MapType,) -> celtypes.Value
 
         this should be directly available in CELFilter.
     """
+    client = C7N.filter.manager.session_factory().client("logs")
     return json_to_cel(
         C7N.filter.manager.retry(
-            C7N.filter.client.describe_subscription_filters,
+            client.describe_subscription_filters,
             logGroupName=resource['logGroupName']
         ).get('subscriptionFilters', ())
     )
@@ -1057,9 +1177,10 @@ def describe_db_snapshot_attributes(resource: celtypes.MapType,) -> celtypes.Val
 
         this should be directly available in CELFilter.
     """
+    client = C7N.filter.manager.session_factory().client("ec2")
     return json_to_cel(
         C7N.filter.manager.retry(
-            C7N.filter.client.describe_snapshot_attribute,
+            client.describe_snapshot_attribute,
             SnapshotId=resource['SnapshotId'],
             Attribute='createVolumePermission'
         )

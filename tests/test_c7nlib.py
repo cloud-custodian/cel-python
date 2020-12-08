@@ -25,14 +25,16 @@ There are three collections of tests.
 """
 import datetime
 import io
+import zlib
 from types import SimpleNamespace
 from unittest.mock import Mock, call, sentinel
-import zlib
-import celpy
-import celpy.c7nlib
-import celpy.adapter
-import celpy.celtypes
+
 from pytest import *
+
+import celpy
+import celpy.adapter
+import celpy.c7nlib
+import celpy.celtypes
 
 
 def test_key():
@@ -343,8 +345,6 @@ def celfilter_instance():
     The mocked CELFilter instance for all of the c7nlib integration tests.
 
     This CELFilter class demonstrates *all* the features required for the refactored C7N.
-
-    ..  todo:: Make sure **all** required functions are in the mock ``CELFilter`` class.
     """
     datapoints = [
         {"Average": str(sentinel.average)}
@@ -366,7 +366,10 @@ def celfilter_instance():
         name="ec2_client",
         describe_flow_logs=Mock(
             return_value={"FlowLogs": [{"ResourceId": "i-123456789"}]}
-        )
+        ),
+        describe_snapshot_attribute=Mock(
+            return_value=[str(sentinel.snashot_permission)]
+        ),
     )
     elb_client = Mock(
         name="elb_client",
@@ -396,6 +399,17 @@ def celfilter_instance():
             return_value={"events": health_events}
         )
     )
+    kms_client = Mock(
+        name="kms_client",
+        get_key_policy=Mock(
+            return_value={"Policy": str(sentinel.policy)}),
+    )
+    logs_client = Mock(
+        name="logs_cient",
+        describe_subscription_filters=Mock(
+            return_value={"subscriptionFilters": [str(sentinel.subscription_filter)]}
+        )
+    )
     shield_client = Mock(
         name="shield_client",
         describe_subscription=Mock(
@@ -408,8 +422,10 @@ def celfilter_instance():
         "elb": elb_client,
         "elbv2": elbv2_client,
         "health": health_client,
+        "kms": kms_client,
+        "logs": logs_client,
         "shield": shield_client,
-     }
+    }
     mock_session = Mock(
         name="mock_session instance",
         client=Mock(side_effect=lambda name, region_name=None: clients.get(name))
@@ -465,6 +481,7 @@ def celfilter_instance():
     )
 
     mock_parser = Mock(
+        name="Mock c7n.filters.offhours.ScheduleParser instance",
         parse=Mock(
             return_value={
                 "off": [
@@ -491,65 +508,74 @@ def celfilter_instance():
                 raise NotImplementedError(f"No get_related() for {resources}")
         return result
 
+    # Class foundation from C7n.
     class Filter:
+        """Mock of c7n.filters.core.Filter"""
         def __init__(self, data, manager):
-            assert data["type"].lower() == "cel"
-            self.expr = data["expr"]
+            self.data = data
             self.manager = manager
 
+    # Mixins from C7N.
     class InstanceImageMixin:
         get_instance_image = Mock(
             return_value={"CreationDate": "2020-09-10T11:12:13Z", "Name": str(sentinel.name)}
         )
 
     class RelatedResourceMixin:
-        get_related_ids = Mock(
-            return_value=[str(sentinel.sg_id)]
-        )
-        get_related = Mock(
-            side_effect=get_related_results
-        )
+        get_related_ids = Mock(return_value=[str(sentinel.sg_id)])
+        get_related = Mock(side_effect=get_related_results)
 
-    # etc. for other mixins, TBD.
+    class CredentialReportMixin:
+        get_credential_report = Mock(return_value=str(sentinel.credential))
 
-    class CELFilter(Filter, InstanceImageMixin, RelatedResourceMixin):
+    class ResourceKmsKeyAliasMixin:
+        get_matching_aliases = Mock(return_value=[str(sentinel.kms_alias)])
+
+    class CrossAccountAccessMixin:
+        get_accounts = Mock(return_value=[str(sentinel.account)])
+        get_vpcs = Mock(return_value=[str(sentinel.vpc)])
+        get_vpces=Mock(return_value=[str(sentinel.vpce)])
+        get_orgids=Mock(return_value=[str(sentinel.orgid)])
+        get_resource_policy = Mock(return_value=[str(sentinel.policy)])
+
+    class SNSCrossAccountMixin:
+        get_endpoints = Mock(return_value=[str(sentinel.endpoint)])
+        get_protocols = Mock(return_value=[str(sentinel.protocol)])
+
+    class ImagesUnusedMixin:
+        _pull_ec2_images = Mock(return_value=set([str(sentinel.ec2_image_id)]))
+        _pull_asg_images = Mock(return_value=set())
+
+    class SnapshotUnusedMixin:
+        _pull_asg_snapshots = Mock(return_value=set([str(sentinel.asg_snapshot_id)]))
+        _pull_ami_snapshots = Mock(return_value=set())
+
+    class IamRoleUsageMixin:
+        service_role_usage = Mock(return_value=[str(sentinel.iam_role)])
+        instance_profile_usage = Mock(return_value=[str(sentinel.iam_profile)])
+
+    class SGUsageMixin:
+        scan_groups = Mock(return_value=[str(sentinel.scan_group)])
+
+    class IsShieldProtectedMixin:
+        get_type_protections = Mock(return_value=[{"ResourceArn": str(sentinel.shield)}])
+
+    class ShieldEnabledMixin:
+        account_shield_subscriptions = Mock(return_value=[str(sentinel.shield)])
+
+    class CELFilter(
+        InstanceImageMixin, RelatedResourceMixin, CredentialReportMixin,
+        ResourceKmsKeyAliasMixin, CrossAccountAccessMixin, SNSCrossAccountMixin,
+        ImagesUnusedMixin, SnapshotUnusedMixin, IamRoleUsageMixin, SGUsageMixin,
+        IsShieldProtectedMixin, ShieldEnabledMixin,
+        Filter,
+    ):
         """Mocked subclass of c7n.filters.core.Filter with Mocked mixins."""
         def __init__(self, data, manager):
             super().__init__(data, manager)
+            assert self.data["type"].lower() == "cel"
+            self.expr = self.data["expr"]
             self.parser = mock_parser
-        get_credential_report = Mock(
-            return_value=str(sentinel.credential)
-        )
-        get_matching_aliases = Mock(
-            return_value=[str(sentinel.kms_alias)]
-        )
-        _pull_ec2_images = Mock(
-            return_value=set([str(sentinel.ec2_image_id)])
-        )
-        _pull_asg_images = Mock(
-            return_value=set()
-        )
-        _pull_asg_snapshots = Mock(
-            return_value=set([str(sentinel.asg_snapshot_id)])
-        )
-        _pull_ami_snapshots = Mock(
-            return_value=set()
-        )
-        service_role_usage = Mock(
-            return_value=[str(sentinel.iam_role)]
-        )
-        instance_profile_usage = Mock(
-            return_value=[str(sentinel.iam_profile)]
-        )
-        scan_groups = Mock(
-            return_value=[str(sentinel.scan_group)]
-        )
-        get_type_protections = Mock(
-            return_value=[{"ResourceArn": str(sentinel.shield)}]
-        )
-        account_shield_subscriptions = Mock(
-            return_value=[str(sentinel.shield)]
-        )
 
     # A place-holder used only for initialization.
     mock_policy_filter_source = {"type": "cel", "expr": "1+1==2"}
@@ -842,83 +868,73 @@ def test_C7N_resource_schedule(celfilter_instance):
         ]),
     }
 
-@fixture
-def cross_account_filter(celfilter_instance):
-    """
-    Refactor: Consider merging this into the celfilter_instance fixture
-    """
-    filter = celfilter_instance['the_filter']
-    filter.get_accounts=Mock(return_value=[str(sentinel.account)])
-    filter.get_vpcs=Mock(return_value=[str(sentinel.vpc)])
-    filter.get_vpces=Mock(return_value=[str(sentinel.vpce)])
-    filter.get_orgids=Mock(return_value=[str(sentinel.orgid)])
-    filter.get_endpoints=Mock(return_value=[str(sentinel.endpoint)])
-    filter.get_protocols=Mock(return_value=[str(sentinel.protocol)])
-    filter.get_resource_policy=Mock(return_value=[str(sentinel.policy)])
-    filter.client=Mock(
-        get_key_policy=Mock(return_value={"Policy": str(sentinel.policy)}),
-        describe_subscription_filters=Mock(return_value={"subscriptionFilters": [str(sentinel.subscription_filter)]}),
-        describe_snapshot_attribute=Mock(return_value=[str(sentinel.snashot_permission)]),
-    )
-    return filter
-
-def test_get_accounts(cross_account_filter):
+def test_get_accounts(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
     ami_doc = {"ResourceType": "ami"}
-    with celpy.c7nlib.C7NContext(filter=cross_account_filter):
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
         accounts = celpy.c7nlib.get_accounts(ami_doc)
     assert accounts == [str(sentinel.account)]
 
-def test_get_vpcs(cross_account_filter):
+def test_get_vpcs(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
     ami_doc = {"ResourceType": "ami"}
-    with celpy.c7nlib.C7NContext(filter=cross_account_filter):
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
         vpcs = celpy.c7nlib.get_vpcs(ami_doc)
     assert vpcs == [str(sentinel.vpc)]
 
-def test_get_vpces(cross_account_filter):
+def test_get_vpces(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
     ami_doc = {"ResourceType": "ami"}
-    with celpy.c7nlib.C7NContext(filter=cross_account_filter):
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
         vpces = celpy.c7nlib.get_vpces(ami_doc)
     assert vpces == [str(sentinel.vpce)]
 
-def test_get_orgids(cross_account_filter):
+def test_get_orgids(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
     ami_doc = {"ResourceType": "ami"}
-    with celpy.c7nlib.C7NContext(filter=cross_account_filter):
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
         orgids = celpy.c7nlib.get_orgids(ami_doc)
     assert orgids == [str(sentinel.orgid)]
 
-def test_get_endpoints(cross_account_filter):
+def test_get_endpoints(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
     ami_doc = {"ResourceType": "sns"}
-    with celpy.c7nlib.C7NContext(filter=cross_account_filter):
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
         endpoints = celpy.c7nlib.get_endpoints(ami_doc)
     assert endpoints == [str(sentinel.endpoint)]
 
-def test_get_protocols(cross_account_filter):
+def test_get_protocols(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
     ami_doc = {"ResourceType": "sns"}
-    with celpy.c7nlib.C7NContext(filter=cross_account_filter):
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
         protocols = celpy.c7nlib.get_protocols(ami_doc)
     assert protocols == [str(sentinel.protocol)]
 
-def test_get_resource_policy(cross_account_filter):
+def test_get_resource_policy(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
     ami_doc = {"ResourceType": "iam-group"}
-    with celpy.c7nlib.C7NContext(filter=cross_account_filter):
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
         policies = celpy.c7nlib.get_resource_policy(ami_doc)
     assert policies == [str(sentinel.policy)]
 
-def test_get_key_policy(cross_account_filter):
+def test_get_key_policy(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
     kms_doc = {"ResourceType": "kms", "KeyId": str(sentinel.key_id)}
-    with celpy.c7nlib.C7NContext(filter=cross_account_filter):
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
         policy = celpy.c7nlib.get_key_policy(kms_doc)
     assert policy == str(sentinel.policy)
 
-def test_describe_subscription_filters(cross_account_filter):
+def test_describe_subscription_filters(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
     log_group_doc = {"ResourceType": "log-group", "logGroupName": str(sentinel.log_group_name)}
-    with celpy.c7nlib.C7NContext(filter=cross_account_filter):
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
         policy = celpy.c7nlib.describe_subscription_filters(log_group_doc)
     assert policy == [str(sentinel.subscription_filter)]
 
-def test_describe_db_snapshot_attributes(cross_account_filter):
+def test_describe_db_snapshot_attributes(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
     rds_snapshot_doc = {"ResourceType": "rds-snapshot", "SnapshotId": str(sentinel.snapshot_id)}
-    with celpy.c7nlib.C7NContext(filter=cross_account_filter):
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
         policy = celpy.c7nlib.describe_db_snapshot_attributes(rds_snapshot_doc)
     assert policy == [str(sentinel.snashot_permission)]
 

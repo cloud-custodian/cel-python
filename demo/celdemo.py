@@ -33,15 +33,16 @@ as follows:
 """
 
 import argparse
-import celpy
 import datetime
 import json
 import logging
-from pathlib import Path
 import sys
-from typing import List, Iterable, Any, Dict
+from pathlib import Path
+from typing import Any, Dict, Iterable, List
+
 import yaml
 
+import celpy
 
 logger = logging.getLogger("celdemo")
 
