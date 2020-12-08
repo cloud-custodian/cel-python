@@ -343,4 +343,3 @@ Scenario: "oneof_set_default"
 Given container is "google.api.expr.test.v1.proto2"
  When CEL expression "has(TestAllTypes{single_nested_enum: TestAllTypes.NestedEnum.FOO}.single_nested_enum)" is evaluated
  Then value is Value(value_type='bool_value', value=True)
-

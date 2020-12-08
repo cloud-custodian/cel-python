@@ -178,4 +178,3 @@ Scenario: "present"
 Scenario: "absent"
  When CEL expression "'spider' in {'ant': 6, 'fly': 6, 'centipede': 100}" is evaluated
  Then value is Value(value_type='bool_value', value=False)
-
