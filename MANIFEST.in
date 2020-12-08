@@ -5,4 +5,3 @@ prune .vscode
 prune .github
 global-exclude .travis.yml .gitignore .drone.yml .dockerignore .coveragerc
 global-exclude .codecov.yml requirements*txt tox.ini Makefile .azure-piplines.yml
-

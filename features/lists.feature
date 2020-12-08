@@ -96,4 +96,3 @@ Scenario: "map_empty"
 Scenario: "map"
  When CEL expression "size({1: 'one', 2: 'two', 3: 'three'})" is evaluated
  Then value is Value(value_type='int64_value', value=3)
-

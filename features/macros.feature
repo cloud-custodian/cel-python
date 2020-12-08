@@ -191,4 +191,3 @@ Scenario: "filter_all"
 Scenario: "all_all"
  When CEL expression "['signer'].all(signer, ['artifact'].all(artifact, true))" is evaluated
  Then value is Value(value_type='bool_value', value=True)
-

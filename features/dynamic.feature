@@ -1126,4 +1126,3 @@ Scenario: "any_list_map"
 Given container is "google.api.expr.test.v1.proto3"
  When CEL expression "TestAllTypes{single_any: [{'almost': 'done'}]}.single_any" is evaluated
  Then value is ListValue(items=[Entries(key_value=[{'key_value_key': {'single_value': ['string_value', {'value': '"almost"'}]}}, {'key_value_value': {'single_value': ['string_value', {'value': '"done"'}]}}])])
-

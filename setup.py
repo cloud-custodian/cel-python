@@ -39,4 +39,3 @@ setup(
     install_requires=(here/"requirements.txt").read_text().splitlines(),
     python_requires='>=3.6, <4',
 )
-

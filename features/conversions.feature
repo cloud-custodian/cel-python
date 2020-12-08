@@ -337,4 +337,3 @@ Scenario: "double_range"
 Scenario: "string"
  When CEL expression "uint('300')" is evaluated
  Then value is Value(value_type='uint64_value', value=300)
-
