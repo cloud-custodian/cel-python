@@ -50,9 +50,24 @@ jobs:
         run: |
           tox -e ${{ matrix.tox-target }}
 
-      - name: Coverage Generate XML
-        if: contains(matrix.tox-target, 'py38')
+  Coverage:
+    needs: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+
+      - name: Install Test Runner
         run: |
-          ./.tox/${{ matrix.tox-target}}/bin/coverage xml && \
-          bash <(curl -s https://codecov.io/bash) -Z \
-          -v -f coverage.xml
+          python -m pip install --upgrade pip
+          pip install tox
+
+      - name: Coverage Create XML
+        run: |
+          tox -e lint
+
+      - name: Coverage Upload XML
+        run: |
+          bash <(curl -s https://codecov.io/bash) -Z -v -f coverage.xml
