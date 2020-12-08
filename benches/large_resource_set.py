@@ -67,14 +67,15 @@ import statistics
 import sys
 import textwrap
 import time
-from typing import Iterable, Union, List, Dict, Any, Optional, Counter, Callable
+from typing import (Any, Callable, Counter, Dict, Iterable, List, Optional,
+                    Union)
+
 import yaml
 
 import celpy
 import celpy.c7nlib
 import celpy.celtypes
 from xlate.c7n_to_cel import C7N_Rewriter
-
 
 JSON = Union[Dict[Dict, Any], List[Any], None, bool, str, int, float]
 
@@ -108,7 +109,7 @@ class TagAssetPolicy(PolicyCase):
         resource: ec2
         comment: 'Notify janitorial services about ec2 instances when instances use custodian
           reserved roles but don''t have Custodian''s ASSET Tag.
-        
+
           '
         actions:
         - cc:

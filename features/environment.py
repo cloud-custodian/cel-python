@@ -4,7 +4,8 @@ Environment definition for Behave acceptance test suite.
 """
 from functools import partial
 from types import SimpleNamespace
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
+
 import celpy.c7nlib
 
 

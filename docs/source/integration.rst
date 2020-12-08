@@ -572,4 +572,3 @@ The breakdown of ``filter`` rules in the C7N policy schema has the following cou
     "('Singleton', 'No-Op')",47,"Used for exactly one resource type, does not expose resource details"
 
 (This is based on cloud-custodian-0.8.40.0, newer versions may have slighyly different numbers.)
-

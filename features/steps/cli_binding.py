@@ -18,13 +18,14 @@ CLI Bindings for Behave testing.
 
 These step definitions use ``subprocess.run()`` to run the ``celpy`` app as a separate process.
 """
-from pathlib import Path
 import re
 import shlex
 import subprocess
 import sys
-from behave import *
+from pathlib import Path
+
 import parse
+from behave import *
 
 
 @given(u'JSON Document \'{json}\'')

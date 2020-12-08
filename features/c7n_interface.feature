@@ -1249,4 +1249,3 @@ Examples: resource_count True
 Examples: resource_count False
     | expected | now                  | document |
     | False    | 2020-09-10T19:08:09Z | {"ResourceType": "ASG", "Tags": []} |
-

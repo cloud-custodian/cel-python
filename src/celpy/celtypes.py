@@ -186,17 +186,16 @@ For example, there may be the following sequence:
 
 """
 import datetime
-from functools import wraps, reduce
 import logging
-from math import fsum
 import re
-from typing import (
-    Any, NoReturn, Mapping, Union, Sequence, Tuple, Optional, Iterable,
-    List, Dict, Type, Callable, TypeVar, cast, overload
-)
+from functools import reduce, wraps
+from math import fsum
+from typing import (Any, Callable, Dict, Iterable, List, Mapping, NoReturn,
+                    Optional, Sequence, Tuple, Type, TypeVar, Union, cast,
+                    overload)
+
 import dateutil.parser
 import dateutil.tz
-
 
 logger = logging.getLogger("celtypes")
 

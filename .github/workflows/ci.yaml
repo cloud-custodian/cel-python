@@ -1,0 +1,70 @@
+name: "CI"
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  Lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Linting
+        run: |
+          pip install pre-commit
+          pre-commit run --all-files
+
+  Tests:
+    needs: Lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8]
+        include:
+          - python-version: 3.6
+            tox-target: py36
+          - python-version: 3.7
+            tox-target: py37
+          - python-version: 3.8
+            tox-target: py38
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Test Runner
+        run: |
+          python -m pip install --upgrade pip
+          pip install tox
+
+      - name: Install Deps
+        run: |
+          tox -e ${{ matrix.tox-target }} --notest
+
+      - name: Test
+        run: |
+          tox -e ${{ matrix.tox-target }}
+
+  Coverage:
+    needs: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+
+      - name: Install Test Runner
+        run: |
+          python -m pip install --upgrade pip
+          pip install tox
+
+      - name: Coverage Create and Upload XML
+        run: |
+          tox -e lint && \
+          bash <(curl -s https://codecov.io/bash) -Z -v -f coverage.xml

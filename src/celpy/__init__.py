@@ -98,18 +98,17 @@ Here's the Pythonic approach, using concept patterned after the Go implementatio
 import json  # noqa: F401
 import logging
 import sys
-from typing import (
-    Type, Optional, Dict, cast
-)
-import lark  # type: ignore[import]
-from celpy.celparser import CELParser, CELParseError  # noqa: F401
-from celpy.evaluation import (  # noqa: F401
-    Evaluator, Context, CELEvalError, Result, Activation, base_functions, CELFunction,
-    Annotation
-)
-# from celpy import celtypes
-from celpy.adapter import json_to_cel, CELJSONEncoder, CELJSONDecoder  # noqa: F401
+from typing import Dict, Optional, Type, cast
 
+import lark  # type: ignore[import]
+
+# from celpy import celtypes
+from celpy.adapter import (CELJSONDecoder, CELJSONEncoder,  # noqa: F401
+                           json_to_cel)
+from celpy.celparser import CELParseError, CELParser  # noqa: F401
+from celpy.evaluation import (Activation, Annotation,  # noqa: F401
+                              CELEvalError, CELFunction, Context, Evaluator,
+                              Result, base_functions)
 
 # A parsed AST.
 Expression = Type[lark.Tree]

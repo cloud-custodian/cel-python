@@ -28,7 +28,8 @@ additional types or extensions to :mod:`celpy.celtypes`.
 import base64
 import datetime
 import json
-from typing import List, Dict, Any, Union, cast
+from typing import Any, Dict, List, Union, cast
+
 from celpy import celtypes
 
 JSON = Union[Dict[str, Any], List[Any], bool, float, int, str, None]

@@ -47,9 +47,10 @@ There are three explicit limitations here.
 import collections
 import logging
 import re
-from typing import cast, DefaultDict, Union, Dict, List, Any, Optional, Callable, Tuple
-import yaml
+from typing import (Any, Callable, DefaultDict, Dict, List, Optional, Tuple,
+                    Union, cast)
 
+import yaml
 
 logger = logging.getLogger(__name__)
 

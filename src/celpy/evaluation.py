@@ -36,20 +36,20 @@ during evaluation. It's a union of the :py:class:`celpy.celtypes.CELTypes` type 
 :exc:`CELEvalError` exception.
 """
 import collections
-from functools import wraps, reduce
 import logging
 import operator
 import re
 import sys
-from typing import (
-    Optional, List, Any, Union, Dict, Callable, Iterable, Iterator, Match,
-    Type, TypeVar, Sequence, Sized, Tuple, Mapping, cast
-)
+from functools import reduce, wraps
+from typing import (Any, Callable, Dict, Iterable, Iterator, List, Mapping,
+                    Match, Optional, Sequence, Sized, Tuple, Type, TypeVar,
+                    Union, cast)
+
+import lark  # type: ignore[import]
+import lark.visitors  # type: ignore[import]
+
 import celpy.celtypes
 from celpy.celparser import tree_dump
-
-import lark.visitors  # type: ignore[import]
-import lark
 
 # A CEL type annotation. Used in an environment to describe objects as well as functions.
 # This is a list of types, plus Callable for conversion functions
