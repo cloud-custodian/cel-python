@@ -29,12 +29,12 @@ def test_json_to_cel():
     assert celpy.adapter.json_to_cel(42) == celpy.celtypes.IntType(42)
     assert celpy.adapter.json_to_cel("Hello, world!") == celpy.celtypes.StringType("Hello, world!")
     assert celpy.adapter.json_to_cel(None) is None
-    # assert celpy.adapter.json_to_cel(["Hello", "world!"]) == celpy.celtypes.ListType(
-    #     [
-    #         celpy.celtypes.StringType("Hello"),
-    #         celpy.celtypes.StringType("world!"),
-    #     ]
-    # )
+    assert celpy.adapter.json_to_cel(["Hello", "world!"]) == celpy.celtypes.ListType(
+        [
+            celpy.celtypes.StringType("Hello"),
+            celpy.celtypes.StringType("world!"),
+        ]
+    )
     assert celpy.adapter.json_to_cel(tuple(["Hello", "world!"])) == celpy.celtypes.ListType(
         [
             celpy.celtypes.StringType("Hello"),
