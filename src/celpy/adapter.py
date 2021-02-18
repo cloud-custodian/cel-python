@@ -121,7 +121,7 @@ MapType({StringType('hello'): StringType('world')})])
         return celtypes.StringType(document)
     elif document is None:
         return None
-    elif isinstance(document, List):
+    elif isinstance(document, (tuple, List)):
         return celtypes.ListType(
             [json_to_cel(item) for item in document]
         )
