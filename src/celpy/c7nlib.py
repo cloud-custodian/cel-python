@@ -505,11 +505,11 @@ def version(
 
 
 def present(value: celtypes.StringType,) -> celtypes.Value:
-    return cast(celtypes.Value, bool(value))
+    return celtypes.BoolType(bool(value))
 
 
 def absent(value: celtypes.StringType,) -> celtypes.Value:
-    return cast(celtypes.Value, not bool(value))
+    return celtypes.BoolType(not bool(value))
 
 
 def text_from(url: celtypes.StringType,) -> celtypes.Value:
