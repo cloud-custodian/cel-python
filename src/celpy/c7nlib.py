@@ -375,6 +375,54 @@ def key(source: celtypes.ListType, target: celtypes.StringType) -> celtypes.Valu
         return None
 
 
+def map_keys_equal(
+        resources: celtypes.ListType, tag_key: celtypes.StringType, tag_value: celtypes.StringType
+) -> celtypes.BoolType:
+    """
+    This will apply key() to a list of provided resources, and check if any of the
+    resources have a tag with key `key` whose value is equal to the value `value`.
+
+    If any of the resources have a tag with key `tag_key` that
+    corresponds to a tag value equal to `tag_value`, we return True.
+
+    If none of the resources have a tag with key `tag_key` that
+    corresponds to a tag value equal to `tag_value`, we return False.
+
+    This is useful when we need to compare the tags from related resources.
+
+    For example, we want to scan an account's VPCs and find all VPCs that contain
+    a publicly accessible security group. We can pull a VPC and all of the security
+    groups tied to it.
+
+    Next, this map_keys_equal() function will provide the additional logic to iterate
+    through this list of security groups and check if any of them have a "NetworkLocation" tag
+    with a value of "Public". If any of them do, we return True, and we know that the VPC
+    contains public-facing security groups. If none of the security groups have this tag
+    match, we return False, and we know that the VPC does not contain any public-facing
+    security groups.
+
+    This example can be carried out via a Custodian policy like this::
+        resource: vpc
+        filters:
+            - type: cel
+              expr: map_keys_equal(get_sg(Resource), "NetworkLocation", "Public")
+    """
+    tag_values = []
+
+    for r in resources:
+        try:
+            retrieved_tag_val = key(cast(celtypes.ListType, r["Tags"]), tag_key)
+            tag_values.append(retrieved_tag_val)
+        except KeyError:
+            continue
+
+    for tag_val in tag_values:
+        if tag_val:
+            if tag_val == tag_value:
+                return True
+    return False
+
+
 def glob(text: celtypes.StringType, pattern: celtypes.StringType) -> celtypes.BoolType:
     """Compare a string with a pattern.
 
@@ -847,6 +895,38 @@ def get_related_ids(resource: celtypes.MapType,) -> celtypes.Value:
     # Assuming the :py:class:`CELFilter` class has this method extracted from the legacy filter.
     related_ids = C7N.filter.get_related_ids(resource)
     return json_to_cel(related_ids)
+
+
+def get_related_sgs(resource: celtypes.MapType,) -> celtypes.ListType:
+    """
+    Reach into C7N and make a get_related_sgs() request using the current C7N filter.
+    """
+    security_groups = C7N.filter.get_related_sgs(resource)
+    return json_to_cel(security_groups)
+
+
+def get_related_subnets(resource: celtypes.MapType,) -> celtypes.ListType:
+    """
+    Reach into C7N and make a get_related_subnets() request using the current C7N filter.
+    """
+    subnets = C7N.filter.get_related_subnets(resource)
+    return json_to_cel(subnets)
+
+
+def get_related_nat_gateways(resource: celtypes.MapType,) -> celtypes.ListType:
+    """
+    Reach into C7N and make a get_related_nat_gateways() request using the current C7N filter.
+    """
+    subnets = C7N.filter.get_related_nat_gateways(resource)
+    return json_to_cel(subnets)
+
+
+def get_related_igws(resource: celtypes.MapType,) -> celtypes.ListType:
+    """
+    Reach into C7N and make a get_related_igws() request using the current C7N filter.
+    """
+    subnets = C7N.filter.get_related_igws(resource)
+    return json_to_cel(subnets)
 
 
 def security_group(security_group_id: celtypes.Value,) -> celtypes.Value:
@@ -1389,6 +1469,7 @@ DECLARATIONS: Dict[str, Annotation] = {
     "jmes_path": celtypes.FunctionType,
     "jmes_path_map": celtypes.FunctionType,
     "key": celtypes.FunctionType,
+    "map_keys_equal": celtypes.FunctionType,
     "marked_key": celtypes.FunctionType,
     "image": celtypes.FunctionType,
     "get_metrics": celtypes.FunctionType,
@@ -1403,6 +1484,10 @@ DECLARATIONS: Dict[str, Annotation] = {
     "kms_key": celtypes.FunctionType,
     "resource_schedule": celtypes.FunctionType,
     "get_accounts": celtypes.FunctionType,
+    "get_related_sgs": celtypes.FunctionType,
+    "get_related_subnets": celtypes.FunctionType,
+    "get_related_nat_gateways": celtypes.FunctionType,
+    "get_related_igws": celtypes.FunctionType,
     "get_vpcs": celtypes.FunctionType,
     "get_vpces": celtypes.FunctionType,
     "get_orgids": celtypes.FunctionType,
@@ -1447,6 +1532,7 @@ FUNCTIONS: Dict[str, ExtFunction] = {
         jmes_path,
         jmes_path_map,
         key,
+        map_keys_equal,
         marked_key,
         image,
         get_metrics,
@@ -1461,6 +1547,10 @@ FUNCTIONS: Dict[str, ExtFunction] = {
         kms_key,
         resource_schedule,
         get_accounts,
+        get_related_sgs,
+        get_related_subnets,
+        get_related_nat_gateways,
+        get_related_igws,
         get_vpcs,
         get_vpces,
         get_orgids,
