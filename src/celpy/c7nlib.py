@@ -917,16 +917,16 @@ def get_related_nat_gateways(resource: celtypes.MapType,) -> celtypes.ListType:
     """
     Reach into C7N and make a get_related_nat_gateways() request using the current C7N filter.
     """
-    subnets = C7N.filter.get_related_nat_gateways(resource)
-    return json_to_cel(subnets)
+    nat_gateways = C7N.filter.get_related_nat_gateways(resource)
+    return json_to_cel(nat_gateways)
 
 
 def get_related_igws(resource: celtypes.MapType,) -> celtypes.ListType:
     """
     Reach into C7N and make a get_related_igws() request using the current C7N filter.
     """
-    subnets = C7N.filter.get_related_igws(resource)
-    return json_to_cel(subnets)
+    igws = C7N.filter.get_related_igws(resource)
+    return json_to_cel(igws)
 
 
 def security_group(security_group_id: celtypes.Value,) -> celtypes.Value:
