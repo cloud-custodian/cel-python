@@ -375,54 +375,6 @@ def key(source: celtypes.ListType, target: celtypes.StringType) -> celtypes.Valu
         return None
 
 
-def map_keys_equal(
-        resources: celtypes.ListType, tag_key: celtypes.StringType, tag_value: celtypes.StringType
-) -> celtypes.BoolType:
-    """
-    This will apply key() to a list of provided resources, and check if any of the
-    resources have a tag with key `key` whose value is equal to the value `value`.
-
-    If any of the resources have a tag with key `tag_key` that
-    corresponds to a tag value equal to `tag_value`, we return True.
-
-    If none of the resources have a tag with key `tag_key` that
-    corresponds to a tag value equal to `tag_value`, we return False.
-
-    This is useful when we need to compare the tags from related resources.
-
-    For example, we want to scan an account's VPCs and find all VPCs that contain
-    a publicly accessible security group. We can pull a VPC and all of the security
-    groups tied to it.
-
-    Next, this map_keys_equal() function will provide the additional logic to iterate
-    through this list of security groups and check if any of them have a "NetworkLocation" tag
-    with a value of "Public". If any of them do, we return True, and we know that the VPC
-    contains public-facing security groups. If none of the security groups have this tag
-    match, we return False, and we know that the VPC does not contain any public-facing
-    security groups.
-
-    This example can be carried out via a Custodian policy like this::
-        resource: vpc
-        filters:
-            - type: cel
-              expr: map_keys_equal(get_sg(Resource), "NetworkLocation", "Public")
-    """
-    tag_values = []
-
-    for r in resources:
-        try:
-            retrieved_tag_val = key(cast(celtypes.ListType, r["Tags"]), tag_key)
-            tag_values.append(retrieved_tag_val)
-        except KeyError:
-            continue
-
-    for tag_val in tag_values:
-        if tag_val:
-            if tag_val == tag_value:
-                return True
-    return False
-
-
 def glob(text: celtypes.StringType, pattern: celtypes.StringType) -> celtypes.BoolType:
     """Compare a string with a pattern.
 
