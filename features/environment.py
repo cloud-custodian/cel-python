@@ -33,8 +33,8 @@ def before_scenario(context, scenario):
 
     # Variables to be provided to CEL
     context.cel['activation'] = {
-        "Resource": None,
-        "Now": None,
+        "resource": None,
+        "now": None,
         # "C7N": None,  A namespace with the current filter.
     }
     context.cel['filter'] = Mock(name="mock filter", manager=Mock(config=Mock()))

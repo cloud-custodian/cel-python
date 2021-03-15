@@ -543,7 +543,7 @@ class NameContainer(Dict[str, Referent]):
 
     1.  The ``Activation`` creates the initial ``name : annotation`` bindings.
         Generally, the names are type names, like "int", bound to :py:class:`celtypes.IntType`.
-        In some cases, these will be future variable names. E.g., "Resource",
+        In some cases, the name is a future variable name, "resource",
         bound to :py:class:`celtypes.MapType`.
 
     2.  The ``Activation`` creates a second ``NameContainer`` that has variable names.
