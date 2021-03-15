@@ -8,7 +8,7 @@ Scenario Outline: this is the template; fill in the policy and the examples tabl
     Given policy text
         """
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
 
@@ -33,10 +33,10 @@ Scenario Outline: EQ Test
           type: value
           value: false
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource["Engine"] == "redis" && ! Resource["AtRestEncryptionEnabled"]
+    And CEL text is resource["Engine"] == "redis" && ! resource["AtRestEncryptionEnabled"]
 
 Examples: EQ True
     | expected | document |
@@ -58,10 +58,10 @@ Scenario Outline: equal Test
           type: value
           value: []
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource["SuspendedProcesses"] == []
+    And CEL text is resource["SuspendedProcesses"] == []
 
 Examples: equal True
     | expected | document |
@@ -81,10 +81,10 @@ Scenario Outline: ne Test
           type: value
           value: spot
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource["InstanceLifecycle"] != "spot"
+    And CEL text is resource["InstanceLifecycle"] != "spot"
 
 Examples: ne True
     | expected | document |
@@ -104,10 +104,10 @@ Scenario Outline: not-equal Test
           type: value
           value: 8
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is size(Resource["SuspendedProcesses"]) != 8
+    And CEL text is size(resource["SuspendedProcesses"]) != 8
 
 Examples: not-equal True
     | expected | document |
@@ -131,10 +131,10 @@ Scenario Outline: gt Test
           type: value
           value: 1
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource["MinSize"] > 1 && Resource["DesiredCapacity"] > 1
+    And CEL text is resource["MinSize"] > 1 && resource["DesiredCapacity"] > 1
 
 Examples: gt True
     | expected | document |
@@ -156,10 +156,10 @@ Scenario Outline: lt Test
           type: value
           value: 7
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource["BackupRetentionPeriod"] < 7
+    And CEL text is resource["BackupRetentionPeriod"] < 7
 
 Examples: lt True
     | expected | document |
@@ -179,10 +179,10 @@ Scenario Outline: glob Test
           type: value
           value: PRE-*
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource["Name"].glob("PRE-*")
+    And CEL text is resource["Name"].glob("PRE-*")
 
 Examples: glob True
     | expected | document |
@@ -202,10 +202,10 @@ Scenario Outline: regex Test
           type: value
           value: ([cmr]3.*)
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource["InstanceType"].matches("([cmr]3.*)")
+    And CEL text is resource["InstanceType"].matches("([cmr]3.*)")
 
 Examples: regex True
     | expected | document |
@@ -229,10 +229,10 @@ Scenario Outline: in Test
           - vpc-redacted3
           - vpc-redacted4
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is ['vpc-redacted1', 'vpc-redacted2', 'vpc-redacted3', 'vpc-redacted4'].contains(Resource["VpcId"])
+    And CEL text is ['vpc-redacted1', 'vpc-redacted2', 'vpc-redacted3', 'vpc-redacted4'].contains(resource["VpcId"])
 
 Examples: in True
     | expected | document |
@@ -254,10 +254,10 @@ Scenario Outline: ni Test
           - igw-redacted1
           - igw-redacted2
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is ! ['igw-redacted1', 'igw-redacted2'].contains(Resource["InternetGatewayId"])
+    And CEL text is ! ['igw-redacted1', 'igw-redacted2'].contains(resource["InternetGatewayId"])
 
 Examples: ni True
     | expected | document |
@@ -280,10 +280,10 @@ Scenario Outline: not-in Test
           - REDACTED1
           - REDACTED2
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is ! ['CLOUDCUSTODIAN', 'REDACTED1', 'REDACTED2'].contains(Resource["Tags"].filter(x, x["Key"] == "ASSET")[0]["Value"])
+    And CEL text is ! ['CLOUDCUSTODIAN', 'REDACTED1', 'REDACTED2'].contains(resource["Tags"].filter(x, x["Key"] == "ASSET")[0]["Value"])
 
 Examples: not-in True
     | expected | document |
@@ -305,10 +305,10 @@ Scenario Outline: contains Test
             type: value
             value: aurora
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is ! (Resource["Engine"].contains("aurora"))
+    And CEL text is ! (resource["Engine"].contains("aurora"))
 
 Examples: contains False
     | expected | document |
@@ -321,7 +321,7 @@ Examples: contains False
 
 Scenario Outline: -   'age' -- ``parse_date(value), datetime.datetime.now(tz=tzutc()) - timedelta(sentinel)``
     Note that these are reversed to make it easier to compare age against a given value.
-    A global ``Now`` variable removes the need for an implicit age computation.
+    A global ``now`` variable removes the need for an implicit age computation.
 
     Given policy text
         """
@@ -338,11 +338,11 @@ Scenario Outline: -   'age' -- ``parse_date(value), datetime.datetime.now(tz=tzu
           value: 1
           value_type: age
         """
-    And Resource value <document>
-    And Now value <now>
+    And resource value <document>
+    And now value <now>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Now - duration("2h57s") >= timestamp(Resource["CreatedTimestamp"]) && Now - duration("1d") <= timestamp(Resource["CreatedTimestamp"])
+    And CEL text is now - duration("2h57s") >= timestamp(resource["CreatedTimestamp"]) && now - duration("1d") <= timestamp(resource["CreatedTimestamp"])
 
 Examples: age True
     | expected | now                  | document |
@@ -359,10 +359,10 @@ Scenario Outline: -   'integer' -- ``sentinel, int(str(value).strip())``
           value: 0
           value_type: integer
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is int(Resource["ProvisionedThroughput"]["ReadCapacityUnits"]) != 0
+    And CEL text is int(resource["ProvisionedThroughput"]["ReadCapacityUnits"]) != 0
 
 Examples: integer True
     | expected | document |
@@ -374,7 +374,7 @@ Examples: integer False
 
 
 Scenario Outline: -   'expiration' -- ``datetime.datetime.now(tz=tzutc()) + timedelta(sentinel), parse_date(value)``
-    A global ``Now`` variable removes the need for an implicit expiration computation.
+    A global ``now`` variable removes the need for an implicit expiration computation.
 
     Given policy text
         """
@@ -385,11 +385,11 @@ Scenario Outline: -   'expiration' -- ``datetime.datetime.now(tz=tzutc()) + time
           value: 10
           value_type: expiration
         """
-    And Resource value <document>
-    And Now value <now>
+    And resource value <document>
+    And now value <now>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is timestamp(Resource["NotAfter"]) < Now + duration("10d")
+    And CEL text is timestamp(resource["NotAfter"]) < now + duration("10d")
 
 Examples: expiration True
     | expected | now                  | document |
@@ -412,10 +412,10 @@ Scenario Outline: -   'normalize' -- ``sentinel, value.strip().lower()``
           - 8x5
           value_type: normalize
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is ['08-19-weekend-off', '8x5'].contains(normalize(Resource["Tags"].filter(x, x["Key"] == "Uptime")[0]["Value"]))
+    And CEL text is ['08-19-weekend-off', '8x5'].contains(normalize(resource["Tags"].filter(x, x["Key"] == "Uptime")[0]["Value"]))
 
 Examples: normalize True
     | expected | document |
@@ -436,10 +436,10 @@ Scenario Outline: -   'size' -- ``sentinel, len(value)``
           value: 3
           value_type: size
           """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is size(Resource["VpcConfig"]["SubnetIds"]) > 3
+    And CEL text is size(resource["VpcConfig"]["SubnetIds"]) > 3
 
 Examples: size True
     | expected | document |
@@ -462,10 +462,10 @@ Scenario Outline: -   'cidr' -- ``parse_cidr(sentinel), parse_cidr(value)``
           value: "127.0.0.0/22"
           value_type: cidr
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is parse_cidr("127.0.0.0/22").contains(parse_cidr(Resource["Address"]))
+    And CEL text is parse_cidr("127.0.0.0/22").contains(parse_cidr(resource["Address"]))
 
 Examples: cidr True
     | expected | document |
@@ -485,10 +485,10 @@ Scenario Outline: -   'cidr_size' -- ``sentinel, parse_cidr(value).prefixlen``
            value: 24
            value_type: cidr_size
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is size_parse_cidr(Resource["Egress"]["Cidr"]) < 24
+    And CEL text is size_parse_cidr(resource["Egress"]["Cidr"]) < 24
 
 Examples: cidr_size True
     | expected | document |
@@ -509,10 +509,10 @@ Scenario Outline: -   'swap' -- ``value, sentinel``
           value: Default
           value_type: swap
           """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is ! Resource["Tags"].filter(x, x["Key"] == "Name")[0]["Value"].contains("Default")
+    And CEL text is ! resource["Tags"].filter(x, x["Key"] == "Name")[0]["Value"].contains("Default")
 
 Examples: swap True
     | expected | document |
@@ -535,10 +535,10 @@ Scenario Outline: -   'unique_size' -- ``len(set(value))``
           value: 3
           value_type: unique_size
           """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is unique_size(Resource["VpcConfig"]["SubnetIds"]) > 3
+    And CEL text is unique_size(resource["VpcConfig"]["SubnetIds"]) > 3
 
 Examples: unique_size True
     | expected | document |
@@ -561,10 +561,10 @@ Scenario Outline: -   'date' -- ``parse_date(sentinel), parse_date(value)``
           value: "2020-09-10T11:12:13Z"
           value_type: date
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is timestamp(Resource["CreatedTimestamp"]) <= timestamp("2020-09-10T11:12:13Z")
+    And CEL text is timestamp(resource["CreatedTimestamp"]) <= timestamp("2020-09-10T11:12:13Z")
 
 Examples: date True
     | expected | document |
@@ -583,10 +583,10 @@ Scenario Outline: -   'version' -- ``ComparableVersion(sentinel), ComparableVers
           value: "3.6"
           value_type: version
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is version(Resource["Version"]) >= version("3.6")
+    And CEL text is version(resource["Version"]) >= version("3.6")
 
 Examples: version True
     | expected | document |
@@ -613,7 +613,7 @@ Scenario Outline: -   'expr' -- ``self.get_resource_value(sentinel, resource)``
             format: json
             expr: exemptions.ec2.rehydration.["IamInstanceProfile.Arn"][].*[].*[]
         """
-    And Resource value <document>
+    And resource value <document>
     And url s3://c7n-resources/exemptions.json has text
         """
         {
@@ -632,7 +632,7 @@ Scenario Outline: -   'expr' -- ``self.get_resource_value(sentinel, resource)``
         """
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is ! value_from("s3://c7n-resources/exemptions.json", "json").jmes_path('exemptions.ec2.rehydration.["IamInstanceProfile.Arn"][].*[].*[]').contains(Resource["IamInstanceProfile"]["Arn"])
+    And CEL text is ! value_from("s3://c7n-resources/exemptions.json", "json").jmes_path('exemptions.ec2.rehydration.["IamInstanceProfile.Arn"][].*[].*[]').contains(resource["IamInstanceProfile"]["Arn"])
 
 Examples: expr True
     | expected | document |
@@ -647,7 +647,7 @@ Scenario Outline: -   'resource_count' -- the op is applied to len(resources) in
     Given policy text
         """
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
     And CEL text is some_cel_code
@@ -670,11 +670,11 @@ Scenario Outline: Marked-for-Op
           tag: c7n-tag-compliance
           type: marked-for-op
         """
-    And Resource value <document>
-    And Now value <now>
+    And resource value <document>
+    And now value <now>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource["Tags"].marked_key("c7n-tag-compliance").action == "terminate" && Now >= Resource["Tags"].marked_key("c7n-tag-compliance").action_date - duration("4d0h")
+    And CEL text is resource["Tags"].marked_key("c7n-tag-compliance").action == "terminate" && now >= resource["Tags"].marked_key("c7n-tag-compliance").action_date - duration("4d0h")
 
 Examples: marked-for-op True
     | expected | now                  | document |
@@ -702,12 +702,12 @@ Scenario Outline: EC2 and ASG resources have an associated Image resource.
             op: gt
             type: image-age
         """
-    And Resource value <document>
-    And Now value <now>
+    And resource value <document>
+    And now value <now>
     And C7N.filter has get_instance_image result with CreateDate of <image CreateDate>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Now - Resource.image().CreationDate > duration("60d")
+    And CEL text is now - resource.image().CreationDate > duration("60d")
 
 Examples: image-age True
     | expected | now                  | document                | image CreateDate     |
@@ -719,10 +719,10 @@ Examples: image-age False
 
 
 #######
-# Event
+# event
 #######
 
-Scenario Outline: Lambda resources have an associated Cloud Trail Event resource.
+Scenario Outline: Lambda resources have an associated Cloud Trail event resource.
     We only provide the barest minimum of an event-like document to mock C7N's event details.
 
     Given policy text
@@ -733,11 +733,11 @@ Scenario Outline: Lambda resources have an associated Cloud Trail Event resource
           type: event
           value: ^(custodian-.*)
         """
-    And Resource value <document>
-    And Event value <event>
+    And resource value <document>
+    And event value <event>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Event.detail.responseElements.functionName.matches("^(custodian-.*)")
+    And CEL text is event.detail.responseElements.functionName.matches("^(custodian-.*)")
 
 Examples: image-age True
     | expected | document                   | event     |
@@ -754,7 +754,7 @@ Examples: image-age False
 
 # get_raw_metrics isn't tested directly, since it's not clear it needs to be exposed.
 
-Scenario Outline: Resources have associated CloudWatch metrics and metrics statistics.
+Scenario Outline: resources have associated CloudWatch metrics and metrics statistics.
     We only provide the barest minimum of an event-like document to mock C7N's event details.
 
     Given policy text
@@ -767,14 +767,14 @@ Scenario Outline: Resources have associated CloudWatch metrics and metrics stati
           value: 30
           op: less-than
         """
-    And Resource value <document>
-    And Now value <now>
+    And resource value <document>
+    And now value <now>
     And C7N.filter manager has get_model result of InstanceId
     And C7N.filter has get_metric_statistics result with <raw_metrics>
     And C7N.filter has resource type of ec2
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource.get_metrics({"MetricName": "CPUUtilization", "Statistic": "Average", "StartTime": Now - duration("4d"), "EndTime": Now, "Period": duration("1d")}).exists(m, m < 30)
+    And CEL text is resource.get_metrics({"MetricName": "CPUUtilization", "Statistic": "Average", "StartTime": now - duration("4d"), "EndTime": now, "Period": duration("1d")}).exists(m, m < 30)
 
 Examples: metrics True
     | expected | document                                                | now                  | raw_metrics |
@@ -795,7 +795,7 @@ Scenario Outline: Snapshot Age Filters for a variety of resource types:
     -   Filters an EBS snapshot based on the age of the snapshot (in days)    date_attribute = 'StartTime'
     -   Filters elasticache snapshots based on their age (in days)
         The earliest of the node snaphot creation times; requires a yet-to-be implemented min() macro.
-            Resource.NodeSnaphots.min(x, x.SnapshotCreateTime)
+            resource.NodeSnaphots.min(x, x.SnapshotCreateTime)
     -   Filters RDS snapshots based on age (in days)    date_attribute = 'SnapshotCreateTime'
     -   Filters rds cluster snapshots based on age (in days)    date_attribute = 'SnapshotCreateTime'
     -   Filters redshift snapshots based on age (in days)    date_attribute = 'SnapshotCreateTime'
@@ -808,11 +808,11 @@ Scenario Outline: Snapshot Age Filters for a variety of resource types:
           type: age
         resource: ebs-snapshot
         """
-    And Resource value <document>
-    And Now value <now>
+    And resource value <document>
+    And now value <now>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Now - timestamp(Resource.StartTime) > duration("21d")
+    And CEL text is now - timestamp(resource.StartTime) > duration("21d")
 
 Examples: age True
     | expected | now                    | document |
@@ -829,30 +829,30 @@ Examples: age False
 
 Scenario Outline: Security Group Details for a variety of resource types.
     Each has a slight variation in the reference to the related item.
-    -   "app-elb": "Resource.SecurityGroups.map(sg, sg.security_group())",
-    -   "asg": "Resource.get_related_ids().map(sg. sg.security_group())",
+    -   "app-elb": "resource.SecurityGroups.map(sg, sg.security_group())",
+    -   "asg": "resource.get_related_ids().map(sg. sg.security_group())",
     -   "lambda": "VpcConfig.SecurityGroupIds.map(sg, sg.security_group())",
-    -   "batch-compute": "Resource.computeResources.securityGroupIds.map(sg, sg.security_group())",
-    -   "codecommit": "Resource.vpcConfig.securityGroupIds.map(sg, sg.security_group())",
-    -   "directory": "Resource.VpcSettings.SecurityGroupId.security_group()",
-    -   "dms-instance": "Resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())",
-    -   "dynamodb-table": "Resource.SecurityGroups.map(sg, sg.SecurityGroupIdentifier.security_group())",
-    -   "ec2": "Resource.SecurityGroups.map(sg. sg.GroupId.security_group())",
-    -   "efs": "Resource.get_related_ids().map(sg. sg.security_group())",
-    -   "eks": "Resource.resourcesVpcConfig.securityGroupIds.map(sg, sg.security_group())",
-    -   "cache-cluster": "Resource.SecurityGroups.map(sg, sg.SecurityGroupId.security_group())",
-    -   "elasticsearch": "Resource.VPCOptions.SecurityGroupIds.map(sg, sg.security_group())",
-    -   "elb": "Resource.SecurityGroups.map(sg, sg.security_group())",
-    -   "glue-connection": "Resource.PhysicalConnectionRequirements.SecurityGroupIdList.map(sg, sg.security_group())",
-    -   "kafka": "Resource.BrokerNodeGroupInfo.SecurityGroups[.map(sg, sg.security_group())",
-    -   "message-broker": "Resource.SecurityGroups[.map(sg, sg.security_group())",
-    -   "rds": "Resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())",
-    -   "rds-cluster": "Resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())",
-    -   "redshift": "Resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())",
-    -   "sagemaker-notebook": "Resource.SecurityGroups[.map(sg, sg.security_group())",
-    -   "vpc": "Resource.get_related_ids().map(sg. sg.security_group())",
-    -   "eni": "Resource.Groups.map(sg, sg.GroupId.security_group())",
-    -   "vpc-endpoint": "Resource.Groups.map(sg, sg.GroupId.security_group())",
+    -   "batch-compute": "resource.computeResources.securityGroupIds.map(sg, sg.security_group())",
+    -   "codecommit": "resource.vpcConfig.securityGroupIds.map(sg, sg.security_group())",
+    -   "directory": "resource.VpcSettings.SecurityGroupId.security_group()",
+    -   "dms-instance": "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())",
+    -   "dynamodb-table": "resource.SecurityGroups.map(sg, sg.SecurityGroupIdentifier.security_group())",
+    -   "ec2": "resource.SecurityGroups.map(sg. sg.GroupId.security_group())",
+    -   "efs": "resource.get_related_ids().map(sg. sg.security_group())",
+    -   "eks": "resource.resourcesVpcConfig.securityGroupIds.map(sg, sg.security_group())",
+    -   "cache-cluster": "resource.SecurityGroups.map(sg, sg.SecurityGroupId.security_group())",
+    -   "elasticsearch": "resource.VPCOptions.SecurityGroupIds.map(sg, sg.security_group())",
+    -   "elb": "resource.SecurityGroups.map(sg, sg.security_group())",
+    -   "glue-connection": "resource.PhysicalConnectionRequirements.SecurityGroupIdList.map(sg, sg.security_group())",
+    -   "kafka": "resource.BrokerNodeGroupInfo.SecurityGroups[.map(sg, sg.security_group())",
+    -   "message-broker": "resource.SecurityGroups[.map(sg, sg.security_group())",
+    -   "rds": "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())",
+    -   "rds-cluster": "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())",
+    -   "redshift": "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())",
+    -   "sagemaker-notebook": "resource.SecurityGroups[.map(sg, sg.security_group())",
+    -   "vpc": "resource.get_related_ids().map(sg. sg.security_group())",
+    -   "eni": "resource.Groups.map(sg, sg.GroupId.security_group())",
+    -   "vpc-endpoint": "resource.Groups.map(sg, sg.GroupId.security_group())",
 
     Given policy text
         """
@@ -863,11 +863,11 @@ Scenario Outline: Security Group Details for a variety of resource types.
           value: SPECIALASSETNAME
         resource: app-elb
         """
-    And Resource value <document>
+    And resource value <document>
     And C7N.filter has get_related result with <sg>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource.SecurityGroups.map(sg, sg.security_group()).exists(sg, sg["Tags"].filter(x, x["Key"] == "ASSET")[0]["Value"] == 'SPECIALASSETNAME')
+    And CEL text is resource.SecurityGroups.map(sg, sg.security_group()).exists(sg, sg["Tags"].filter(x, x["Key"] == "ASSET")[0]["Value"] == 'SPECIALASSETNAME')
 
 Examples: security-group True
     | expected | document                                                            | sg |
@@ -921,7 +921,7 @@ Scenario Outline: Subnet Details for a variety of resource types.
           value_type: normalize
 
         """
-    And Resource value <document>
+    And resource value <document>
     And url s3://path-to-resource/subnets.txt has text
         """
         some
@@ -932,7 +932,7 @@ Scenario Outline: Subnet Details for a variety of resource types.
     And C7N.filter has get_related result with <subnet>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is value_from("s3://path-to-resource/subnets.txt", "txt").map(v, normalize(v)).contains(Resource.SubnetId.subnet().SubnetID)
+    And CEL text is value_from("s3://path-to-resource/subnets.txt", "txt").map(v, normalize(v)).contains(resource.SubnetId.subnet().SubnetID)
 
 
 Examples: subnet True
@@ -965,12 +965,12 @@ Scenario Outline: Some resource types (vpc, eni, and subnet) have flow-log setti
         name: enterprise-enable-vpc-flow-logs-s3
         resource: vpc
         """
-    And Resource value <document>
+    And resource value <document>
     And C7N.filter manager has get_model result of InstanceId
     And C7N.filter has flow_logs result with <flow-logs>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is size(Resource.flow_logs()) == 0 || ! (size(Resource.flow_logs()) != 0 && (Resource.flow_logs().LogDestinationType == "s3"))
+    And CEL text is size(resource.flow_logs()) == 0 || ! (size(resource.flow_logs()) != 0 && (resource.flow_logs().LogDestinationType == "s3"))
 
 Examples: low-logs True
     | expected | document                                             | flow-logs |
@@ -990,10 +990,10 @@ Scenario Outline: For resource types with tags, we can check the number of tags.
         - type: tag-count
           count: 8
         """
-    And Resource value <document>
+    And resource value <document>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is size(Resource["Tags"].filter(x, ! matches(x.Key, "^aws:.*"))) >= 8
+    And CEL text is size(resource["Tags"].filter(x, ! matches(x.Key, "^aws:.*"))) >= 8
 
 
 Examples: tag-count True
@@ -1035,7 +1035,7 @@ Scenario Outline: VPC Details for a variety of resource types.
               url: s3://c7n-resources/some_list.json
           resource: ec2
         """
-    And Resource value <document>
+    And resource value <document>
     And C7N.filter manager has config with account_id = 123456789012
     And url s3://c7n-resources/some_list.json has text
         """
@@ -1048,7 +1048,7 @@ Scenario Outline: VPC Details for a variety of resource types.
         """
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is ! value_from("s3://c7n-resources/some_list.json", "json").jmes_path(subst('not_null(offhours_exceptions."{account_id}"."account", \'[]\')')).contains(Resource.VpcId)
+    And CEL text is ! value_from("s3://c7n-resources/some_list.json", "json").jmes_path(subst('not_null(offhours_exceptions."{account_id}"."account", \'[]\')')).contains(resource.VpcId)
 
 Examples: vpc True
     | expected | document |
@@ -1079,12 +1079,12 @@ Scenario Outline: IAM Credential Report details. This requires additional querie
           value_type: age
         resource: iam-user
         """
-    And Resource value <document>
-    And Now value <now>
+    And resource value <document>
+    And now value <now>
     And C7N.filter has get_credential_report result with <credential-report>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource.credentials().access_keys.active && Now - duration("55d") >= timestamp(Resource.credentials().access_keys.last_rotated)
+    And CEL text is resource.credentials().access_keys.active && now - duration("55d") >= timestamp(resource.credentials().access_keys.last_rotated)
 
 Examples: credential True
     | expected | document                     | now                  | credential-report |
@@ -1115,9 +1115,9 @@ Scenario Outline: This is the image name for EC2 and ASG resources.
               value: (?!ENTERPRISE-WIN.*)
             resource: ec2
         """
-    And Resource value <document>
+    And resource value <document>
     And C7N.filter has get_instance_image result with Name of <image Name>
-    When CEL filter ! Resource.image().Name.matches("ENTERPRISE-WIN.*") is evaluated
+    When CEL filter ! resource.image().Name.matches("ENTERPRISE-WIN.*") is evaluated
     Then result is <expected>
 
 Examples: image True
@@ -1144,11 +1144,11 @@ Scenario Outline: This fetches a KMS Alias for a given resource.
             value: ^(alias/aws/)
           resource: ebs
         """
-    And Resource value <document>
+    And resource value <document>
     And C7N.filter has get_matching_aliases result with <KMS Alias>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource.kms_alias().AliasName.matches("^(alias/aws/)")
+    And CEL text is resource.kms_alias().AliasName.matches("^(alias/aws/)")
 
 Examples: kms-alias True
     | expected | document                | KMS Alias |
@@ -1174,11 +1174,11 @@ Scenario Outline: This fetches a KMS Key description for a given resource.
               value: ^(alias/enterprise)
             resource: dynamodb-table
         """
-    And Resource value <document>
+    And resource value <document>
     And C7N.filter has get_related result with <key>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource.SSEDescription.KMSMasterKeyArn.kms_key()["Aliases"][0]["AliasName"].matches("^(alias/enterprise)")
+    And CEL text is resource.SSEDescription.KMSMasterKeyArn.kms_key()["Aliases"][0]["AliasName"].matches("^(alias/enterprise)")
 
 Examples: kms-key True
     | expected | document | key |
@@ -1205,8 +1205,8 @@ Scenario Outline: Check current time against policy time to switch resources on
             resource: asg
         """
     And celtypes.TimestampType configured with TZ_ALIASES {"et": "US/Eastern", "pt": "US/Pacific"}
-    And Resource value <document>
-    And Now value <now>
+    And resource value <document>
+    And now value <now>
     When CEL filter is built and evaluated
     Then result is <expected>
 
@@ -1235,11 +1235,11 @@ Scenario Outline: Check current time against policy time to switch resources off
             resurce: rds
         """
     And celtypes.TimestampType configured with TZ_ALIASES {"et": "US/Eastern", "pt": "US/Pacific"}
-    And Resource value <document>
-    And Now value <now>
+    And resource value <document>
+    And now value <now>
     When CEL filter is built and evaluated
     Then result is <expected>
-    And CEL text is Resource.Tags.exists(x, x.key=="maid_offhours") ? false : (Now.getDayOfWeek("et") in [0, 1, 2, 3, 4] && Now.getHours("et") == 14)
+    And CEL text is resource.Tags.exists(x, x.key=="maid_offhours") ? false : (now.getDayOfWeek("et") in [0, 1, 2, 3, 4] && now.getHours("et") == 14)
 
 
 Examples: resource_count True

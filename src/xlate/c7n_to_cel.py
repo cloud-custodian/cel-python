@@ -69,8 +69,8 @@ class C7N_Rewriter:
     """
 
     # Global names that *must* be part of the CEL activation namespace.
-    resource = "Resource"
-    now = "Now"
+    resource = "resource"
+    now = "now"
     c7n = "C7N"
 
     @staticmethod
@@ -87,7 +87,7 @@ class C7N_Rewriter:
         """
         Convert simple key: clause to CEL or key: tag:Name clause to CEL.
 
-        The ``Resource.key({name})`` function
+        The ``resource.key({name})`` function
         handles key resolution by looking in the list of ``{Key: name, Value: value}`` mappings
         for the first match. A default is available.
 
@@ -99,7 +99,7 @@ class C7N_Rewriter:
 
         ::
 
-            Resource["Tags"].filter(x, x["Key"] == "{name}")[0]["Value"]
+            resource["Tags"].filter(x, x["Key"] == "{name}")[0]["Value"]
 
         This is risky, since a list with no dictionaty that has a Key value of ``name``
         will break this expression.
@@ -421,9 +421,9 @@ class C7N_Rewriter:
 
         to::
 
-            Resource["Tags"].marked_key("marked-for-op").action == "delete"
-            && Now >= (
-                timestamp(Resource["Tags"].marked_key("marked-for-op").action_date)
+            resource["Tags"].marked_key("marked-for-op").action == "delete"
+            && now >= (
+                timestamp(resource["Tags"].marked_key("marked-for-op").action_date)
                 - duration('4d")
             )
 
@@ -434,7 +434,7 @@ class C7N_Rewriter:
         The Tag's Value *should* have the form ``message:op@action_date``.
         Otherwise the result is False.
 
-        Making this a variant on ``Resource["Tags"].filter(x, x["Key"] == {tag})[0]["Value"]``
+        Making this a variant on ``resource["Tags"].filter(x, x["Key"] == {tag})[0]["Value"]``
         is awkward because we're checking at least two separate properties of the value.
 
         Relies on :py:func:`celpy.c7nlib.marked_key` to parse the tag value into
@@ -469,7 +469,7 @@ class C7N_Rewriter:
 
         to::
 
-            Now - Resource.image().CreationDate >= duration("60d")
+            now - resource.image().CreationDate >= duration("60d")
 
         Relies on :py:func:`celpy.c7nlib.image` function to implement
         ``get_instance_image(resource)`` from C7N Filters.
@@ -493,7 +493,7 @@ class C7N_Rewriter:
 
         to::
 
-            Resource.image().Name.matches('(?!WIN.*)')
+            resource.image().Name.matches('(?!WIN.*)')
 
         Relies on :py:func:`celpy.c7nlib.image`` function to implement
         ``get_instance_image(resource)`` from C7N Filters.
@@ -508,7 +508,7 @@ class C7N_Rewriter:
         for this rare case, it seems better to provide a warning that the resulting
         CEL code *may* require manual adjustment.
         """
-        key = f'Resource.image().{c7n_filter["key"]}'
+        key = f'resource.image().{c7n_filter["key"]}'
         op = cast(str, c7n_filter["op"])
         cel_value = f'{C7N_Rewriter.q(c7n_filter["value"])}'
         if "(?!" in cel_value:
@@ -528,11 +528,11 @@ class C7N_Rewriter:
 
         to::
 
-            Event.detail.responseElements.functionName.matches("^(custodian-.*)")
+            event.detail.responseElements.functionName.matches("^(custodian-.*)")
 
-        This relies on ``Event`` being a global, like the ``Resource``.
+        This relies on ``event`` being a global, like the ``resource``.
         """
-        key = f'Event.{c7n_filter["key"]}'
+        key = f'event.{c7n_filter["key"]}'
         op = cast(str, c7n_filter["op"])
         cel_value = c7n_filter["value"]
 
@@ -565,20 +565,20 @@ class C7N_Rewriter:
             get_raw_metrics(
                 {"Namespace": "AWS/EC2",
                 "MetricName": "CPUUtilization",
-                "Dimensions": {"Name": "InstanceId", "Value": Resource.InstanceId},
+                "Dimensions": {"Name": "InstanceId", "Value": resource.InstanceId},
                 "Statistics": ["Average"],
-                "StartTime": Now - duration("4d"),
-                "EndTime": Now,
+                "StartTime": now - duration("4d"),
+                "EndTime": now,
                 "Period": duration("86400s")}
             ).exists(m, m["AWS/EC2"].CPUUtilization.Average < 30)
 
             get_raw_metrics(
                 {"Namespace": "AWS/ELB",
                 "MetricName": "RequestCount",
-                "Dimensions": {"Name": "InstanceId", "Value": Resource.InstanceId},
+                "Dimensions": {"Name": "InstanceId", "Value": resource.InstanceId},
                 "Statistics": ["Sum"],
-                "StartTime": Now - duration("7d"),
-                "EndTime": Now,
+                "StartTime": now - duration("7d"),
+                "EndTime": now,
                 "Period": duration("7d")}
             ).map(m: m = null ? 0 : m["AWS/ELB"].RequestCount.Sum < 7)
 
@@ -598,8 +598,8 @@ class C7N_Rewriter:
         -   ``"Namespace": "AWS/EC2"`` is derivable from the resource type, and shouldn't need
             to be stated explicitly. C7N hides this by transforming resource type to namespace.
 
-        -   ``""Dimensions": {"Name": "InstanceId", "Value": Resource.InstanceId}`` is
-            derivable from the Resource information and shouldn't necessarily be exposed like this.
+        -   ``""Dimensions": {"Name": "InstanceId", "Value": resource.InstanceId}`` is
+            derivable from the resource information and shouldn't necessarily be exposed like this.
 
         -   ``"Statistics": ["Average"]`` should *always* be a singleton
             to simplify the ``exists()`` macro.
@@ -609,19 +609,19 @@ class C7N_Rewriter:
 
         optimized::
 
-            Resource.get_metrics(
+            resource.get_metrics(
                 {"MetricName": "CPUUtilization",
                 "Statistic": "Average",
-                "StartTime": Now - duration("4d"),
-                "EndTime": Now,
+                "StartTime": now - duration("4d"),
+                "EndTime": now,
                 "Period": duration("86400s")})
             .exists(m, m < 30)
 
-            Resource.get_metrics(
+            resource.get_metrics(
                 {"MetricName": "RequestCount",
                 "Statistic": "Sum",
-                "StartTime": Now - duration("7d"),
-                "EndTime": Now,
+                "StartTime": now - duration("7d"),
+                "EndTime": now,
                 "Period": duration("7d")})
             .map(m, m == null ? 0 : m)
             .exists(m, m < 7)
@@ -629,7 +629,7 @@ class C7N_Rewriter:
         ..  todo:: The extra fiddling involved with attr-multiplier and percent-attr
             in a map() clause.
 
-            .map(m, m / (Resource["{percent-attr}"] * {attr-multiplier}) * 100)
+            .map(m, m / (resource["{percent-attr}"] * {attr-multiplier}) * 100)
             .exists(m, m op value)
 
         """
@@ -647,20 +647,20 @@ class C7N_Rewriter:
         if "missing-value" in c7n_filter:
             missing = c7n_filter["missing-value"]
             return (
-                f"Resource.get_metrics("
+                f"resource.get_metrics("
                 f'{{"MetricName": {C7N_Rewriter.q(name)}, '
                 f'"Statistic": {C7N_Rewriter.q(statistics)}, '
-                f'"StartTime": Now - duration({start_d}), "EndTime": Now, '
+                f'"StartTime": now - duration({start_d}), "EndTime": now, '
                 f'"Period": duration({period_d})}})'
                 f".map(m, m == null ? {missing} : m)"
                 f".exists(m, {macro})"
             )
         else:
             return (
-                f"Resource.get_metrics("
+                f"resource.get_metrics("
                 f'{{"MetricName": {C7N_Rewriter.q(name)}, '
                 f'"Statistic": {C7N_Rewriter.q(statistics)}, '
-                f'"StartTime": Now - duration({start_d}), "EndTime": Now, '
+                f'"StartTime": now - duration({start_d}), "EndTime": now, '
                 f'"Period": duration({period_d})}})'
                 f".exists(m, {macro})"
             )
@@ -680,15 +680,15 @@ class C7N_Rewriter:
 
         To::
 
-            Now - timestamp(Resource.SnapshotCreateTime) > duration("21d")
+            now - timestamp(resource.SnapshotCreateTime) > duration("21d")
 
         What's important is that each resource type has a distinct attribute name
         used for "age".
         """
         attribute_map = {
-            "launch-config": "Resource.CreatedTime",
-            "ebs-snapshot": "Resource.StartTime",
-            "cache-snapshot": "Resource.NodeSnaphots.min(x, x.SnapshotCreateTime)",
+            "launch-config": "resource.CreatedTime",
+            "ebs-snapshot": "resource.StartTime",
+            "cache-snapshot": "resource.NodeSnaphots.min(x, x.SnapshotCreateTime)",
             "rds-snapshot": "SnapshotCreateTime",
             "rds-cluster-snapshot": "SnapshotCreateTime",
             "redshift-snapshot": "SnapshotCreateTime",
@@ -697,7 +697,7 @@ class C7N_Rewriter:
         op = c7n_filter["op"]
         days = c7n_filter["days"]
         return C7N_Rewriter.atomic_op_map[op].format(
-            f"Now - timestamp({attr})", f'duration("{days}d")'
+            f"now - timestamp({attr})", f'duration("{days}d")'
         )
 
     @staticmethod
@@ -716,7 +716,7 @@ class C7N_Rewriter:
 
         To::
 
-            Resource.SecurityGroups.map(sg. sg.GroupId.security_group())
+            resource.SecurityGroups.map(sg. sg.GroupId.security_group())
             .exists(sg, sg["Tags"].filter(x, x["Key"] == "ASSET")[0]["Value"] == 'SPECIALASSETNAME')
 
         The relationship between resource and security group variables by resource type.
@@ -733,45 +733,45 @@ class C7N_Rewriter:
         Most cases are relatively simple. There are three very complex cases:
 
         -   ASG -- the security group is indirectly associated with config items and launch items.
-            The filter has ``get_related_ids([Resource])`` to be used before ``get_related()``.
+            The filter has ``get_related_ids([resource])`` to be used before ``get_related()``.
 
         -   EFS -- the security group is indirectly associated with an MountTargetId.
-            The filter has ``get_related_ids([Resource])`` to be used before ``get_related()``.
+            The filter has ``get_related_ids([resource])`` to be used before ``get_related()``.
 
         -   VPC -- The security group seems to have a VpcId that's used.
-            The filter has ``get_related_ids([Resource])`` to be used before ``get_related()``.
+            The filter has ``get_related_ids([resource])`` to be used before ``get_related()``.
         """
         attribute_map = {
-            "app-elb": "Resource.SecurityGroups.map(sg, sg.security_group())",
-            "asg": "Resource.get_related_ids().map(sg. sg.security_group())",
+            "app-elb": "resource.SecurityGroups.map(sg, sg.security_group())",
+            "asg": "resource.get_related_ids().map(sg. sg.security_group())",
             "lambda": "VpcConfig.SecurityGroupIds.map(sg, sg.security_group())",
             "batch-compute": (
-                "Resource.computeResources.securityGroupIds.map(sg, sg.security_group())"),
-            "codecommit": "Resource.vpcConfig.securityGroupIds.map(sg, sg.security_group())",
-            "directory": "Resource.VpcSettings.SecurityGroupId.security_group()",
+                "resource.computeResources.securityGroupIds.map(sg, sg.security_group())"),
+            "codecommit": "resource.vpcConfig.securityGroupIds.map(sg, sg.security_group())",
+            "directory": "resource.VpcSettings.SecurityGroupId.security_group()",
             "dms-instance": (
-                "Resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())"),
+                "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())"),
             "dynamodb-table": (
-                "Resource.SecurityGroups.map(sg, sg..SecurityGroupIdentifier.security_group())"),
-            "ec2": "Resource.SecurityGroups.map(sg, sg.GroupId.security_group())",
-            "efs": "Resource.get_related_ids().map(sg, sg.security_group())",
-            "eks": "Resource.resourcesVpcConfig.securityGroupIds.map(sg, sg.security_group())",
-            "cache-cluster": "Resource.SecurityGroups.map(sg, sg.SecurityGroupId.security_group())",
-            "elasticsearch": "Resource.VPCOptions.SecurityGroupIds.map(sg, sg.security_group())",
-            "elb": "Resource.SecurityGroups.map(sg, sg.security_group())",
-            "glue-connection": "Resource.PhysicalConnectionRequirements.SecurityGroupIdList"
+                "resource.SecurityGroups.map(sg, sg..SecurityGroupIdentifier.security_group())"),
+            "ec2": "resource.SecurityGroups.map(sg, sg.GroupId.security_group())",
+            "efs": "resource.get_related_ids().map(sg, sg.security_group())",
+            "eks": "resource.resourcesVpcConfig.securityGroupIds.map(sg, sg.security_group())",
+            "cache-cluster": "resource.SecurityGroups.map(sg, sg.SecurityGroupId.security_group())",
+            "elasticsearch": "resource.VPCOptions.SecurityGroupIds.map(sg, sg.security_group())",
+            "elb": "resource.SecurityGroups.map(sg, sg.security_group())",
+            "glue-connection": "resource.PhysicalConnectionRequirements.SecurityGroupIdList"
             ".map(sg, sg.security_group())",
-            "kafka": "Resource.BrokerNodeGroupInfo.SecurityGroups[.map(sg, sg.security_group())",
-            "message-broker": "Resource.SecurityGroups.map(sg, sg.security_group())",
-            "rds": "Resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())",
+            "kafka": "resource.BrokerNodeGroupInfo.SecurityGroups[.map(sg, sg.security_group())",
+            "message-broker": "resource.SecurityGroups.map(sg, sg.security_group())",
+            "rds": "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())",
             "rds-cluster": (
-                "Resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())"),
+                "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())"),
             "redshift": (
-                "Resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())"),
-            "sagemaker-notebook": "Resource.SecurityGroups.map(sg, sg.security_group())",
-            "vpc": "Resource.get_related_ids().map(sg. sg.security_group())",
-            "eni": "Resource.Groups.map(sg, sg.GroupId.security_group())",
-            "vpc-endpoint": "Resource.Groups.map(sg, sg.GroupId.security_group())",
+                "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())"),
+            "sagemaker-notebook": "resource.SecurityGroups.map(sg, sg.security_group())",
+            "vpc": "resource.get_related_ids().map(sg. sg.security_group())",
+            "eni": "resource.Groups.map(sg, sg.GroupId.security_group())",
+            "vpc-endpoint": "resource.Groups.map(sg, sg.GroupId.security_group())",
         }
         attr = attribute_map[resource]
         op = c7n_filter["op"]
@@ -800,7 +800,7 @@ class C7N_Rewriter:
         To::
 
             value_from("s3://path-to-resource/subnets.txt").map(x, normalize(x)).contains(
-            Resource.SubnetId.subnet().SubnetID)
+            resource.SubnetId.subnet().SubnetID)
 
         For additional information, see the :py:class:`c7n.filters.vpc.NetworkLocation`.
         This class reaches into SecurityGroup and Subnet to fetch related objects.
@@ -841,12 +841,12 @@ class C7N_Rewriter:
 
         To::
 
-                size(Resource.flow_logs()) != 0
+                size(resource.flow_logs()) != 0
                 &&
                 ! (
-                    || Resource.flow_logs().exists(x, x.TrafficType == "all")
-                    || Resource.flow_logs().exists(x, x.DeliverLogsStatus == "active")
-                    || Resource.flow_logs().exists(x, x.LogGroupName == "vpc-logs")
+                    || resource.flow_logs().exists(x, x.TrafficType == "all")
+                    || resource.flow_logs().exists(x, x.DeliverLogsStatus == "active")
+                    || resource.flow_logs().exists(x, x.LogGroupName == "vpc-logs")
                 )
 
         The default set-op is "or" for the clauses other than enabled.
@@ -858,8 +858,8 @@ class C7N_Rewriter:
 
         In the more common cases, we'd use something like this::
 
-            Resource.flow_logs().enabled() ?
-                Resource.flow_logs().LogDestinationType != "s3" : false
+            resource.flow_logs().enabled() ?
+                resource.flow_logs().LogDestinationType != "s3" : false
 
         To express the idea of:
 
@@ -872,58 +872,58 @@ class C7N_Rewriter:
         enabled = []
         if "enabled" in c7n_filter:
             if c7n_filter["enabled"]:
-                enabled = ["size(Resource.flow_logs()) != 0"]
+                enabled = ["size(resource.flow_logs()) != 0"]
             else:
-                enabled = ["size(Resource.flow_logs()) == 0"]
+                enabled = ["size(resource.flow_logs()) == 0"]
 
         clauses = []
         if c7n_filter.get("log-group"):
             log_group = c7n_filter.get("log-group")
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "Resource.flow_logs().LogGroupName", f'{C7N_Rewriter.q(log_group)}'
+                    "resource.flow_logs().LogGroupName", f'{C7N_Rewriter.q(log_group)}'
                 )
             )
         if c7n_filter.get("log-format"):
             log_format = c7n_filter.get("log-format")
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "Resource.flow_logs().LogFormat", f'{C7N_Rewriter.q(log_format)}'
+                    "resource.flow_logs().LogFormat", f'{C7N_Rewriter.q(log_format)}'
                 )
             )
         if c7n_filter.get("traffic-type"):
             traffic_type = cast(str, c7n_filter.get("traffic-type"))
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "Resource.flow_logs().TrafficType", f'{C7N_Rewriter.q(traffic_type.upper())}'
+                    "resource.flow_logs().TrafficType", f'{C7N_Rewriter.q(traffic_type.upper())}'
                 )
             )
         if c7n_filter.get("destination-type"):
             destination_type = c7n_filter.get("destination-type")
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "Resource.flow_logs().LogDestinationType", f'{C7N_Rewriter.q(destination_type)}'
+                    "resource.flow_logs().LogDestinationType", f'{C7N_Rewriter.q(destination_type)}'
                 )
             )
         if c7n_filter.get("destination"):
             destination = c7n_filter.get("destination")
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "Resource.flow_logs().LogDestination", f'{C7N_Rewriter.q(destination)}'
+                    "resource.flow_logs().LogDestination", f'{C7N_Rewriter.q(destination)}'
                 )
             )
         if c7n_filter.get("status"):
             status = c7n_filter.get("status")
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "Resource.flow_logs().FlowLogStatus", f'{C7N_Rewriter.q(status)}'
+                    "resource.flow_logs().FlowLogStatus", f'{C7N_Rewriter.q(status)}'
                 )
             )
         if c7n_filter.get("deliver-status"):
             deliver_status = c7n_filter.get("deliver-status")
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "Resource.flow_logs().DeliverLogsStatus", f'{C7N_Rewriter.q(deliver_status)}'
+                    "resource.flow_logs().DeliverLogsStatus", f'{C7N_Rewriter.q(deliver_status)}'
                 )
             )
 
@@ -948,11 +948,11 @@ class C7N_Rewriter:
 
         To::
 
-            size(Resource["Tags"].filter(x, ! matches(x.Key, "^aws:.*"))) >= 8
+            size(resource["Tags"].filter(x, ! matches(x.Key, "^aws:.*"))) >= 8
         """
         op = c7n_filter.get("op", "gte")
         return C7N_Rewriter.atomic_op_map[op].format(
-            'size(Resource["Tags"].filter(x, ! matches(x.Key, "^aws:.*")))',
+            'size(resource["Tags"].filter(x, ! matches(x.Key, "^aws:.*")))',
             c7n_filter.get("count", 10),
         )
 
@@ -978,10 +978,10 @@ class C7N_Rewriter:
             value_from(
                 "s3://c7n-resources/some_list.json"
             ).jmes_path_map(
-                "not_null(offhours_exceptions." + Resource.account_id + ".account, '[]')"
-            ).contains(Resource.VpcId.vpc().VpcId)
+                "not_null(offhours_exceptions." + resource.account_id + ".account, '[]')"
+            ).contains(resource.VpcId.vpc().VpcId)
 
-        The ``Resource.VpcId.vpc().VpcId`` harbors a redundanncy.
+        The ``resource.VpcId.vpc().VpcId`` harbors a redundanncy.
         This reflects the way C7N works to fetch the related resource, then extracts
         an attribute of that resource that happens to be the name used to find the resource.
 
@@ -997,16 +997,16 @@ class C7N_Rewriter:
         Each resource type's ``RelatedIdsExpression`` matches the ``key`` attribute.
         """
         attribute_map = {
-            "app-elb": "Resource.VpcId",  # Resource.VpcId.vpc().{key}
-            "lambda": "Resource.VpcConfig.VpcId",  # Resource.VpcConfig.VpcId.vpc().{key}
-            "codecommit": "Resource.vpcConfig.vpcId",
-            "directory": "Resource.VpcSettings.VpcId",
-            "dms-instance": "Resource.ReplicationSubnetGroup.VpcId",
-            "ec2": "Resource.VpcId",
-            "eks": "Resource.resourcesVpcConfig.vpcId",
-            "elasticsearch": "Resource.VPCOptions.VPCId",
-            "elb": "Resource.VPCId",
-            "rds": "Resource.DBSubnetGroup.VpcId",
+            "app-elb": "resource.VpcId",  # resource.VpcId.vpc().{key}
+            "lambda": "resource.VpcConfig.VpcId",  # resource.VpcConfig.VpcId.vpc().{key}
+            "codecommit": "resource.vpcConfig.vpcId",
+            "directory": "resource.VpcSettings.VpcId",
+            "dms-instance": "resource.ReplicationSubnetGroup.VpcId",
+            "ec2": "resource.VpcId",
+            "eks": "resource.resourcesVpcConfig.vpcId",
+            "elasticsearch": "resource.VPCOptions.VPCId",
+            "elb": "resource.VPCId",
+            "rds": "resource.DBSubnetGroup.VpcId",
         }
         attr = attribute_map[resource]
         if "value_from" in c7n_filter:
@@ -1039,14 +1039,14 @@ class C7N_Rewriter:
 
         To::
 
-            Now - timestamp(Resource.credentials().access_keys.last_rotated) >= duration("55d")
+            now - timestamp(resource.credentials().access_keys.last_rotated) >= duration("55d")
 
         Relies on :py:func:`celpy.c7nlib.credentials` function to get credentials.
         This relies on the filter's :py:func:`celpy.c7nlib.get_related`
         method to locate the related IAM resource.
         """
         return C7N_Rewriter.value_to_cel(
-            f"Resource.credentials().{c7n_filter['key']}",
+            f"resource.credentials().{c7n_filter['key']}",
             c7n_filter.get("op", "equal"),
             c7n_filter["value"],
             c7n_filter.get("value_type"),
@@ -1067,13 +1067,13 @@ class C7N_Rewriter:
 
         To::
 
-            Resource.kms_alias().AliasName.matches("^(alias/aws/)")
+            resource.kms_alias().AliasName.matches("^(alias/aws/)")
 
         Relies on :py:func:`celpy.c7nlib.kms_alias`.
         This uses the filter's ``get_matching_aliases()`` method to locate the related KMS-Aliases.
         """
         return C7N_Rewriter.value_to_cel(
-            f"Resource.kms_alias().{c7n_filter['key']}",
+            f"resource.kms_alias().{c7n_filter['key']}",
             c7n_filter.get("op", "equal"),
             c7n_filter["value"],
             c7n_filter.get("value_type"),
@@ -1095,7 +1095,7 @@ class C7N_Rewriter:
 
         To::
 
-            Resource.kms_key().AliasName.matches("^(alias/enterprise/sns/encrypted)")
+            resource.kms_key().AliasName.matches("^(alias/enterprise/sns/encrypted)")
 
         Relies on :py:func:`celpy.c7nlib.kms_key``.
         This uses the filter's ``get_matching_aliases()`` method to locate the related KMS Keys.
@@ -1105,17 +1105,17 @@ class C7N_Rewriter:
         """
         attribute_map = {
             "dynamodb-table": "SSEDescription.KMSMasterKeyArn",
-            # Resource.SSEDescription.KMSMasterKeyArn.kms_key().{key}
-            "efs": "KmsKeyId",  # Resource.KmsKeyId.kms_key().{key}
-            "fsx": "KmsKeyId",  # Resource.KmsKeyId.kms_key().{key}
-            "redshift": "KmsKeyId",  # Resource.KmsKeyId.kms_key().{key}
-            "sqs": "KmsMasterKeyId",  # Resource.KmsMasterKeyId.kms_key().{key}
+            # resource.SSEDescription.KMSMasterKeyArn.kms_key().{key}
+            "efs": "KmsKeyId",  # resource.KmsKeyId.kms_key().{key}
+            "fsx": "KmsKeyId",  # resource.KmsKeyId.kms_key().{key}
+            "redshift": "KmsKeyId",  # resource.KmsKeyId.kms_key().{key}
+            "sqs": "KmsMasterKeyId",  # resource.KmsMasterKeyId.kms_key().{key}
         }
         attr = attribute_map[resource]
         c7n_prefix, _, key = c7n_filter["key"].partition(":")
         if c7n_prefix == "c7n":
             return C7N_Rewriter.value_to_cel(
-                f'Resource.{attr}.kms_key()["Aliases"][0][{C7N_Rewriter.q(key)}]',
+                f'resource.{attr}.kms_key()["Aliases"][0][{C7N_Rewriter.q(key)}]',
                 c7n_filter.get("op", "equal"),
                 c7n_filter["value"],
                 c7n_filter.get("value_type"),
@@ -1123,7 +1123,7 @@ class C7N_Rewriter:
         else:
             key = c7n_prefix
             return C7N_Rewriter.value_to_cel(
-                f'Resource.{attr}.kms_key()[{C7N_Rewriter.q(key)}]',
+                f'resource.{attr}.kms_key()[{C7N_Rewriter.q(key)}]',
                 c7n_filter.get("op", "equal"),
                 c7n_filter["value"],
                 c7n_filter.get("value_type"),
@@ -1172,20 +1172,20 @@ class C7N_Rewriter:
 
         To::
 
-            ! getDayOfWeek(Now) in [0, 6]
-            && Resource.Tags.exists(x, x.key=="downtime") ?
-                key_value("downtime").resource_schedule(Now) || Now.getHours() == 20
+            ! getDayOfWeek(now) in [0, 6]
+            && resource.Tags.exists(x, x.key=="downtime") ?
+                key_value("downtime").resource_schedule(now) || now.getHours() == 20
                 : false
 
         The :py:`celpy.c7nlib.resource_schedule` function reaches into
         the :py:class:`c7n.filters.offhours.ScheduleParser` class
         to parse the schedule text in the tag value
-        and compare it against the current day and hour in the given ``Now`` value.
+        and compare it against the current day and hour in the given ``now`` value.
 
         ::
 
             key_value("maid_offhours").resource_schedule().off.exists(s,
-                Now.getDayOfWeek(s.tz) in s.days && Now.getHours(s.tz) == s.hour)
+                now.getDayOfWeek(s.tz) in s.days && now.getHours(s.tz) == s.hour)
 
         Therer are a number of possible clauses that are part of this, making the transformation
         look rather complex.
@@ -1209,20 +1209,20 @@ class C7N_Rewriter:
         if c7n_filter.get("skip-days"):
             skip_days = ", ".join(f'{C7N_Rewriter.q(d)}' for d in c7n_filter.get("skip-days", []))
             prefix = (
-                f"! getDate(Now) in [{skip_days}].map(d, getDate(timestamp(d))) && "
+                f"! getDate(now) in [{skip_days}].map(d, getDate(timestamp(d))) && "
             )
         else:
             prefix = ""
 
         default = (
-            f'Now.getDayOfWeek({C7N_Rewriter.q(default_tz)}) in {days} '
-            f'&& Now.getHours({C7N_Rewriter.q(default_tz)}) == {hour}'
+            f'now.getDayOfWeek({C7N_Rewriter.q(default_tz)}) in {days} '
+            f'&& now.getHours({C7N_Rewriter.q(default_tz)}) == {hour}'
         )
         if opt_out:
             # ``true`` ... resources without the tag are acted on by the policy
             return (
                 f'{prefix}'
-                f'Resource.Tags.exists(x, x.key=={C7N_Rewriter.q(tag_key)}) '
+                f'resource.Tags.exists(x, x.key=={C7N_Rewriter.q(tag_key)}) '
                 f'? false '
                 f': ({default})'
             )
@@ -1230,10 +1230,10 @@ class C7N_Rewriter:
             # ``false`` ... resources must have the tag in order to be acted on by the policy
             return (
                 f'{prefix}'
-                f'Resource.Tags.exists(x, x.key=={C7N_Rewriter.q(tag_key)}) '
-                f'? Resource.Tags'
+                f'resource.Tags.exists(x, x.key=={C7N_Rewriter.q(tag_key)}) '
+                f'? resource.Tags'
                 f'.key({C7N_Rewriter.q(tag_key)}).resource_schedule().{value_label}.exists(s, '
-                f'Now.getDayOfWeek(s.tz) in s.days && Now.getHours(s.tz) == s.hour'
+                f'now.getDayOfWeek(s.tz) in s.days && now.getHours(s.tz) == s.hour'
                 f')'
                 f' || ({default}) '
                 f': false'
@@ -1254,7 +1254,7 @@ class C7N_Rewriter:
         To::
 
             size(
-                Resource.map(r, r['VaultName'])['policy']['Policy']).filter(
+                resource.map(r, r['VaultName'])['policy']['Policy']).filter(
                 p, ! p in ["permitted-account-01", "permitted-account-02"])
             ) > 0
 
@@ -1282,46 +1282,46 @@ class C7N_Rewriter:
         """
         resource_type_map = {
             "ami": (  # See AmiCrossAccountFilter
-                "Resource.get_accounts()"
+                "resource.get_accounts()"
                 '.map(r, r.get_instance_image(r.ImageId)["LaunchPermissions"])'
             ),
-            "apigw": 'Resource.get_resource_policy("policy")',  # See RestApiCrossAccount
+            "apigw": 'resource.get_resource_policy("policy")',  # See RestApiCrossAccount
             "lambda": (  # See LambdaCrossAccountAccessFilter
-                'Resource["FunctionName"].get_resource_policy()["Policy"]'),
-            "alarm": 'Resource["Arn"].arn_split("account-id")',  # See CrossAccountFilter
+                'resource["FunctionName"].get_resource_policy()["Policy"]'),
+            "alarm": 'resource["Arn"].arn_split("account-id")',  # See CrossAccountFilter
             "log-group": (  # See LogCrossAccountFilter
-                "Resource.get_accounts()"
+                "resource.get_accounts()"
                 '.map(r, r.describe_subscription_filters(r["logGroupName"])["subscriptionFilters"]'
                 '.map(a, a.arn_split()["account-id"])'
             ),
             "ebs-snapshot": (  # See SnapshotCrossAccountAccess
-                "Resource.get_accounts()"
+                "resource.get_accounts()"
                 '.map(r, r.describe_subscription_filters(r["SnapshotId"])'
                 '["CreateVolumePermissions"]'
             ),
             "ecr": (
-                '"Resource.get_resource_policy("Policy")'
+                '"resource.get_resource_policy("Policy")'
                 '.map(r, r["repositoryName"])["policyText"])'
             ),
-            "glacier": 'Resource.map(r, r["VaultName"])["policy"]["Policy"])',
-            "iam-group": 'Resource.get_resource_policy("AssumeRolePolicyDocument")',
-            "kms": 'Resource.get_key_policy("Policy").map(r, r["TargetKeyId"])["KeyId"])',
+            "glacier": 'resource.map(r, r["VaultName"])["policy"]["Policy"])',
+            "iam-group": 'resource.get_resource_policy("AssumeRolePolicyDocument")',
+            "kms": 'resource.get_key_policy("Policy").map(r, r["TargetKeyId"])["KeyId"])',
             "rds-snapshot": (
-                "Resource.get_accounts()"
+                "resource.get_accounts()"
                 '.map(r, r.describe_db_snapshot_attributes(r["DBSnapshotIdentifier"])'
                 '["DBSnapshotAttributesResult"]["DBSnapshotAttributes"]'
             ),
-            "redshift-snapshot": 'Resource.get_accounts().map(r, r["AccountsWithRestoreAccess"])',
-            "s3": "Resource.get_accounts()",
-            "secrets-manager": 'Resources.get_resource_policy("c7n:AccessPolicy")',
+            "redshift-snapshot": 'resource.get_accounts().map(r, r["AccountsWithRestoreAccess"])',
+            "s3": "resource.get_accounts()",
+            "secrets-manager": 'resources.get_resource_policy("c7n:AccessPolicy")',
             "sns": (
-                "(Resource.get_endpoints()"
-                ".map(x, x.get_accounts()) + Resource.get_protocols().map(x, x.get_accounts())"
+                "(resource.get_endpoints()"
+                ".map(x, x.get_accounts()) + resource.get_protocols().map(x, x.get_accounts())"
             ),
-            "sqs": 'Resources.get_resource_policy("Policy")',  # The default. Cool.
+            "sqs": 'resource.get_resource_policy("Policy")',  # The default. Cool.
             "peering-connection": (
-                "Resource.get_accounts()"
-                '.map(r, r["AccepterVpcInfo"]["OwnerId"]) + Resource.get_accounts())'
+                "resource.get_accounts()"
+                '.map(r, r["AccepterVpcInfo"]["OwnerId"]) + resource.get_accounts())'
                 '.map(r, r["RequesterVpcInfo"]["OwnerId"])'
             ),
         }
@@ -1358,7 +1358,7 @@ class C7N_Rewriter:
 
         To::
 
-            Resource['SnapshotId'] in
+            resource['SnapshotId'] in
             (set(C7N.filter.asg_snapshots() + set(C7N.filter.ami_snapshots()))
 
         An alternative is to expose the folowing implementation
@@ -1374,7 +1374,7 @@ class C7N_Rewriter:
 
         This would lead to CEL like this::
 
-            Resource["GroupId"] not in
+            resource["GroupId"] not in
             scan_groups()
                 .filter(g, all_resources().exists(r, ! r['GroupId'] in g and 'VpcId' in r))
                 .filter_peered_refs()
@@ -1383,23 +1383,23 @@ class C7N_Rewriter:
         Which involves using a poorly-understand ``all_resources()`` function.
         """
         resource_type_map = {
-            "ami": ('Resource["ImageId"] in all_images()'),
-            "asg": ('Resource["LaunchConfigurationName"] in all_launch_configuration_names()'),
-            "ebs": ('Resource["SnapshotId"] in all_snapshots()'),
+            "ami": ('resource["ImageId"] in all_images()'),
+            "asg": ('resource["LaunchConfigurationName"] in all_launch_configuration_names()'),
+            "ebs": ('resource["SnapshotId"] in all_snapshots()'),
             "iam-role": (
                 'all_service_roles()'
-                '.exists(role, role == Resource["Arn"] || roles == Resource["RoleName"])'),
+                '.exists(role, role == resource["Arn"] || roles == resource["RoleName"])'),
             "iam-policy": (
-                '(Resource["AttachmentCount"] > 0 || '
-                'Resource.get("PermissionsBoundaryUsageCount", 0) > 0)'),
+                '(resource["AttachmentCount"] > 0 || '
+                'resource.get("PermissionsBoundaryUsageCount", 0) > 0)'),
             "iam-profile": (
                 'all_instance_profiles()'
-                '.exists(role, role == Resource["Arn"] '
-                '|| roles == Resource["InstanceProfileName"])'),
+                '.exists(role, role == resource["Arn"] '
+                '|| roles == resource["InstanceProfileName"])'),
             "rds-subnet-group": (
-                'Resource["DBSubnetGroupName"] in all_dbsubnet_groups()'),
+                'resource["DBSubnetGroupName"] in all_dbsubnet_groups()'),
             "vpc": (
-                '(Resource["GroupId"] in all_scan_groups() && has(Resource.VpcId)'),
+                '(resource["GroupId"] in all_scan_groups() && has(resource.VpcId)'),
         }
         attr = resource_type_map[resource]
         if c7n_filter.get("value", True):
@@ -1419,7 +1419,7 @@ class C7N_Rewriter:
 
         To::
 
-            ! Resource['SnapshotId'] in
+            ! resource['SnapshotId'] in
             (set(C7N.filter.asg_snapshots() + set(C7N.filter.ami_snapshots()))
 
         """
@@ -1440,17 +1440,17 @@ class C7N_Rewriter:
 
         To::
 
-            Resource.get_access_log().exists(a, a["Enabled"])
+            resource.get_access_log().exists(a, a["Enabled"])
 
         For app-elb resources, it's slightly different because it's based on keys and values.
         ::
 
-            Resource.get_load_balancer().get("access_logs.s3.enabled")
+            resource.get_load_balancer().get("access_logs.s3.enabled")
         """
         if resource == "elb":
-            return 'Resource.get_access_log().exists(a, a["Enabled"])'
+            return 'resource.get_access_log().exists(a, a["Enabled"])'
         elif resource == "app-elb":
-            return 'Resource.get_load_balancer().get("access_logs.s3.enabled")'
+            return 'resource.get_load_balancer().get("access_logs.s3.enabled")'
         else:
             raise ValueError(
                 f"Unknown resource type: {resource}, with is-logging or is-not-logging"
@@ -1467,7 +1467,7 @@ class C7N_Rewriter:
 
         To::
 
-            ! Resource.get_access_log().exists(a, a["Enabled"])
+            ! resource.get_access_log().exists(a, a["Enabled"])
         """
         positive = C7N_Rewriter.is_logging_rewrite(resource, c7n_filter)
         return f'! {positive}'
@@ -1486,11 +1486,11 @@ class C7N_Rewriter:
 
         To::
 
-            size(Resource.get_health_events(["upcoming", "open"])) > 0
+            size(resource.get_health_events(["upcoming", "open"])) > 0
         """
         statuses = c7n_filter.get("statuses", ["upcoming", "open"])
         quoted_statuses = ', '.join(f'"{s}"' for s in statuses)
-        return f'size(Resource.get_health_events([{quoted_statuses}])) > 0'
+        return f'size(resource.get_health_events([{quoted_statuses}])) > 0'
 
     @staticmethod
     def shield_enabled_rewrite(resource: str, c7n_filter: Dict[str, Any]) -> str:
@@ -1504,17 +1504,17 @@ class C7N_Rewriter:
 
         To::
 
-            Resource.shield_protection()
+            resource.shield_protection()
 
-        For "account" resource, this changes to ``Resource.shield_subscription()``
+        For "account" resource, this changes to ``resource.shield_subscription()``
         because the lookup for account resources is radically different from all others.
         """
         state = c7n_filter.get("state", True)
         state_text = "" if state else "! "
         if resource == "account":
-            return f'{state_text}Resource.shield_subscription()'
+            return f'{state_text}resource.shield_subscription()'
         else:
-            return f'{state_text}Resource.shield_protection()'
+            return f'{state_text}resource.shield_protection()'
 
     @staticmethod
     def waf_enabled_rewrite(resource: str, c7n_filter: Dict[str, Any]) -> str:
@@ -1529,12 +1529,12 @@ class C7N_Rewriter:
 
         To::
 
-            ! Resource.web_acls().contains("WebACL to allow or restrict by IP")
+            ! resource.web_acls().contains("WebACL to allow or restrict by IP")
         """
         state = c7n_filter.get("state", True)
         state_text = "" if state else "! "
         acl = c7n_filter.get("web-acl")
-        return f'{state_text}Resource.web_acls().contains("{acl}")'
+        return f'{state_text}resource.web_acls().contains("{acl}")'
 
     @staticmethod
     def network_location_rewrite(resource: str, c7n_filter: Dict[str, Any]) -> str:
@@ -1562,11 +1562,11 @@ class C7N_Rewriter:
                 ["New VPC Enterprise All Instances SG 2016",
                  "Enterprise All Instances Security Group",
                  "CoreServicesAccess-SG"]
-                .contains(Resource.Description)
-               || Resource.Tags["Asset"] == "SomeAssetTag"
+                .contains(resource.Description)
+               || resource.Tags["Asset"] == "SomeAssetTag"
             )
-            && Resource.SecurityGroupId.security_group().Tags["Asset"] == Resource.Tags["Asset"]
-            && size(Resource.SecurityGroupId.security_group()) == 1
+            && resource.SecurityGroupId.security_group().Tags["Asset"] == resource.Tags["Asset"]
+            && size(resource.SecurityGroupId.security_group()) == 1
 
         From the documentation
 
@@ -1592,7 +1592,7 @@ class C7N_Rewriter:
                     key = f'Tags["{name}"]'
                 ignore_attributes[key].append(value)
         ignore: List[str] = [
-            f'[{", ".join(C7N_Rewriter.q(v) for v in value_list)}].contains(Resource.{key})'
+            f'[{", ".join(C7N_Rewriter.q(v) for v in value_list)}].contains(resource.{key})'
             for key, value_list in ignore_attributes.items()
         ]
         # Build the compare and max-card condition(s)
@@ -1605,19 +1605,19 @@ class C7N_Rewriter:
         max_cardinality = c7n_filter.get("max-cardinality")
         if "security-group" in c7n_filter.get("compare", []):
             compare.append(
-                f'Resource.SecurityGroupId.security_group().{compare_key} == Resource.{compare_key}'
+                f'resource.SecurityGroupId.security_group().{compare_key} == resource.{compare_key}'
             )
             if max_cardinality:
                 max_card.append(
-                    f'size(Resource.SecurityGroupId.security_group()) == {max_cardinality}'
+                    f'size(resource.SecurityGroupId.security_group()) == {max_cardinality}'
                 )
         if "subnet" in c7n_filter.get("compare", []):
             compare.append(
-                f'Resource.SubnetId.subnet().{compare_key} == Resource.{compare_key}'
+                f'resource.SubnetId.subnet().{compare_key} == resource.{compare_key}'
             )
             if max_cardinality:
                 max_card.append(
-                    f'size(Resource.SubnetId.subnet()) == {max_cardinality}'
+                    f'size(resource.SubnetId.subnet()) == {max_cardinality}'
                 )
         clauses = [
             (f'! ({" || ".join(ignore)})' if ignore else ''),

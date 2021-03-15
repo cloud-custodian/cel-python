@@ -21,11 +21,11 @@ those CEL expressions with a given document.
 
 This builds the global objects expected in an activation
 
--   ``Resource`` is a CEL representation of the cloud resource
+-   ``resource`` is a CEL representation of the cloud resource
 
--   ``Now`` is the current time
+-   ``now`` is the current time
 
--   ``Event`` is the activation Event, if needed.
+-   ``event`` is the activation event, if needed.
 
 When the CEL is evaluated, the C7NContext manager is used to provide a filter instance.
 
@@ -56,21 +56,21 @@ def step_impl(context, alias_dict):
     context.cel["TZ_ALIASES"] = aliases
 
 
-@given(u'Resource value {value}')
+@given(u'resource value {value}')
 def step_impl(context, value):
     resource = json.loads(value)
-    context.cel['activation']["Resource"] = celpy.json_to_cel(resource)
+    context.cel['activation']["resource"] = celpy.json_to_cel(resource)
 
 
-@given(u'Now value {timestamp}')
+@given(u'now value {timestamp}')
 def step_impl(context, timestamp):
-    context.cel['activation']["Now"] = celpy.celtypes.TimestampType(parse_date(timestamp))
+    context.cel['activation']["now"] = celpy.celtypes.TimestampType(parse_date(timestamp))
 
 
-@given(u'Event value {value}')
+@given(u'event value {value}')
 def step_impl(context, value):
     resource = json.loads(value)
-    context.cel['activation']["Event"] = celpy.json_to_cel(resource)
+    context.cel['activation']["event"] = celpy.json_to_cel(resource)
 
 
 @given(u'url {url} has text')
@@ -240,8 +240,8 @@ def evaluate(context):
     Instead, it provides the context and filter as arguments to :meth:`evaluate`.
     """
     decls = {
-        "Resource": celpy.celtypes.MapType,
-        "Now": celpy.celtypes.TimestampType,
+        "resource": celpy.celtypes.MapType,
+        "now": celpy.celtypes.TimestampType,
     }
     decls.update(celpy.c7nlib.DECLARATIONS)
     context.cel['env'] = celpy.Environment(
