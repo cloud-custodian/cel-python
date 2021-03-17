@@ -849,7 +849,7 @@ def get_related_ids(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(related_ids)
 
 
-def get_related_sgs(resource: celtypes.MapType,) -> celtypes.ListType:
+def get_related_sgs(resource: celtypes.MapType,) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_sgs() request using the current C7N filter.
     """
@@ -857,7 +857,7 @@ def get_related_sgs(resource: celtypes.MapType,) -> celtypes.ListType:
     return json_to_cel(security_groups)
 
 
-def get_related_subnets(resource: celtypes.MapType,) -> celtypes.ListType:
+def get_related_subnets(resource: celtypes.MapType,) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_subnets() request using the current C7N filter.
     """
@@ -865,7 +865,7 @@ def get_related_subnets(resource: celtypes.MapType,) -> celtypes.ListType:
     return json_to_cel(subnets)
 
 
-def get_related_nat_gateways(resource: celtypes.MapType,) -> celtypes.ListType:
+def get_related_nat_gateways(resource: celtypes.MapType,) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_nat_gateways() request using the current C7N filter.
     """
@@ -873,7 +873,7 @@ def get_related_nat_gateways(resource: celtypes.MapType,) -> celtypes.ListType:
     return json_to_cel(nat_gateways)
 
 
-def get_related_igws(resource: celtypes.MapType,) -> celtypes.ListType:
+def get_related_igws(resource: celtypes.MapType,) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_igws() request using the current C7N filter.
     """
