@@ -433,7 +433,7 @@ class NameContainer(Dict[str, Referent]):
 
     1.  Initially, the environment provides name : annotation bindings.
         Generally, the names are type names, like "int", bound to :py:class:`celtypes.IntType`.
-        In some cases, the name is a future variable name, "Resource",
+        In some cases, the name is a future variable name, "resource",
         bound to :py:class:`celtypes.MapType`.
 
     2.  Later, the Activation creation provides values (functions, objects, packages, messages.)
