@@ -30,9 +30,9 @@ C7N uses CEL and the :py:mod:`c7nlib` module as follows::
 
     class CELFilter(c7n.filters.core.Filter):  # See below for the long list of mixins.
         decls = {
-            "resource": celpy.celtypes.MapType,
-            "now": celpy.celtypes.TimestampType,
-            "event": celpy.celtypes.MapType,
+            "Resource": celpy.celtypes.MapType,
+            "Now": celpy.celtypes.TimestampType,
+            "Event": celpy.celtypes.MapType,
         }
         decls.update(celpy.c7nlib.DECLARATIONS)
 
@@ -52,8 +52,8 @@ C7N uses CEL and the :py:mod:`c7nlib` module as follows::
             for resource in resources:
                 with C7NContext(filter=the_filter):
                     cel_activation = {
-                        "resource": celpy.json_to_cel(resource),
-                        "now": celpy.celtypes.TimestampType(now),
+                        "Resource": celpy.json_to_cel(resource),
+                        "Now": celpy.celtypes.TimestampType(now),
                     }
                     if self.pgm.evaluate(cel_activation):
                         yield resource
@@ -62,13 +62,13 @@ This isn't the whole story, this is the starting point.
 
 This library of functions is bound into the program that's built from the AST.
 
-Several objects are required in activation for use by the CEL expression
+Several objects are required in activation for use by the CEL expressoin
 
--   ``resource``. The JSON document describing the cloud resource.
+-   ``Resource``. The JSON document describing the cloud resource.
 
--   ``now.`` The current timestamp.
+-   ``Now.`` The current timestamp.
 
--   Optionally, ``event`` may have an AWS CloudWatch Event.
+-   Optionally, ``Event`` may have an AWS CloudWatch Event.
 
 
 The type: value Features
@@ -348,17 +348,17 @@ def key(source: celtypes.ListType, target: celtypes.StringType) -> celtypes.Valu
 
     In effect, the ``key()``    function::
 
-        resource["Tags"].key("Name")["Value"]
+        Resource["Tags"].key("Name")["Value"]
 
     is somewhat like::
 
-        resource["Tags"].filter(x, x["Key"] == "Name")[0]
+        Resource["Tags"].filter(x, x["Key"] == "Name")[0]
 
     But the ``key()`` function doesn't raise an exception if the key is not found,
     instead it returns None.
 
     We might want to generalize this into a ``first()`` reduction macro.
-    ``resource["Tags"].first(x, x["Key"] == "Name" ? x["Value"] : null, null)``
+    ``Resource["Tags"].first(x, x["Key"] == "Name" ? x["Value"] : null, null)``
     This macro returns the first non-null value or the default (which can be ``null``.)
     """
     key = celtypes.StringType("Key")
@@ -505,11 +505,11 @@ def version(
 
 
 def present(value: celtypes.StringType,) -> celtypes.Value:
-    return celtypes.BoolType(bool(value))
+    return cast(celtypes.Value, bool(value))
 
 
 def absent(value: celtypes.StringType,) -> celtypes.Value:
-    return celtypes.BoolType(not bool(value))
+    return cast(celtypes.Value, not bool(value))
 
 
 def text_from(url: celtypes.StringType,) -> celtypes.Value:
@@ -691,10 +691,10 @@ def get_raw_metrics(request: celtypes.MapType) -> celtypes.Value:
         get_raw_metrics({
             "Namespace": "AWS/EC2",
             "MetricName": "CPUUtilization",
-            "Dimensions": {"Name": "InstanceId", "Value": resource.InstanceId},
+            "Dimensions": {"Name": "InstanceId", "Value": Resource.InstanceId},
             "Statistics": ["Average"],
-            "StartTime": now - duration("4d"),
-            "EndTime": now,
+            "StartTime": Now - duration("4d"),
+            "EndTime": Now,
             "Period": duration("86400s")
         })
 
@@ -744,8 +744,8 @@ def get_metrics(
 
     ::
 
-        resource.get_metrics({"MetricName": "CPUUtilization", "Statistic": "Average",
-            "StartTime": now - duration("4d"), "EndTime": now, "Period": duration("86400s")}
+        Resource.get_metrics({"MetricName": "CPUUtilization", "Statistic": "Average",
+            "StartTime": Now - duration("4d"), "EndTime": Now, "Period": duration("86400s")}
             ).exists(m, m < 30)
 
     The namespace is derived from the ``C7N.policy``. The dimensions are derived from
@@ -1041,7 +1041,7 @@ def resource_schedule(
     ::
 
         key("maid_offhours").resource_schedule().off.exists(s,
-            now.getDayOfWeek(s.tz) in s.days && now.getHour(s.tz) == s.hour)
+            Now.getDayOfWeek(s.tz) in s.days && Now.getHour(s.tz) == s.hour)
     """
     c7n_sched_doc = C7N.filter.parser.parse(tag_value)
     tz = c7n_sched_doc.pop("tz", "et")
@@ -1499,7 +1499,7 @@ class C7N_Interpreted_Runner(InterpretedRunner):
     ..  todo: Refactor to be a mixin to the Runner class hierarchy.
     """
 
-    def evaluate(self, context: Context, filter: Optional[Any] = None) -> Result:
+    def evaluate(self, context: Context, filter: Optional[Any] = None) -> celtypes.Value:
         e = Evaluator(
             ast=self.ast,
             activation=self.new_activation(context),

@@ -12,15 +12,15 @@ See https://github.com/google/cel-spec/issues/143 for the new macros
 
 Scenario: "list_empty"
  When CEL expression "[].reduce(r, i, 0, r + i)" is evaluated
- Then value is Value(value_type='int64_value', value=0)
+ Then value is IntType(0)
 
 Scenario: "list_one"
  When CEL expression "[42].reduce(r, i, 0, r + i)" is evaluated
- Then value is Value(value_type='int64_value', value=42)
+ Then value is IntType(42)
 
 Scenario: "list_many"
  When CEL expression "[0, 1, 2].reduce(r, i, 0, r + 2*i + 1)" is evaluated
- Then value is Value(value_type='int64_value', value=9)
+ Then value is IntType(9)
 
 Scenario: "list_error"
  When CEL expression "[2, 1, 0].reduce(r, i, 0, r + 4 / i)" is evaluated
@@ -34,8 +34,8 @@ Scenario: "list_empty"
 
 Scenario: "list_one"
  When CEL expression "[42].min()" is evaluated
- Then value is Value(value_type='int64_value', value=42)
+ Then value is IntType(42)
 
 Scenario: "list_many"
  When CEL expression "[44, 42, 43].min()" is evaluated
- Then value is Value(value_type='int64_value', value=42)
+ Then value is IntType(42)

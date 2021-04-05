@@ -95,7 +95,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 from celpy import Environment, Runner, celtypes
 from celpy.adapter import CELJSONDecoder, CELJSONEncoder
 from celpy.celparser import CELParseError
-from celpy.evaluation import Annotation, CELEvalError, Result
+from celpy.evaluation import Annotation, CELEvalError, Result, Context
 
 logger = logging.getLogger("celpy")
 
@@ -267,7 +267,7 @@ class CEL_REPL(cmd.Cmd):
     intro = "Enter an expression to have it evaluated."
     logger = logging.getLogger("REPL")
 
-    def cel_eval(self, text: str) -> Result:
+    def cel_eval(self, text: str) -> celtypes.Value:
         try:
             expr = self.env.compile(text)
             prgm = self.env.program(expr)
@@ -278,7 +278,7 @@ class CEL_REPL(cmd.Cmd):
 
     def preloop(self) -> None:
         self.env = Environment()
-        self.state: Dict[str, Result] = {}
+        self.state: Dict[str, celtypes.Value] = {}
 
     def do_set(self, args: str) -> bool:
         """Set variable expression
@@ -287,7 +287,7 @@ class CEL_REPL(cmd.Cmd):
         """
         name, space, args = args.partition(' ')
         try:
-            value = self.cel_eval(args)
+            value: celtypes.Value = self.cel_eval(args)
             print(value)
             self.state[name] = value
         except Exception as ex:
@@ -397,6 +397,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         }
     else:
         annotations = None
+
     # If we're creating a named JSON document, we don't provide a default package.
     # If we're usinga  JSON document to populate a package, we provide the given name.
     env = Environment(

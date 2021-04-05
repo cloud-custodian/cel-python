@@ -23,6 +23,7 @@ from pytest import *
 
 from celpy.celtypes import *
 from celpy.evaluation import CELEvalError
+from celpy import Int32Value
 
 
 def test_bool_type():
@@ -67,6 +68,9 @@ def test_bool_type():
         -t
     assert hash(t) == hash(t)
     assert hash(t) != hash(f)
+    assert not BoolType(None)
+    assert BoolType(MessageType({StringType("value"): BoolType(True)}))
+
 
 def test_bytes_type():
     b_0 = BytesType(b'bytes')
@@ -75,6 +79,8 @@ def test_bytes_type():
     with raises(TypeError):
         BytesType(3.14)
     assert repr(b_0) == "BytesType(b'bytes')"
+    assert BytesType(None) == BytesType(b'')
+    assert BytesType(MessageType({"value": BytesType(b'42')})) == BytesType(b'42')
 
 
 def test_double_type():
@@ -97,6 +103,8 @@ def test_double_type():
     assert hash(d_pi) != hash(d_e)
     assert 2 / DoubleType(0.0) == float("inf")
     assert 3.0 / DoubleType(4.0) == DoubleType(0.75)
+    assert DoubleType(None) == DoubleType(0.0)
+    assert DoubleType(MessageType({"value": DoubleType('4.2')})) == DoubleType(4.2)
 
 
 def test_int_type():
@@ -144,6 +152,8 @@ def test_int_type():
     assert i_max >= i_42
     assert hash(i_42) == hash(i_42)
     assert hash(i_42) != hash(i_max)
+    assert IntType(None) == IntType(0)
+    assert IntType(MessageType({"value": IntType(42)})) == IntType(42)
 
 
 def test_uint_type():
@@ -189,6 +199,8 @@ def test_uint_type():
     assert u_max >= u_42
     assert hash(u_42) == hash(u_42)
     assert hash(u_42) != hash(u_max)
+    assert UintType(None) == UintType(0)
+    assert UintType(MessageType({"value": UintType(42)})) == UintType(42)
 
 
 def test_list_type():
@@ -213,6 +225,8 @@ def test_list_type():
     with raises(TypeError):
         assert l_1 != DoubleType("42.0")
     assert l_1 != ListType([IntType(42), IntType(42), IntType(42)])
+    assert ListType() == ListType([])
+    assert ListType(ListType([IntType(42)])) == ListType([IntType(42)])
 
 
 def test_map_type():
@@ -372,3 +386,31 @@ def test_function_type():
     f_1 = FunctionType()
     with raises(NotImplementedError):
         f_1(IntType(0))
+
+
+def test_int32_value():
+    """This should be refactored into a protobuf module."""
+    x = Int32Value(42)
+    assert x == IntType(42)
+    y = Int32Value(IntType(0))
+    assert y == IntType(0)
+
+
+def test_type_type():
+    t_1 = TypeType("DOUBLE")
+    t_2 = TypeType("IntType")
+    with raises(TypeError):
+        t_3 = TypeType("not_a_type")
+    t_4 = TypeType(DoubleType(3.14159))
+    assert t_1 == t_1
+    assert t_1 != t_2
+    assert t_1 == t_4
+
+
+def test_message_type():
+    mt_1 = MessageType({"name": IntType(42)})
+    assert mt_1["name"] == IntType(42)
+    mt_2 = MessageType(value=IntType(42))
+    assert mt_2["value"] == IntType(42)
+    with raises(TypeError):
+        MessageType("not", "good")

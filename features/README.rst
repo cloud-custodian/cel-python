@@ -55,7 +55,7 @@ Here's the Gherkin::
       And type_env parameter is None
       And bindings parameter is None
      When CEL expression "0" is evaluated
-     Then value is Value(value_type='int64_value', source='0')
+     Then value is IntType(0)
       And eval_error is None
 
 We've made a bunch of test features explicit.

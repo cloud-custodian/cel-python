@@ -62,11 +62,11 @@ Example::
 """
 import re
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, List, Optional, cast
 
-import lark.visitors  # type: ignore[import]
+import lark.visitors
 from lark import Lark, Token, Tree  # noqa: F401
-from lark.exceptions import LexError, ParseError  # type: ignore[import]
+from lark.exceptions import LexError, ParseError, UnexpectedCharacters, UnexpectedToken
 
 
 class CELParseError(Exception):
@@ -82,7 +82,7 @@ class CELParseError(Exception):
 
 class CELParser:
     """Wrapper for the CEL parser and the syntax error messages."""
-    CEL_PARSER: Lark = None
+    CEL_PARSER: Optional[Lark] = None
 
     def __init__(self) -> None:
         if CELParser.CEL_PARSER is None:
@@ -107,12 +107,17 @@ class CELParser:
         return t
 
     def parse(self, text: str) -> Tree:
+        if CELParser.CEL_PARSER is None:
+            raise TypeError("No grammar loaded")  # pragma: no cover
         self.text = text
         try:
             return CELParser.CEL_PARSER.parse(self.text)
-        except (LexError, ParseError) as ex:
-            message = ex.args[0].splitlines()[0]
+        except (UnexpectedToken, UnexpectedCharacters) as ex:
+            message = ex.get_context(text)
             raise CELParseError(message, *ex.args, line=ex.line, column=ex.column)
+        except (LexError, ParseError) as ex:  # pragma: no cover
+            message = ex.args[0].splitlines()[0]
+            raise CELParseError(message, *ex.args)
 
     def error_text(
             self,
@@ -128,7 +133,7 @@ class CELParser:
         return message
 
 
-class DumpAST(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
+class DumpAST(lark.visitors.Visitor_Recursive):
     """Dump a CEL AST creating a close approximation to the original source."""
 
     @classmethod
@@ -266,7 +271,7 @@ class DumpAST(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
         self.stack.append("-")
 
     def member_dot(self, tree: lark.Tree) -> None:
-        right = tree.children[1].value
+        right = cast(lark.Token, tree.children[1]).value
         if self.stack:
             left = self.stack.pop()
             self.stack.append(f"{left}.{right}")
@@ -276,7 +281,7 @@ class DumpAST(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
             exprlist = self.stack.pop()
         else:
             exprlist = ""
-        right = tree.children[1].value
+        right = cast(lark.Token, tree.children[1]).value
         if self.stack:
             left = self.stack.pop()
             self.stack.append(f"{left}.{right}({exprlist})")
@@ -301,11 +306,11 @@ class DumpAST(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
             exprlist = self.stack.pop()
         else:
             exprlist = ""
-        left = tree.children[0].value
+        left = cast(lark.Token, tree.children[0]).value
         self.stack.append(f".{left}({exprlist})")
 
     def dot_ident(self, tree: lark.Tree) -> None:
-        left = tree.children[0].value
+        left = cast(lark.Token, tree.children[0]).value
         self.stack.append(f".{left}")
 
     def ident_arg(self, tree: lark.Tree) -> None:
@@ -314,11 +319,11 @@ class DumpAST(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
         else:
             exprlist = ""
 
-        left = tree.children[0].value
+        left = cast(lark.Token, tree.children[0]).value
         self.stack.append(f"{left}({exprlist})")
 
     def ident(self, tree: lark.Tree) -> None:
-        self.stack.append(tree.children[0].value)
+        self.stack.append(cast(lark.Token, tree.children[0]).value)
 
     def paren_expr(self, tree: lark.Tree) -> None:
         if self.stack:
@@ -342,8 +347,8 @@ class DumpAST(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
         self.stack.append(items)
 
     def fieldinits(self, tree: lark.Tree) -> None:
-        names = tree.children[::2]
-        values = tree.children[1::2]
+        names = cast(List[lark.Token], tree.children[::2])
+        values = cast(List[lark.Token], tree.children[1::2])
         assert len(names) == len(values)
         pairs = reversed(list((n.value, self.stack.pop()) for n, v in zip(names, values)))
         items = ", ".join(f"{n}: {v}" for n, v in pairs)
@@ -363,7 +368,7 @@ class DumpAST(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
 
     def literal(self, tree: lark.Tree) -> None:
         if tree.children:
-            self.stack.append(tree.children[0].value)
+            self.stack.append(cast(lark.Token, tree.children[0]).value)
 
 
 def tree_dump(ast: Tree) -> str:

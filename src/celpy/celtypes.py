@@ -228,6 +228,8 @@ CELType = Union[
     Type['TimestampType'],
     Type['TypeType'],  # Used to mark Protobuf Type values
     Type['UintType'],
+    Type['PackageType'],
+    Type['MessageType'],
 ]
 
 
@@ -236,7 +238,7 @@ def type_matched(method: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]
     @wraps(method)
     def type_matching_method(self: Any, other: Any) -> Any:
         if not(issubclass(type(other), type(self)) or issubclass(type(self), type(other))):
-            raise TypeError(f"no such overload: {type(self)} != {type(other)}")
+            raise TypeError(f"no such overload: {self!r} {type(self)} != {other!r} {type(other)}")
         return method(self, other)
     return type_matching_method
 
@@ -319,7 +321,7 @@ def logical_or(x: Value, y: Value) -> Value:
 
     is a "True"
 
-    If the operand(s) are not BoolType, we'll create an CELEvalError.
+    If the operand(s) are not BoolType, we'll create an TypeError that will become a CELEvalError.
     """
     if not isinstance(x, BoolType) and not isinstance(y, BoolType):
         raise TypeError(f"{type(x)} {x!r} or {type(y)} {y!r}")
@@ -337,19 +339,25 @@ def logical_or(x: Value, y: Value) -> Value:
         return BoolType(cast(BoolType, x) or cast(BoolType, y))
 
 
-class TypeType:
-    """
-    Annotation used to mark protobuf type objects distinct from value objects.
-    """
-    pass
-
-
 class BoolType(int):
     """
     Native Python permits unary operators on Booleans.
 
     For CEL, We need to prevent -false from working.
     """
+    def __new__(cls: Type['BoolType'], source: Any) -> 'BoolType':
+        if source is None:
+            return super().__new__(cls, 0)
+        elif isinstance(source, BoolType):
+            return source
+        elif isinstance(source, MessageType):
+            return super().__new__(
+                cls,
+                cast(int, source.get(StringType("value")))
+            )
+        else:
+            return super().__new__(cls, source)
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({bool(self)})"
 
@@ -371,15 +379,22 @@ class BytesType(bytes):
             *args: Any,
             **kwargs: Any
     ) -> 'BytesType':
-        if isinstance(source, (bytes, BytesType)):
-            return cast(BytesType, super().__new__(cls, source))  # type: ignore[call-arg]
+        if source is None:
+            return super().__new__(cls, b'')
+        elif isinstance(source, (bytes, BytesType)):
+            return super().__new__(cls, source)
         elif isinstance(source, (str, StringType)):
-            return cast(
-                BytesType,
-                super().__new__(cls, source.encode('utf-8'))   # type: ignore[call-arg]
+            return super().__new__(cls, source.encode('utf-8'))
+        elif isinstance(source, MessageType):
+            return super().__new__(
+                cls,
+                cast(bytes, source.get(StringType("value")))  # type: ignore [attr-defined]
             )
         elif isinstance(source, Iterable):
-            return cast(BytesType, super().__new__(cls, source))  # type: ignore[call-arg]
+            return super().__new__(
+                cls,
+                cast(Iterable[int], source)
+            )
         else:
             raise TypeError(f"Invalid initial value type: {type(source)}")
 
@@ -395,6 +410,17 @@ class DoubleType(float):
 
     TODO: Conversions from string? IntType? UintType? DoubleType?
     """
+    def __new__(cls: Type['DoubleType'], source: Any) -> 'DoubleType':
+        if source is None:
+            return super().__new__(cls, 0)
+        elif isinstance(source, MessageType):
+            return super().__new__(
+                cls,
+                cast(float, source.get(StringType("value")))
+            )
+        else:
+            return super().__new__(cls, source)
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
 
@@ -484,8 +510,16 @@ class IntType(int):
             **kwargs: Any
     ) -> 'IntType':
         convert: Callable[..., int]
-        if isinstance(source, IntType):
+        if source is None:
+            return super().__new__(cls, 0)
+        elif isinstance(source, IntType):
             return source
+        elif isinstance(source, MessageType):
+            # Used by protobuf.
+            return super().__new__(
+                cls,
+                cast(int, source.get(StringType("value")))
+            )
         elif isinstance(source, (float, DoubleType)):
             convert = int64(round)
         elif isinstance(source, TimestampType):
@@ -498,7 +532,7 @@ class IntType(int):
             # Must tolerate "-" as part of the literal.
             # See https://github.com/google/cel-spec/issues/126
             convert = int64(int)
-        return cast(IntType, super().__new__(cls, convert(source)))  # type: ignore[call-arg]
+        return super().__new__(cls, convert(source))
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
@@ -659,9 +693,14 @@ class UintType(int):
             convert = uint64(lambda src: src.timestamp())
         elif isinstance(source, (str, StringType)) and source[:2] in {"0x", "0X"}:
             convert = uint64(lambda src: int(src[2:], 16))
+        elif isinstance(source, MessageType):
+            # Used by protobuf.
+            convert = uint64(lambda src: src['value'] if src['value'] is not None else 0)
+        elif source is None:
+            convert = uint64(lambda src: 0)
         else:
             convert = uint64(int)
-        return cast(UintType, super().__new__(cls, convert(source)))  # type: ignore[call-arg]
+        return super().__new__(cls, convert(source))
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
@@ -830,18 +869,18 @@ class MapType(Dict[Value, Value]):
     """
     def __init__(
             self,
-            base: BaseMapTypes = None) -> None:
+            items: BaseMapTypes = None) -> None:
         super().__init__()
-        if base is None:
+        if items is None:
             pass
-        elif isinstance(base, Sequence):
-            for name, value in base:
+        elif isinstance(items, Sequence):
+            for name, value in items:
                 self[name] = value
-        elif isinstance(base, Mapping):
-            for name, value in base.items():
+        elif isinstance(items, Mapping):
+            for name, value in items.items():
                 self[name] = value
         else:
-            raise TypeError(f"Invalid initial value type: {type(base)}")
+            raise TypeError(f"Invalid initial value type: {type(items)}")
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
@@ -927,12 +966,10 @@ class StringType(str):
             **kwargs: Any
     ) -> 'StringType':
         if isinstance(source, (bytes, BytesType)):
-            return cast(
-                StringType,
-                super().__new__(cls, source.decode('utf')))  # type: ignore[call-arg]
+            return super().__new__(cls, source.decode('utf'))
         elif isinstance(source, (str, StringType)):
             # TODO: Consider returning the original StringType object.
-            return cast(StringType, super().__new__(cls, source))  # type: ignore[call-arg]
+            return super().__new__(cls, source)
         else:
             return cast(StringType, super().__new__(cls, source))
 
@@ -1065,14 +1102,14 @@ class TimestampType(datetime.datetime):
         """Timestamp + Duration -> Timestamp"""
         result = super().__add__(other)
         if result == NotImplemented:
-            return result
+            return NotImplemented
         return TimestampType(result)
 
     def __radd__(self, other: Any) -> 'TimestampType':
         """Duration + Timestamp -> Timestamp"""
         result = super().__radd__(other)
         if result == NotImplemented:
-            return result
+            return NotImplemented
         return TimestampType(result)
 
     # For more information, check the typeshed definition
@@ -1225,33 +1262,33 @@ class DurationType(datetime.timedelta):
 
     def __new__(
             cls: Type['DurationType'],
-            source: Any,
+            seconds: Any,
             nanos: int = 0,
             **kwargs: Any) -> 'DurationType':
-        if isinstance(source, datetime.timedelta):
-            if not (cls.MinSeconds <= source.total_seconds() <= cls.MaxSeconds):
-                raise ValueError("range error: {source}")
+        if isinstance(seconds, datetime.timedelta):
+            if not (cls.MinSeconds <= seconds.total_seconds() <= cls.MaxSeconds):
+                raise ValueError("range error: {seconds}")
             return cast(DurationType, super().__new__(  # type: ignore[call-arg]
-                cls, days=source.days, seconds=source.seconds, microseconds=source.microseconds))
-        elif isinstance(source, int):
-            if not (cls.MinSeconds <= source <= cls.MaxSeconds):
-                raise ValueError("range error: {source}")
+                cls, days=seconds.days, seconds=seconds.seconds, microseconds=seconds.microseconds))
+        elif isinstance(seconds, int):
+            if not (cls.MinSeconds <= seconds <= cls.MaxSeconds):
+                raise ValueError("range error: {seconds}")
             return cast(DurationType, super().__new__(  # type: ignore[call-arg]
-                cls, seconds=source, microseconds=nanos // 1000))
-        elif isinstance(source, str):
+                cls, seconds=seconds, microseconds=nanos // 1000))
+        elif isinstance(seconds, str):
             duration_pat = re.compile(r"^[-+]?([0-9]*(\.[0-9]*)?[a-z]+)+$")
 
-            duration_match = duration_pat.match(source)
+            duration_match = duration_pat.match(seconds)
             if not duration_match:
-                raise ValueError(f"Invalid duration {source!r}")
+                raise ValueError(f"Invalid duration {seconds!r}")
 
             # Consume the sign.
             sign: float
-            if source.startswith("+"):
-                source = source[1:]
+            if seconds.startswith("+"):
+                source = seconds[1:]
                 sign = +1
-            elif source.startswith("-"):
-                source = source[1:]
+            elif seconds.startswith("-"):
+                source = seconds[1:]
                 sign = -1
             else:
                 sign = +1
@@ -1261,18 +1298,18 @@ class DurationType(datetime.timedelta):
                 seconds = sign * fsum(
                     map(
                         lambda n_u: float(n_u.group(1)) * cls.scale[n_u.group(3)],
-                        re.finditer(r"([0-9]*(\.[0-9]*)?)([a-z]+)", source)
+                        re.finditer(r"([0-9]*(\.[0-9]*)?)([a-z]+)", seconds)
                     )
                 )
             except KeyError:
-                raise ValueError(f"Invalid duration {source!r}")
+                raise ValueError(f"Invalid duration {seconds!r}")
 
             if not (cls.MinSeconds <= seconds <= cls.MaxSeconds):
-                raise ValueError("range error: {source}")
+                raise ValueError("range error: {seconds}")
             return cast(DurationType, super().__new__(  # type: ignore[call-arg]
                 cls, seconds=seconds))
         else:
-            raise TypeError(f"Invalid initial value type: {type(source)}")
+            raise TypeError(f"Invalid initial value type: {type(seconds)}")
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({str(self)!r})"
@@ -1347,3 +1384,111 @@ class FunctionType:
     """
     def __call__(self, *args: Value, **kwargs: Value) -> Value:
         raise NotImplementedError
+
+
+class PackageType(MapType):
+    """
+    A package of message types, usually protobuf.
+
+    TODO: This may not be needed.
+    """
+    pass
+
+
+class MessageType(MapType):
+    """
+    An individual protobuf message definition. A mapping from field name to field value.
+
+    See Scenario: "message_literal" in the parse.feature. This is a very deeply-nested
+    message (30? levels), but the navigation to "payload" field seems to create a default
+    value at the top level.
+    """
+    def __init__(self, *args: Value, **fields: Value) -> None:
+        if args and len(args) == 1:
+            super().__init__(cast(Mapping[Value, Value], args[0]))
+        elif args and len(args) > 1:
+            raise TypeError(r"Expected dictionary or fields, not {args!r}")
+        else:
+            super().__init__({StringType(k): v for k, v in fields.items()})
+
+    # def get(self, field: Any, default: Optional[Value] = None) -> Value:
+    #     """
+    #     Alternative implementation with descent to locate a deeply-buried field.
+    #     It seemed like this was the defined behavior. It turns it, it isn't.
+    #     The code is here in case we're wrong and it really is the defined behavior.
+    #
+    #     Note. There is no default provision in CEL.
+    #     """
+    #     if field in self:
+    #         return super().get(field)
+    #
+    #     def descend(message: MessageType, field: Value) -> MessageType:
+    #         if field in message:
+    #             return message
+    #         for k in message.keys():
+    #             found = descend(message[k], field)
+    #             if found is not None:
+    #                 return found
+    #         return None
+    #
+    #     sub_message = descend(self, field)
+    #     if sub_message is None:
+    #         return default
+    #     return sub_message.get(field)
+
+
+class TypeType:
+    """
+    Annotation used to mark protobuf type objects.
+    We map these to CELTypes so that type name testing works.
+    """
+    type_name_mapping = {
+        "google.protobuf.Duration": DurationType,
+        "google.protobuf.Timestamp": TimestampType,
+        "google.protobuf.Int32Value": IntType,
+        "google.protobuf.Int64Value": IntType,
+        "google.protobuf.UInt32Value": UintType,
+        "google.protobuf.UInt64Value": UintType,
+        "google.protobuf.FloatValue": DoubleType,
+        "google.protobuf.DoubleValue": DoubleType,
+        "google.protobuf.Value": MessageType,
+        "google.protubuf.Any": MessageType,  # Weird.
+        "google.protobuf.Any": MessageType,
+        "list_type": ListType,
+        "map_type": MapType,
+        "map": MapType,
+        "list": ListType,
+        "string": StringType,
+        "bytes": BytesType,
+        "bool": BoolType,
+        "int": IntType,
+        "uint": UintType,
+        "double": DoubleType,
+        "null_type": type(None),
+        "STRING": StringType,
+        "BOOL": BoolType,
+        "INT64": IntType,
+        "UINT64": UintType,
+        "INT32": IntType,
+        "UINT32": UintType,
+        "BYTES": BytesType,
+        "DOUBLE": DoubleType,
+    }
+    def __init__(
+            self,
+            value: Any = "") -> None:
+        if isinstance(value, str) and value in self.type_name_mapping:
+            self.type_reference = self.type_name_mapping[value]
+        elif isinstance(value, str):
+            try:
+                self.type_reference = eval(value)
+            except (NameError, SyntaxError):
+                raise TypeError(f"Unknown type {value!r}")
+        else:
+            self.type_reference = value.__class__
+
+    def __eq__(self, other: Any) -> bool:
+        return (
+            other == self.type_reference
+            or isinstance(other, self.type_reference)
+        )

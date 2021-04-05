@@ -59,122 +59,20 @@ import re
 import subprocess
 import sys
 from enum import Enum, auto
+import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Type, Union, Optional, cast
 from unittest.mock import MagicMock, Mock
 
 from behave import *
 
 import celpy.celtypes
+import celpy.evaluation
 from celpy import CELEvalError, Environment
+from celpy.celtypes import *
 
 
-class Value(NamedTuple):
-    """
-    Create a CEL object from a Python native object.
-
-    Values start as a protobuf source ``{ int64_value: -1 }``.
-    This becomes a Python object: ``Value(value_type="int64_value", value=-1)`` in the Gherkin.
-    This needs to create an CEL object ``celpy.celtypes.IntType(-1)`` for CEL interface.
-    """
-    value_type: str
-    value: Any
-
-    @property
-    def cel_value(self) -> Any:
-        if self.value_type == "int64_value":
-            return celpy.celtypes.IntType(self.value)
-        elif self.value_type == "uint64_value":
-            return celpy.celtypes.UintType(self.value)
-        elif self.value_type == "double_value":
-            if self.value == "inf":
-                return celpy.celtypes.DoubleType("inf")
-            elif self.value == "-inf":
-                return -celpy.celtypes.DoubleType("inf")
-            else:
-                return celpy.celtypes.DoubleType(self.value)
-        elif self.value_type == "string_value":
-            return celpy.celtypes.StringType(self.value)
-        elif self.value_type == "bytes_value":
-            return celpy.celtypes.BytesType(self.value)
-        elif self.value_type == "bool_value":
-            return celpy.celtypes.BoolType(self.value)
-        elif self.value_type == "null_value":
-            return None
-        elif self.value_type == "type":
-            return self.type_mapping(self.value)
-        else:
-            raise ValueError(f"what is {self}?")
-
-    def type_mapping(self, name: str) -> Type:
-        """
-        Convert type_value names to implementation types.
-        The CEL/protobuf names aren't the same as our implementation type names.
-        """
-        name_to_cel = {
-            "bool": celpy.celtypes.BoolType,
-            "bytes": celpy.celtypes.BytesType,
-            "double": celpy.celtypes.DoubleType,
-            "duration": celpy.celtypes.DurationType,
-            "int": celpy.celtypes.IntType,
-            "list": celpy.celtypes.ListType,
-            "map": celpy.celtypes.MapType,
-            "null_type": type(None),
-            "string": celpy.celtypes.StringType,
-            "timestamp": celpy.celtypes.TimestampType,
-            "uint": celpy.celtypes.UintType,
-            "type": type,
-
-            "google.protobuf.Duration": celpy.celtypes.DurationType,
-            "google.protobuf.Timestamp": celpy.celtypes.TimestampType,
-        }
-        return name_to_cel[name]
-
-
-class Entries(NamedTuple):
-    """Entries in a List"""
-    key_value: List[Dict[str, Any]]
-
-
-class MapValue(NamedTuple):
-    """Key: Value pairs in a Mapping"""
-    items: List[Entries]
-
-    @property
-    def cel_value(self) -> Any:
-        """Translate Gherkin MapValue to a CEL dict"""
-        return celpy.celtypes.MapType(
-            {
-               e["key"].cel_value: e["value"].cel_value for d in self.items for e in d.key_value
-            }
-        )
-
-
-class ListValue(NamedTuple):
-    """A List object; a sequence of Value items"""
-    items: List[Value]
-
-    @property
-    def cel_value(self) -> Any:
-        """Translate Gherkin ListValue to a CEL list"""
-        return celpy.celtypes.ListType(item.cel_value for item in self.items)
-
-
-class ObjectValue(NamedTuple):
-    """An Object; a sequence of Key: Value property definitions"""
-    namespace: str
-    source: List[Dict[str, Any]]
-
-    @property
-    def cel_value(self) -> Any:
-        """Translate Gherkin ObjectValue to a CEL object"""
-        if self.namespace == 'type.googleapis.com/google.protobuf.Duration':
-            sec_src, nano_src = self.source
-            seconds = int(sec_src["special_value_clause"]["value"])
-            nanos = int(nano_src["special_value_clause"]["value"])
-            return celpy.celtypes.DurationType(seconds, nanos)
-        else:
-            raise ValueError("Can't convert {self!r} to a CEL object")
+logger = logging.getLogger(__name__)
 
 
 class TypeKind(str, Enum):
@@ -187,22 +85,269 @@ class TypeKind(str, Enum):
     TYPE_SPEC = "type_spec"
 
 
-class TypeEnv(NamedTuple):
-    name: str  # The variable for which we're providing a type
-    kind: TypeKind  # Not too useful, except for MAP_TYPE
-    type_ident: Union[str, List[str]]  # The type(s) to define
-
-    @property
-    def annotation(self) -> Tuple[str, Callable]:
-        """Translate Protobuf/Gherkin TypeEnv to a CEL type declaration"""
-        if self.kind == TypeKind.MAP_TYPE:
-            # A mapping, constrained by the self.type_ident array.
-            return (self.name, f"Map[{', '.join(self.type_ident)}]")
-        return (self.name, self.type_ident)
+# class TypeEnv(NamedTuple):
+#     name: str  # The variable for which we're providing a type
+#     kind: TypeKind  # Not too useful, except for MAP_TYPE
+#     type_ident: Union[str, List[str]]  # The type(s) to define
+#
+#     @property
+#     def annotation(self) -> Tuple[str, Callable]:
+#         """Translate Protobuf/Gherkin TypeEnv to a CEL type declaration"""
+#         if self.kind == TypeKind.MAP_TYPE:
+#             # A mapping, constrained by the self.type_ident array.
+#             return (self.name, f"Map[{', '.join(self.type_ident)}]")
+#         return (self.name, self.type_ident)
 
 
 class Bindings(NamedTuple):
     bindings: List[Dict[str, Any]]
+
+
+class TestAllTypes(celpy.celtypes.MessageType):
+    """
+    An example of a (hyper-complex) protobuf MessageType class.
+
+    https://github.com/google/cel-spec/blob/master/proto/test/v1/proto3/test_all_types.proto
+
+    There are (up to) 62 different kinds of fields, each with a distinct
+    default value.
+
+    Note the VARIETY of contexts.
+
+    -   "TestAllTypes{list_value: [1.0, 'one']}" -> an ObjectValue wrapping a ListType
+    -   "TestAllTypes{list_value: []}" -> an ObjectValue wrapping a ListType instance
+    -   "TestAllTypes{list_value: [1.0, 'one']}.list_value" -> the ListType instance
+    -   "TestAllTypes{list_value: []}.list_value" -> the ListType instance
+    -   "TestAllTypes{}.list_value" -> the ListType
+
+    Also note that range checks are part of the acceptance test suite.
+
+    -   ``single_float_wrapper`` -- 1e−126 <= x < 1e+127
+    -   ``single_int32_wrapper`` -- -2**32 <= x < 2**31
+    -   ``single_uint32_wrapper`` -- 0 <= x < 2**32
+
+    TODO: Refactor into an external module and apply as a type environment Annotation.
+
+    The complete list of simple attributes in Python and protobuf notation:
+
+    -   single_int32: int = field(default=0)  # int32 single_int32 = 1;
+    -   single_int64: int = field(default=0)  # int64 single_int64 = 2;
+    -   single_uint32: int = field(default=0)  # uint32 single_uint32 = 3;
+    -   single_uint64: int = field(default=0)  # uint64 single_uint64 = 4;
+    -   single_sint32: int = field(default=0)  # sint32 single_sint32 = 5;
+    -   single_sint64: int = field(default=0)  # sint64 single_sint64 = 6;
+    -   single_fixed32: int = field(default=0)  # fixed32 single_fixed32 = 7;
+    -   single_fixed64: int = field(default=0)  # fixed64 single_fixed64 = 8;
+    -   single_sfixed32: int = field(default=0)  # sfixed32 single_sfixed32 = 9;
+    -   single_sfixed64: int = field(default=0)  # sfixed64 single_sfixed64 = 10;
+    -   single_float: float = field(default=0)  # float single_float = 11;
+    -   single_double: float = field(default=0)  # double single_double = 12;
+    -   single_bool: bool = field(default=0)  # bool single_bool = 13;
+    -   single_string: str = field(default="")  # string single_string = 14;
+    -   single_bytes: bytes = field(default=b"")  # bytes single_bytes = 15;
+
+    -   single_any: Any = field(default=None)  #  google.protobuf.Any single_any = 100;
+    -   single_duration: DurationType = field(default=None)  #  google.protobuf.Duration single_duration = 101;
+    -   single_timestamp: TimestampType = field(default=None)  #  google.protobuf.Timestamp single_timestamp = 102;
+    -   single_struct: MessageType = field(default=None)  #  google.protobuf.Struct single_struct = 103;
+    -   single_value: Any = field(default=None)  #  google.protobuf.Value single_value = 104;
+    -   single_int64_wrapper: IntType = field(default=IntType(0))  #  google.protobuf.Int64Value single_int64_wrapper = 105;
+    -   single_int32_wrapper: IntType = field(default=IntType(0))  #  google.protobuf.Int32Value single_int32_wrapper = 106;
+    -   single_double_wrapper: DoubleType = field(default=DoubleType(0))  #  google.protobuf.DoubleValue single_double_wrapper = 107;
+    -   single_float_wrapper: DoubleType = field(default=DoubleType(0))  #  google.protobuf.FloatValue single_float_wrapper = 108;
+    -   single_uint64_wrapper: UintType = field(default=UintType(0))  #  google.protobuf.UInt64Value single_uint64_wrapper = 109;
+    -   single_uint32_wrapper: UintType = field(default=UintType(0))  #  google.protobuf.UInt32Value single_uint32_wrapper = 110;
+    -   single_string_wrapper: StringType = field(default=StringType(""))  #  google.protobuf.StringValue single_string_wrapper = 111;
+    -   single_bool_wrapper: BoolType = field(default=BoolType(False))  #  google.protobuf.BoolValue single_bool_wrapper = 112;
+    -   single_bytes_wrapper: BytesType = field(default=BytesType(b""))  #  google.protobuf.BytesValue single_bytes_wrapper = 113;
+    -   list_value: ListType = field(default=ListType([]))  #  google.protobuf.ListValue list_value = 114;
+
+    -   repeated int32 repeated_int32 = 31;
+    -   repeated int64 repeated_int64 = 32;
+    -   repeated uint32 repeated_uint32 = 33;
+    -   repeated uint64 repeated_uint64 = 34;
+    -   repeated sint32 repeated_sint32 = 35;
+    -   repeated sint64 repeated_sint64 = 36;
+    -   repeated fixed32 repeated_fixed32 = 37;
+    -   repeated fixed64 repeated_fixed64 = 38;
+    -   repeated sfixed32 repeated_sfixed32 = 39;
+    -   repeated sfixed64 repeated_sfixed64 = 40;
+    -   repeated float repeated_float = 41;
+    -   repeated double repeated_double = 42;
+    -   repeated bool repeated_bool = 43;
+    -   repeated string repeated_string = 44;
+    -   repeated bytes repeated_bytes = 45;
+
+    -   repeated NestedMessage repeated_nested_message = 51;
+    -   repeated NestedEnum repeated_nested_enum = 52;
+    -   repeated string repeated_string_piece = 53 [ctype = STRING_PIECE];
+    -   repeated string repeated_cord = 54 [ctype = CORD];
+    -   repeated NestedMessage repeated_lazy_message = 55 [lazy = true];
+
+    Some more complex attributes
+
+    -   NestedMessage single_nested_message = 21;
+    -   NestedEnum single_nested_enum = 22;
+    -   NestedMessage standalone_message = 23;
+    -   NestedEnum standalone_enum = 24;
+
+        Many others
+
+    -   map<string, string> map_string_string = 61;
+    -   map<int64, NestedTestAllTypes> map_int64_nested_type = 62;
+
+    """
+    range_check = {
+        "single_float_wrapper": lambda x: -1e+127 <= x < 1e+127,
+        "single_int32_wrapper": lambda x: -(2**32) <= x < 2**31,
+        "single_uint32_wrapper": lambda x: 0 <= x < 2**32,
+    }
+    def __new__(cls, source=None, *args, **kwargs) -> 'TestAllTypes':
+        logger.debug(f"TestAllTypes(source={source}, *{args}, **{kwargs})")
+        if source is None:
+            return cast(TestAllTypes, super().__new__(cls))  # type: ignore[call-arg]
+        elif isinstance(source, celpy.celtypes.MessageType):
+            for field in source:
+                valid_range = cls.range_check.get(field, lambda x: True)
+                if not valid_range(source[field]):
+                    raise ValueError(f"TestAllTypes {field} value {source[field]} invalid")
+            return cast(TestAllTypes, super().__new__(cls, source))
+        else:
+            # Should validate the huge list of internal fields and their ranges!
+            for field in kwargs:
+                valid_range = cls.range_check.get(field, lambda x: True)
+                if not valid_range(kwargs[field]):
+                    raise ValueError(f"TestAllTypes {field} value {kwargs[field]} invalid")
+            return cast(TestAllTypes, super().__new__(cls, source))  # type: ignore[call-arg]
+
+    def get(self, field: Any, default: Optional[Value] = None) -> Value:
+        """Provides default values for the defined fields."""
+        logger.info(f"TestAllTypes.get({field!r}, {default!r})")
+        default_attribute_value: Optional[Value] = None
+        if field in ("NestedEnum",):
+            default_attribute_value = celpy.celtypes.MessageType(
+                {
+                    "FOO": celpy.celtypes.IntType(0),
+                    "BAR": celpy.celtypes.IntType(1),
+                    "BAZ": celpy.celtypes.IntType(2),
+                }
+            )
+        elif field in ("NestedMessage",):
+            default_attribute_value = NestedMessage({"bb": 1})
+        elif field in ("map_string_string", "map_int64_nested_type",):
+            return celpy.celtypes.MapType()
+        elif field in (
+                "single_uint64_wrapper", "single_uint32_wrapper",
+                "single_int64_wrapper", "single_int32_wrapper",
+                "single_float_wrapper", "single_double_wrapper",
+                "single_string_wrapper", "single_bool_wrapper", "single_bytes_wrapper",
+        ):
+            default_attribute_value = None
+        elif field in ("single_int32", "single_sint32", "single_int64", "single_sint64", "repeated_int32", "repeated_int64", "repeated_sint32", "repeated_sint64"):
+            default_attribute_value = celpy.celtypes.IntType(0)
+        elif field in ("single_fixed32", "single_fixed64", "single_sfixed32", "single_sfixed64", "repeated_fixed32", "repeated_fixed64", "repeated_sfixed32", "repeated_sfixed64"):
+            default_attribute_value = celpy.celtypes.IntType(0)
+        elif field in ("single_uint32", "single_uint64", "repeated_uint32", "repeated_uint64"):
+            default_attribute_value = celpy.celtypes.UintType(0)
+        elif field in ("single_float", "single_double", "repeated_float", "repeated_double"):
+            default_attribute_value = celpy.celtypes.DoubleType(0)
+        elif field in ("single_bool", "repeated_bool"):
+            default_attribute_value = celpy.celtypes.BoolType(False)
+        elif field in ("single_string", "repeated_string"):
+            default_attribute_value = celpy.celtypes.StringType("")
+        elif field in ("single_bytes", "repeated_bytes"):
+            default_attribute_value = celpy.celtypes.BytesType(b"")
+        elif field in ("list_value",):
+            default_attribute_value = celpy.celtypes.ListType([])
+        elif field in ("single_struct",):
+            default_attribute_value = celpy.celtypes.MessageType({})
+        elif field in ("single_any", "single_value",):
+            default_attribute_value = None
+        elif field in ("single_duration", "single_timestamp",):
+            default_attribute_value = None
+        elif field in ("standalone_message", "single_nested_message", "repeated_nested_message", "repeated_lazy_message"):
+            default_attribute_value = celpy.celtypes.MessageType()
+        elif field in ("standalone_enum", "single_nested_enum", "repeated_nested_enum"):
+            pass
+        elif field in ("repeated_cord",):
+            return celpy.celtypes.IntType(1)
+        elif field in ("repeated_string_piece",):
+            return celpy.celtypes.IntType(2)
+        else:
+            err = f"no such member in {self.__class__.__name__}: {field!r}"
+            raise KeyError(err)
+        return super().get(field, default if default is not None else default_attribute_value)
+
+    def __eq__(self, other: Any) -> bool:
+        """
+        For protobuf testing, we'll have expected values that do not have a complete
+        set of CELType conversions on the defaults.
+        """
+        if not isinstance(other, TestAllTypes):
+            return False
+        keys = set.intersection(set(self.keys()), set(other.keys()))
+        return all(self.get(k) == other.get(k) for k in keys)
+
+
+class NestedTestAllTypes(celpy.celtypes.MessageType):
+    """
+    An example of a protobuf MessageType class.
+
+    https://github.com/google/cel-spec/blob/master/proto/test/v1/proto3/test_all_types.proto
+
+    ::
+
+        // This proto includes a recursively nested message.
+        message NestedTestAllTypes {
+          NestedTestAllTypes child = 1;
+          TestAllTypes payload = 2;
+        }
+
+    TODO: Refactor into an external module and apply as a type environment Annotation.
+    """
+    def __new__(cls, source=None, *args, **kwargs) -> 'NestedTestAllTypes':
+        logger.debug(f"NestedTestAllTypes(source={source}, *{args}, **{kwargs})")
+        if source is None:
+            return cast(NestedTestAllTypes, super().__new__(cls))  # type: ignore[call-arg]
+        elif isinstance(source, celpy.celtypes.MessageType):
+            return cast(NestedTestAllTypes, super().__new__(cls, source))
+        else:
+            # Should validate the fields are in "child", "payload"
+            return cast(NestedTestAllTypes, super().__new__(cls, source))  # type: ignore[call-arg]
+
+    def get(self, field: Any, default: Optional[Value] = None) -> Value:
+        """
+        Provides default values for the defined fields.
+        """
+        logger.info(f"NestedTestAllTypes.get({field!r}, {default!r})")
+        if field == "child":
+            default_class = NestedTestAllTypes
+        elif field == "payload":
+            default_class = TestAllTypes
+        else:
+            err = f"no such member in mapping: {field!r}"
+            raise KeyError(err)
+        return super().get(field, default if default is not None else default_class())
+
+class NestedMessage(celpy.celtypes.MessageType):
+    """
+    An example of a protobuf MessageType class.
+
+    https://github.com/google/cel-spec/blob/master/proto/test/v1/proto3/test_all_types.proto
+
+    ::
+
+        message NestedMessage {
+            // The field name "b" fails to compile in proto1 because it conflicts with
+            // a local variable named "b" in one of the generated methods.
+            // This file needs to compile in proto1 to test backwards-compatibility.
+            int32 bb = 1;
+        }
+
+
+    TODO: Refactor into an external module and apply as a type environment Annotation.
+    """
+    pass
 
 
 @given(u'disable_check parameter is {disable_check}')
@@ -210,20 +355,20 @@ def step_impl(context, disable_check):
     context.data['disable_check'] = disable_check == "true"
 
 
-@given(u'type_env parameter is {type_env}')
-def step_impl(context, type_env):
-    """type_env has name, kind, and type information used to create the environment."""
-    # type_env is a TypeEnv literal value, interpret it to create a Value object.
-    raw_type_env = eval(type_env)
-    context.data['type_env'].append(raw_type_env)
+@given(u'type_env parameter "{name}" is {type_env}')
+def step_impl(context, name, type_env):
+    """
+    type_env has name and type information used to create the environment.
+    """
+    type_value = eval(type_env)
+    context.data['type_env'][name] = type_value
 
 
-@given(u'bindings parameter is {bindings}')
-def step_impl(context, bindings):
+@given(u'bindings parameter "{name}" is {binding}')
+def step_impl(context, name, binding):
     # Bindings is a Bindings literal value, interpret it to create a Value object.
-    raw_bindings = eval(bindings)
-    new_bindings = {b['key']: b['value'].cel_value for b in raw_bindings.bindings}
-    context.data['bindings'].update(new_bindings)
+    new_binding = eval(binding)
+    context.data['bindings'][name] = new_binding
 
 
 @given(u'container is "{container}"')
@@ -236,51 +381,21 @@ def cel(context):
     Run the CEL expression.
 
     TODO: include disable_macros and disable_check in environment.
+
+    For the parse feature, force in the TestAllTypes and NestedTestAllTypes protobuf types.
     """
     # Some tests seem to assume this binding. Others have it in their environment definition.
     if context.data['container']:
         container = context.data['container']
-        test_all_types_instance = MagicMock(name="TestAllTypes Instance", spec=celpy.celtypes.MapType)
-        def test_all_types_get_item(name):
-            if name == "single_sint64": return celpy.celtypes.IntType(30)
-            return MagicMock(name=f"test_all_types_instance.__getitem__({name!r})")
-        test_all_types_instance.__getitem__ = Mock(side_effect=test_all_types_get_item)
-        test_all_types_instance.__contains__ = Mock(return_value=True)
-        test_all_types = MagicMock(name="TestAllTypes Class", return_value=test_all_types_instance)
-        context.data['type_env'].append(
-            TypeEnv(
-                name=f"{container}.TestAllTypes",
-                kind="primitive",
-                type_ident=test_all_types
-            )
-        )
-        nested_test_all_types_instance = MagicMock(name="NestedTestAllTypes Instance", spec=celpy.celtypes.MapType)
-        def nested_test_all_types_get_item(name):
-            if name == "child": return nested_test_all_types_instance
-            elif name == "payload": return nested_test_all_types_instance
-            elif name == "single_int32": return celpy.celtypes.IntType(0)
-            elif name == "single_int64": return celpy.celtypes.IntType(0)
-            return MagicMock(name=f"nested_test_all_types_instance.__getitem__({name!r})")
-        nested_test_all_types_instance.__getitem__ = Mock(side_effect=nested_test_all_types_get_item)
-        nested_test_all_types_instance.__contains__ = Mock(return_value=True)
-        nested_test_all_types = MagicMock(name="NestedTestAllTypes Class", return_value=nested_test_all_types_instance)
-        context.data['type_env'].append(
-            TypeEnv(
-                name=f"{container}.NestedTestAllTypes",
-                kind="primitive",
-                type_ident=nested_test_all_types
-            )
-        )
-        context.data['test_all_types'] = test_all_types
-        context.data['test_all_types_instance'] = test_all_types_instance
-        context.data['nested_test_all_types'] = nested_test_all_types
-        context.data['nested_test_all_types_instance'] = nested_test_all_types_instance
 
-    types: Dict[str, Callable] = {}
-    if "type_env" in context.data:
-        types = dict(te.annotation for te in context.data['type_env'])
+        context.data['type_env'][f"{container}.TestAllTypes"] = TestAllTypes
+        context.data['type_env'][f"{container}.NestedTestAllTypes"] = NestedTestAllTypes
+        context.data['type_env'][f"{container}.NestedMessage"] = NestedMessage
 
-    env = Environment(package=context.data['container'], annotations=types)
+        context.data['test_all_types'] = TestAllTypes
+        context.data['nested_test_all_types'] = NestedTestAllTypes
+
+    env = Environment(package=context.data['container'], annotations=context.data['type_env'])
     ast = env.compile(context.data['expr'])
     prgm = env.program(ast)
 
@@ -295,43 +410,40 @@ def cel(context):
         context.data['error'] = ex.args[0]
 
 
-def expand_textproto_escapes(expr_text: str, quote: str) -> str:
-    """Expand textproto escapes.
-    The ``quote`` is either ``"'"`` or ``'"'`` and is translated everything else is left alone.
-    It was already valid CEL.
-    """
-    escape_pat = re.compile(f"\\\\\\{quote}|.")
-    replacements = {
-        f"\\{quote}": f"{quote}",
-    }
-    match_iter = escape_pat.finditer(expr_text)
-    expansion = ''.join(replacements.get(match.group(), match.group()) for match in match_iter)
-    # DEBUG print(f"expand_textproto_escapes: {expr_text!r} -> {expansion!r}")
-    return expansion
-
-
 @when(u'CEL expression "{expr}" is evaluated')
 def step_impl(context, expr):
-    context.data['expr'] = expand_textproto_escapes(expr, quote='"')
+    context.data['expr'] = expr
     cel(context)
 
 
 @when(u'CEL expression \'{expr}\' is evaluated')
 def step_impl(context, expr):
-    context.data['expr'] = expand_textproto_escapes(expr, quote="'")
+    context.data['expr'] = expr
     cel(context)
 
 
 @then(u'value is {value}')
 def step_impl(context, value):
-    # value is a "Value(...)" literal, interpret it to create a Value object.
-    expected = eval(value)
+    """
+    value should be the repr() string for a CEL object.
+
+    We make a special case around textproto ``{ type_value: "google.protobuf.Duration" }``.
+    These come to us as a ``TypeType(value='google.protobuf.Duration')`` as an expected result.
+
+    We don't actually create a protobuf objects, but we've defined TypeType to match
+    CELType classes against protobuf type names.
+    """
+    try:
+        expected = eval(value)
+    except TypeError as ex:
+        print(f"Could not eval({value!r})")
+        raise
     context.data['expected'] = expected
     assert 'result' in context.data, f"Error {context.data['error']!r}; no result in {context.data!r}"
     result = context.data['result']
-    if expected:
-        assert result == expected.cel_value, \
-            f"{result!r} != {expected.cel_value!r} in {context.data}"
+    if expected is not None:
+        assert result == expected, \
+            f"{result!r} != {expected!r} in {context.data}"
     else:
         assert result is None, f"{result!r} is not None in {context.data}"
 
@@ -366,8 +478,8 @@ def error_category(text: str) -> ErrorCategory:
         return ErrorCategory.undeclared_reference
 
 
-@then(u'eval_error is "{text}"')
-def step_impl(context, text):
+@then(u"eval_error is {quoted_text}")
+def step_impl(context, quoted_text):
     """Tests appear to have inconsistent identifcation for exceptions.
 
     Option 1 -- (default) any error will do.
@@ -376,16 +488,15 @@ def step_impl(context, text):
     Use -D match=exact to enable this
 
     """
-    actual_ec = error_category(context.data['error'] or "")
-    expected_ec = error_category(text)
-    if context.config.userdata.get("match", "any") == "exact":
-        assert expected_ec == actual_ec, f"{expected_ec} != {actual_ec} in {context.data}"
+    if quoted_text == "None":
+        assert context.data['error'] is None, f"error not None in {context.data}"
     else:
-        if expected_ec != actual_ec:
-            print(f"{expected_ec} != {actual_ec} in {context.data}", file=sys.stderr)
-        assert context.data['error'] is not None, f"error None in {context.data}"
-
-
-@then(u'eval_error is None')
-def step_impl(context):
-    assert context.data['error'] is None, f"error not None in {context.data}"
+        text = quoted_text[1:-1] if quoted_text[0] in ["'", '"'] else quoted_text
+        actual_ec = error_category(context.data['error'] or "")
+        expected_ec = error_category(text)
+        if context.config.userdata.get("match", "any") == "exact":
+            assert expected_ec == actual_ec, f"{expected_ec} != {actual_ec} in {context.data}"
+        else:
+            if expected_ec != actual_ec:
+                print(f"{expected_ec} != {actual_ec} in {context.data}", file=sys.stderr)
+            assert context.data['error'] is not None, f"error None in {context.data}"
