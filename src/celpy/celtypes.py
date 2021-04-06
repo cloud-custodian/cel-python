@@ -1285,10 +1285,10 @@ class DurationType(datetime.timedelta):
             # Consume the sign.
             sign: float
             if seconds.startswith("+"):
-                source = seconds[1:]
+                seconds = seconds[1:]
                 sign = +1
             elif seconds.startswith("-"):
-                source = seconds[1:]
+                seconds = seconds[1:]
                 sign = -1
             else:
                 sign = +1
@@ -1474,6 +1474,7 @@ class TypeType:
         "BYTES": BytesType,
         "DOUBLE": DoubleType,
     }
+
     def __init__(
             self,
             value: Any = "") -> None:
@@ -1490,5 +1491,5 @@ class TypeType:
     def __eq__(self, other: Any) -> bool:
         return (
             other == self.type_reference
-            or isinstance(other, self.type_reference)
+            or isinstance(other, self.type_reference)  # noqa: W503
         )

@@ -65,7 +65,7 @@ logger = logging.getLogger("evaluation")
 
 class CELSyntaxError(Exception):
     """CEL Syntax error -- the AST did not have the expected structure."""
-    def __init__(self, arg: Any, line: Optional[int]=None, column: Optional[int] = None) -> None:
+    def __init__(self, arg: Any, line: Optional[int] = None, column: Optional[int] = None) -> None:
         super().__init__(arg)
         self.line = line
         self.column = column
@@ -398,7 +398,8 @@ class Referent:
 
     -   ``b`` is a mapping, and ``b.c`` is syntax sugar for ``b['c']``.
 
-    The "longest name" rule means that the useful value is the "c" object in the nested ``NameContainer``.
+    The "longest name" rule means that the useful value is the "c" object
+    in the nested ``NameContainer``.
     The syntax sugar interpretation is done in the rare case we can't find the ``NameContainer``.
 
     >>> nc = NameContainer("c", celpy.celtypes.StringType)
@@ -424,8 +425,9 @@ class Referent:
             self,
             ref_to: Optional[Annotation] = None
             # Union[
-            #    None, Annotation, celpy.celtypes.Value, CELEvalError, CELFunction, 'NameContainer'
-            #] = None
+            # None, Annotation, celpy.celtypes.Value, CELEvalError,
+            # CELFunction, 'NameContainer'
+            # ] = None
     ) -> None:
         self.annotation: Optional[Annotation] = None
         self.container: Optional['NameContainer'] = None
@@ -445,7 +447,7 @@ class Referent:
 
     @property
     def value(self) -> Union[
-                Annotation, celpy.celtypes.Value, CELEvalError, CELFunction, 'NameContainer']:
+            Annotation, celpy.celtypes.Value, CELEvalError, CELFunction, 'NameContainer']:
         """
         The longest-path rule means we prefer ``NameContainer`` over any locally defined value.
         Otherwise, we'll provide a value if there is one.
@@ -475,6 +477,7 @@ class Referent:
         new._value = self._value
         new._value_set = self._value_set
         return new
+
 
 # A name resolution context is a mapping from an identifer to a Value or a ``NameContainer``.
 # This reflects some murkiness in the name resolution algorithm that needs to be cleaned up.
@@ -1853,7 +1856,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             # Syntactic sugar: a.b is a["b"] when a is a mapping.
             try:
                 result = member[property_name]
-            except KeyError as ex:
+            except KeyError:
                 err = f"no such member in mapping: {property_name!r}"
                 result = CELEvalError(err, KeyError, None, tree=tree)
         else:

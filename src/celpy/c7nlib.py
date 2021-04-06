@@ -293,7 +293,7 @@ import jmespath  # type: ignore [import]
 
 from celpy import InterpretedRunner, celtypes
 from celpy.adapter import json_to_cel
-from celpy.evaluation import Annotation, Context, Evaluator, Result
+from celpy.evaluation import Annotation, Context, Evaluator
 
 logger = logging.getLogger(__name__)
 

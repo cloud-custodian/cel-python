@@ -95,7 +95,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 from celpy import Environment, Runner, celtypes
 from celpy.adapter import CELJSONDecoder, CELJSONEncoder
 from celpy.celparser import CELParseError
-from celpy.evaluation import Annotation, CELEvalError, Result, Context
+from celpy.evaluation import Annotation, CELEvalError, Result
 
 logger = logging.getLogger("celpy")
 
