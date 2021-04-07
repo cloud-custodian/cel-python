@@ -54,17 +54,17 @@ interface.
 
 3.  The CEL activation context has these expected objects:
 
-    :Resource:
+    :resource:
         This is the cloud resource being examined by C7N.
         This will be a CEL mapping object built from JSON source data.
 
-    :Now:
+    :now:
         This is the current time.
         This will be a CEL timestamp.
         This promotes testability by removing the need to mock
         a clock to provide proper ``utcnow()`` values.
 
-    :Event:
+    :event:
         For lambda-related resources, this is the triggering event.
         This will be a CEL mapping object built from JSON source data.
 
@@ -85,7 +85,7 @@ This has a single attribite.
     In many cases, a number of additional functions are also present in this class.
 
 
-A number of filter expressions rely on data not directly avalable in the ``Resource`` or ``Event`` objects.
+A number of filter expressions rely on data not directly avalable in the ``resource`` or ``event`` objects.
 These are called *related resource* filters, and there are several examples.
 
 -   ``type: image`` and ``type: image-age`` filters gather details about the image associated with a resource
@@ -249,11 +249,11 @@ See the :py:mod:`celpy.c7nlib` module for additional information on this interfa
 
         It also includes three global objects:
 
-        -   ``Resource`` the cloud resource to be examined.
+        -   ``resource`` the cloud resource to be examined.
 
-        -   ``Now`` the current time as a CEL timestamp.
+        -   ``now`` the current time as a CEL timestamp.
 
-        -   ``Event`` an Event for those resources where the C7N check is triggered by a CloudWatch event.
+        -   ``event`` an event for those resources where the C7N check is triggered by a CloudWatch event.
 
         """
         schema = type_schema(
@@ -263,9 +263,9 @@ See the :py:mod:`celpy.c7nlib` module for additional information on this interfa
         )
 
         decls: Dict[str, celpy.Annotation] = {
-            "Resource": celpy.celtypes.MapType,
-            "Now": celpy.celtypes.TimestampType,
-            "Event": celpy.celtypes.MapType,
+            "resource": celpy.celtypes.MapType,
+            "now": celpy.celtypes.TimestampType,
+            "event": celpy.celtypes.MapType,
         }
         decls.update(celpy.c7nlib.DECLARATIONS)
 
@@ -292,9 +292,9 @@ See the :py:mod:`celpy.c7nlib` module for additional information on this interfa
             for resource in resources:
                 with C7NContext(filter=the_filter):
                     cel_activation = {
-                        "Resource": celpy.json_to_cel(resource),
-                        "Now": celpy.celtypes.TimestampType(now),
-                        # "Event": ...,
+                        "resource": celpy.json_to_cel(resource),
+                        "now": celpy.celtypes.TimestampType(now),
+                        # "event": ...,
                     }
                     if self.pgm.evaluate(cel_activation):
                         yield resource
@@ -1256,7 +1256,7 @@ Policies studied have 125 examples.
       # REDACTED #
 
 The ``type: event`` filter examines data not directly part of a resource.
-A Lambda is changed by an event. This ``Event`` detail is available in the activation along with the ``Resource``.
+A Lambda is changed by an event. This ``event`` detail is available in the activation along with the ``resource``.
 
 metrics
 -------

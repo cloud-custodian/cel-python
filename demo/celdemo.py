@@ -26,7 +26,7 @@ as follows:
 
     % PYTHONPATH=src python demo/celdemo.py --cel '355./113.'
     3.1415929203539825
-    % PYTHONPATH=src python demo/celdemo.py --cel 'Now+duration("1h")' --now "2020-09-10T11:12:13Z"
+    % PYTHONPATH=src python demo/celdemo.py --cel 'now+duration("1h")' --now "2020-09-10T11:12:13Z"
     2020-09-10T12:12:13Z
 
 
@@ -49,8 +49,8 @@ logger = logging.getLogger("celdemo")
 
 def cel_compile(text: str) -> celpy.Runner:
     decls: Dict[str, celpy.Annotation] = {
-        "Resource": celpy.celtypes.MapType,
-        "Now": celpy.celtypes.TimestampType,
+        "resource": celpy.celtypes.MapType,
+        "now": celpy.celtypes.TimestampType,
     }
     env = celpy.Environment(annotations=decls)
     ast = env.compile(text)
@@ -64,14 +64,14 @@ def run_cel_resource(cel: str, now: str, resource_iter: Iterable[Any]) -> None:
     for document in resource_iter:
         logger.debug(f"INPUT: {document!r}\n")
         activation = {
-            "Resource": celpy.adapter.json_to_cel(document),
-            "Now": celpy.celtypes.TimestampType(now),
+            "resource": celpy.adapter.json_to_cel(document),
+            "now": celpy.celtypes.TimestampType(now),
         }
         try:
             result = prgm.evaluate(activation)
-            print(f"{result!r} from Now {now!r}, Resource {document}")
+            print(f"{result!r} from now {now!r}, resource {document}")
         except Exception as ex:
-            print(f"{ex!r} from Now {now!r}, Resource {document}")
+            print(f"{ex!r} from now {now!r}, resource {document}")
 
 
 def get_options(argv: List[str] = sys.argv[1:]) -> argparse.Namespace:

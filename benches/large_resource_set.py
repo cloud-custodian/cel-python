@@ -307,7 +307,7 @@ class Benchmark:
         self.errors: Counter[Exception] = collections.Counter()
         self.results: Counter[celpy.celtypes.Value] = collections.Counter()
 
-        decls = {"Resource": celpy.celtypes.MapType}
+        decls = {"resource": celpy.celtypes.MapType}
         decls.update(celpy.c7nlib.DECLARATIONS)
         cel_env = celpy.Environment(annotations=decls)
         ast = cel_env.compile(self.example.filter_expr)
@@ -320,7 +320,7 @@ class Benchmark:
         for resource in self.resources:
             start = time.perf_counter()
             activation = {
-                "Resource": celpy.json_to_cel(resource)
+                "resource": celpy.json_to_cel(resource)
             }
             try:
                 result = program.evaluate(activation)

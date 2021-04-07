@@ -957,8 +957,8 @@ def test_C7N_interpreted_runner(celfilter_instance):
 
     # This will be part of ``CELFilter.validate()``
     decls = {
-        "Resource": celpy.celtypes.MapType,
-        "Now": celpy.celtypes.TimestampType,
+        "resource": celpy.celtypes.MapType,
+        "now": celpy.celtypes.TimestampType,
     }
     decls.update(celpy.c7nlib.DECLARATIONS)
     cel_env = celpy.Environment(annotations=decls, runner_class=celpy.c7nlib.C7N_Interpreted_Runner)
@@ -967,8 +967,8 @@ def test_C7N_interpreted_runner(celfilter_instance):
     # This will be implemented in ``CELFilter.process()`` or ``CELFilter.__call__()``.
     cel_prgm = cel_env.program(cel_ast, functions=celpy.c7nlib.FUNCTIONS)
     cel_activation = {
-        "Resource": celpy.celtypes.MapType({}),
-        "Now": celpy.celtypes.TimestampType("2020-09-10T11:12:13Z"),
+        "resource": celpy.celtypes.MapType({}),
+        "now": celpy.celtypes.TimestampType("2020-09-10T11:12:13Z"),
     }
     with celpy.c7nlib.C7NContext(filter=Mock()):
         cel_result = cel_prgm.evaluate(cel_activation, filter=mock_filter)
