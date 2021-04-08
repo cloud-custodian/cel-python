@@ -980,4 +980,3 @@ if __name__ == "__main__":
     gherkinize(mkgherkin, source, interim)
     celify(interim, options.output)
     interim.unlink()
-
