@@ -566,4 +566,3 @@ Scenario: string
     When CEL expression "uint('300')" is evaluated
     #    uint64_value:300
     Then value is UintType(source=300)
-

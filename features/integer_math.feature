@@ -404,4 +404,3 @@ Scenario: add_mul_distribute
     When CEL expression "5u * (15u + 25u)  == 5u * 15u + 5u * 25u" is evaluated
     #    bool_value:true
     Then value is BoolType(source=True)
-

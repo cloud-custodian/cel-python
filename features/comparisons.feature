@@ -1339,4 +1339,3 @@ Scenario: null_lt_right_no_such_overload
     When CEL expression "null < x" is evaluated
     #    errors:{message:"no such overload"}
     Then eval_error is 'no such overload'
-

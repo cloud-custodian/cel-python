@@ -221,4 +221,3 @@ Scenario: no_overload
     When CEL expression "!0" is evaluated
     #    errors:{message:"no matching overload"}
     Then eval_error is 'no matching overload'
-

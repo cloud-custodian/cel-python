@@ -55,13 +55,14 @@ This can explain "return error for overflow" as an vague-looking error response.
 
 Use ``-D match=exact`` to do exact error matching. The default is "any error will do."
 """
+import logging
 import re
 import subprocess
 import sys
 from enum import Enum, auto
-import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Type, Union, Optional, cast
+from typing import (Any, Callable, Dict, List, NamedTuple, Optional, Tuple,
+                    Type, Union, cast)
 from unittest.mock import MagicMock, Mock
 
 from behave import *
@@ -70,7 +71,6 @@ import celpy.celtypes
 import celpy.evaluation
 from celpy import CELEvalError, Environment
 from celpy.celtypes import *
-
 
 logger = logging.getLogger(__name__)
 

@@ -605,4 +605,3 @@ Scenario: oneof_set_default
     When CEL expression "has(TestAllTypes{single_nested_enum: TestAllTypes.NestedEnum.FOO}.single_nested_enum)" is evaluated
     #    bool_value:true
     Then value is BoolType(source=True)
-

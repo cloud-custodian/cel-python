@@ -1962,4 +1962,3 @@ Scenario: any_list_map
     When CEL expression "TestAllTypes{single_any: [{'almost': 'done'}]}.single_any" is evaluated
     #    list_value:{values:{map_value:{entries:{key:{string_value:"almost"} value:{string_value:"done"}}}}}
     Then value is [MapType({StringType(source='almost'): StringType(source='done')})]
-

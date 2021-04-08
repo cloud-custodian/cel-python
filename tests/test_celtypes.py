@@ -21,9 +21,9 @@ from unittest.mock import sentinel
 
 from pytest import *
 
+from celpy import Int32Value
 from celpy.celtypes import *
 from celpy.evaluation import CELEvalError
-from celpy import Int32Value
 
 
 def test_bool_type():

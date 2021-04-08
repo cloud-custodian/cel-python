@@ -17,8 +17,10 @@
 Test translation of the pb2g tool to convert textproto to Gherkin..
 """
 from pytest import *
+
 import pb2g
 from pb2g import *
+
 
 def test_doctest():
     import doctest
@@ -2200,4 +2202,3 @@ def test_type_env_values():
     assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.Struct"}'))) == TypeType(value='google.protobuf.Struct')
     assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.Value"}'))) == TypeType(value='google.protobuf.Value')
     assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protubuf.Any"}'))) == TypeType(value='google.protubuf.Any')
-

@@ -309,4 +309,3 @@ Scenario: absent
     When CEL expression "'spider' in {'ant': 6, 'fly': 6, 'centipede': 100}" is evaluated
     #    bool_value:false
     Then value is BoolType(source=False)
-

@@ -60,4 +60,3 @@ Scenario: self_eval_container_lookup_unchecked
     When CEL expression "y" is evaluated
     #    bool_value:true
     Then value is BoolType(source=True)
-

@@ -5,14 +5,14 @@ Feature: proto3
 # literal_singular -- Literals with singular fields set.
 
 Scenario: int64_nocontainer
-          
+
     When CEL expression "google.api.expr.test.v1.proto3.TestAllTypes{single_int64: 17}" is evaluated
     #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_int64:17}}
     Then value is TestAllTypes(single_int32=0, single_int64=17, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
 
 
 Scenario: int32
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_int32: -34}" is evaluated
@@ -21,7 +21,7 @@ Scenario: int32
 
 
 Scenario: int64
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_int64: 17}" is evaluated
@@ -30,7 +30,7 @@ Scenario: int64
 
 
 Scenario: uint32
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_uint32: 1u}" is evaluated
@@ -39,7 +39,7 @@ Scenario: uint32
 
 
 Scenario: uint64
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_uint64: 9999u}" is evaluated
@@ -48,7 +48,7 @@ Scenario: uint64
 
 
 Scenario: sint32
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_sint32: -3}" is evaluated
@@ -57,7 +57,7 @@ Scenario: sint32
 
 
 Scenario: sint64
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_sint64: 255}" is evaluated
@@ -66,7 +66,7 @@ Scenario: sint64
 
 
 Scenario: fixed32
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_fixed32: 43u}" is evaluated
@@ -75,7 +75,7 @@ Scenario: fixed32
 
 
 Scenario: fixed64
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_fixed64: 1880u}" is evaluated
@@ -84,7 +84,7 @@ Scenario: fixed64
 
 
 Scenario: sfixed32
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_sfixed32: -404}" is evaluated
@@ -93,7 +93,7 @@ Scenario: sfixed32
 
 
 Scenario: sfixed64
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_sfixed64: -1}" is evaluated
@@ -102,7 +102,7 @@ Scenario: sfixed64
 
 
 Scenario: float
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_float: 3.1416}" is evaluated
@@ -111,7 +111,7 @@ Scenario: float
 
 
 Scenario: double
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_double: 6.022e23}" is evaluated
@@ -120,7 +120,7 @@ Scenario: double
 
 
 Scenario: bool
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_bool: true}" is evaluated
@@ -129,7 +129,7 @@ Scenario: bool
 
 
 Scenario: string
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_string: 'foo'}" is evaluated
@@ -138,7 +138,7 @@ Scenario: string
 
 
 Scenario: bytes
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_bytes: b'\377'}" is evaluated
@@ -150,7 +150,7 @@ Scenario: bytes
 # literal_wellknown -- Literals with well-known fields set.
 
 Scenario: any
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_any: TestAllTypes{single_int32: 1}}" is evaluated
@@ -159,7 +159,7 @@ Scenario: any
 
 
 Scenario: duration
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_duration: duration('123s')}" is evaluated
@@ -168,7 +168,7 @@ Scenario: duration
 
 
 Scenario: timestamp
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_timestamp: timestamp('2009-02-13T23:31:30Z')}" is evaluated
@@ -177,7 +177,7 @@ Scenario: timestamp
 
 
 Scenario: struct
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_struct: {'one': 1, 'two': 2}}" is evaluated
@@ -186,7 +186,7 @@ Scenario: struct
 
 
 Scenario: value
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_value: 'foo'}" is evaluated
@@ -195,7 +195,7 @@ Scenario: value
 
 
 Scenario: int64_wrapper
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_int64_wrapper: -321}" is evaluated
@@ -204,7 +204,7 @@ Scenario: int64_wrapper
 
 
 Scenario: int32_wrapper
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_int32_wrapper: -456}" is evaluated
@@ -213,7 +213,7 @@ Scenario: int32_wrapper
 
 
 Scenario: double_wrapper
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_double_wrapper: 2.71828}" is evaluated
@@ -222,7 +222,7 @@ Scenario: double_wrapper
 
 
 Scenario: float_wrapper
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_float_wrapper: 2.99792e8}" is evaluated
@@ -231,7 +231,7 @@ Scenario: float_wrapper
 
 
 Scenario: uint64_wrapper
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_uint64_wrapper: 8675309u}" is evaluated
@@ -240,7 +240,7 @@ Scenario: uint64_wrapper
 
 
 Scenario: uint32_wrapper
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_uint32_wrapper: 987u}" is evaluated
@@ -249,7 +249,7 @@ Scenario: uint32_wrapper
 
 
 Scenario: string_wrapper
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_string_wrapper: 'hubba'}" is evaluated
@@ -258,7 +258,7 @@ Scenario: string_wrapper
 
 
 Scenario: bool_wrapper
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_bool_wrapper: true}" is evaluated
@@ -267,7 +267,7 @@ Scenario: bool_wrapper
 
 
 Scenario: bytes_wrapper
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{single_bytes_wrapper: b'\301\103'}" is evaluated
@@ -279,7 +279,7 @@ Scenario: bytes_wrapper
 # singular_bind -- Binding the singlular fields.
 
 Scenario: int32
-          
+
    #     type:{message_type:"google.api.expr.test.v1.proto3.TestAllTypes"}
    Given type_env parameter "x" is TypeType(value='google.api.expr.test.v1.proto3.TestAllTypes')
 
@@ -292,7 +292,7 @@ Scenario: int32
 
 
 Scenario: int64
-          
+
    #     type:{message_type:"google.api.expr.test.v1.proto3.TestAllTypes"}
    Given type_env parameter "x" is TypeType(value='google.api.expr.test.v1.proto3.TestAllTypes')
 
@@ -308,7 +308,7 @@ Scenario: int64
 # empty_field -- Tests on empty fields.
 
 Scenario: scalar
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{}.single_fixed32" is evaluated
@@ -317,7 +317,7 @@ Scenario: scalar
 
 
 Scenario: nested_message
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{}.single_nested_message" is evaluated
@@ -326,7 +326,7 @@ Scenario: nested_message
 
 
 Scenario: nested_message_subfield
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{}.single_nested_message.bb" is evaluated
@@ -335,7 +335,7 @@ Scenario: nested_message_subfield
 
 
 Scenario: wkt
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{}.single_int64_wrapper" is evaluated
@@ -344,7 +344,7 @@ Scenario: wkt
 
 
 Scenario: repeated_scalar
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{}.repeated_int64" is evaluated
@@ -353,7 +353,7 @@ Scenario: repeated_scalar
 
 
 Scenario: repeated_nested
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{}.repeated_nested_message" is evaluated
@@ -362,7 +362,7 @@ Scenario: repeated_nested
 
 
 Scenario: map
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "TestAllTypes{}.map_string_string" is evaluated
@@ -374,7 +374,7 @@ Scenario: map
 # has -- Tests for the has() macro on proto3 messages.
 
 Scenario: undefined
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{}.no_such_field)" is evaluated
@@ -383,7 +383,7 @@ Scenario: undefined
 
 
 Scenario: repeated_none_implicit
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{}.repeated_int32)" is evaluated
@@ -392,7 +392,7 @@ Scenario: repeated_none_implicit
 
 
 Scenario: repeated_none_explicit
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{repeated_int32: []}.repeated_int32)" is evaluated
@@ -401,7 +401,7 @@ Scenario: repeated_none_explicit
 
 
 Scenario: repeated_one
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{repeated_int32: [1]}.repeated_int32)" is evaluated
@@ -410,7 +410,7 @@ Scenario: repeated_one
 
 
 Scenario: repeated_many
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{repeated_int32: [1, 2, 3]}.repeated_int32)" is evaluated
@@ -419,7 +419,7 @@ Scenario: repeated_many
 
 
 Scenario: map_none_implicit
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{}.map_string_string)" is evaluated
@@ -428,7 +428,7 @@ Scenario: map_none_implicit
 
 
 Scenario: map_none_explicit
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{map_string_string: {}}.map_string_string)" is evaluated
@@ -437,7 +437,7 @@ Scenario: map_none_explicit
 
 
 Scenario: map_one_default
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{map_string_string: {'MT': ''}}.map_string_string)" is evaluated
@@ -446,7 +446,7 @@ Scenario: map_one_default
 
 
 Scenario: map_one
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{map_string_string: {'one': 'uno'}}.map_string_string)" is evaluated
@@ -455,7 +455,7 @@ Scenario: map_one
 
 
 Scenario: map_many
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{map_string_string: {'one': 'uno', 'two': 'dos'}}.map_string_string)" is evaluated
@@ -464,7 +464,7 @@ Scenario: map_many
 
 
 Scenario: single_unset
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{}.single_int32)" is evaluated
@@ -473,7 +473,7 @@ Scenario: single_unset
 
 
 Scenario: single_set
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{single_int32: 16}.single_int32)" is evaluated
@@ -482,7 +482,7 @@ Scenario: single_set
 
 
 Scenario: single_set_to_default
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{single_int32: 0}.single_int32)" is evaluated
@@ -491,7 +491,7 @@ Scenario: single_set_to_default
 
 
 Scenario: single_message_unset
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{}.standalone_message)" is evaluated
@@ -500,7 +500,7 @@ Scenario: single_message_unset
 
 
 Scenario: single_message_set
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{standalone_message: TestAllTypes.NestedMessage{bb: 123}}.standalone_message)" is evaluated
@@ -509,7 +509,7 @@ Scenario: single_message_set
 
 
 Scenario: single_message_set_to_default
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{standalone_message: TestAllTypes.NestedMessage{}}.standalone_message)" is evaluated
@@ -518,7 +518,7 @@ Scenario: single_message_set_to_default
 
 
 Scenario: single_enum_unset
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{}.standalone_enum)" is evaluated
@@ -527,7 +527,7 @@ Scenario: single_enum_unset
 
 
 Scenario: single_enum_set
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.BAR}.standalone_enum)" is evaluated
@@ -536,7 +536,7 @@ Scenario: single_enum_set
 
 
 Scenario: single_enum_set_zero
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{standalone_enum: TestAllTypes.NestedEnum.FOO}.standalone_enum)" is evaluated
@@ -545,7 +545,7 @@ Scenario: single_enum_set_zero
 
 
 Scenario: oneof_unset
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{}.single_nested_message)" is evaluated
@@ -554,7 +554,7 @@ Scenario: oneof_unset
 
 
 Scenario: oneof_other_set
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{single_nested_enum: TestAllTypes.NestedEnum.BAZ}.single_nested_message)" is evaluated
@@ -563,7 +563,7 @@ Scenario: oneof_other_set
 
 
 Scenario: oneof_set
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{single_nested_message: TestAllTypes.NestedMessage{}}.single_nested_message)" is evaluated
@@ -572,10 +572,9 @@ Scenario: oneof_set
 
 
 Scenario: oneof_set_default
-          
+
    Given container is "google.api.expr.test.v1.proto3"
 
     When CEL expression "has(TestAllTypes{single_nested_enum: TestAllTypes.NestedEnum.FOO}.single_nested_enum)" is evaluated
     #    bool_value:true
     Then value is BoolType(source=True)
-

@@ -212,4 +212,3 @@ Scenario: fp_underflow
     When CEL expression "1e-324  / 2.0" is evaluated
     #    double_value:0
     Then value is DoubleType(source=0)
-

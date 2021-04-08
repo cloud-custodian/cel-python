@@ -49,6 +49,3 @@ Scenario: one_ignored_value_arg
     When CEL expression "'foo'" is evaluated
     #    string_value:"foo"
     Then value is StringType(source='foo')
-
-
-

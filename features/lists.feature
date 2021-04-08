@@ -158,4 +158,3 @@ Scenario: map
     When CEL expression "size({1: 'one', 2: 'two', 3: 'three'})" is evaluated
     #    int64_value:3
     Then value is IntType(source=3)
-

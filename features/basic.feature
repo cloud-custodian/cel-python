@@ -318,4 +318,3 @@ Scenario: null
     When CEL expression "null" is evaluated
     #    null_value:NULL_VALUE
     Then value is None
-

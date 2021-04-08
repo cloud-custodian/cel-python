@@ -311,4 +311,3 @@ Scenario: all_all
     When CEL expression "['signer'].all(signer, ['artifact'].all(artifact, true))" is evaluated
     #    bool_value:true
     Then value is BoolType(source=True)
-

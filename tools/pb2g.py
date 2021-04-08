@@ -101,21 +101,18 @@ Each of these requires revising the literal value into a Python-friendly form.
 """
 import argparse
 import contextlib
-from dataclasses import dataclass, field
-from functools import partial
 import logging
 import math
 import os
-from pathlib import Path
 import re
 import subprocess
 import sys
 import traceback
-from typing import (
-    Iterator, Tuple, Match, NamedTuple, Iterable, Any, Set, List, Union, Type, Optional,
-    Dict
-)
-
+from dataclasses import dataclass, field
+from functools import partial
+from pathlib import Path
+from typing import (Any, Dict, Iterable, Iterator, List, Match, NamedTuple,
+                    Optional, Set, Tuple, Type, Union)
 
 logger = logging.getLogger("pb2g")
 
@@ -126,9 +123,9 @@ class Token(NamedTuple):
 
 class Tokens(Iterator[Token]):
     """
-    The sequence of tokens for this protobuf object value. 
+    The sequence of tokens for this protobuf object value.
     This class defines an Iterator with backup capability so we can look ahead one token.
-        
+
     >>> t = Tokens('example: {[type_name] b1: true b2: false n1: NULL_VALUE s1: "string" f1: 3.14 f2: 6E23 i1: 42}')
     >>> tokens = list(t)
     >>> tokens
@@ -150,7 +147,7 @@ class Tokens(Iterator[Token]):
         r'|(?P<WHITESPACE>\s+)'
         r'|(?P<PUNCTUATION>.)'
     )
-    
+
     @staticmethod
     def token_factory(match_iter: Iterable[Match]) -> Iterator[Token]:
         for match in match_iter:
@@ -230,9 +227,9 @@ def detokenize(token: Token) -> Any:
     'escape a and b \\x07\\x08, H and H.'
     >>> detokenize(Token("STRING", '"flambé"'))
     'flambé'
-    
+
     From the Source value "\\x07\\x08\\x0c\\n\\r\\t\\x0b\\"'\\\\"
-    
+
     >>> detokenize(Token("STRING", '"\\x07\\x08\\x0c\\n\\r\\t\\x0b\\"\\'\\\\"'))
     '\\x07\\x08\\x0c\\r\\t\\x0b"\\'\\\\'
     """
@@ -338,16 +335,16 @@ class Primitive(NamedTuple):
     """A name: value pair."""
     type_name: Token
     value_text: Token
-        
+
     @property
     def type_names(self) -> Set[str]:
         """Transitive closure of all contained types."""
         return set([self.type_name.value])
-    
+
     @property
     def all_items(self) -> Set["Primitive"]:
         return set([self])
-    
+
     @property
     def value(self) -> Any:
         """Undo the Go escapes to create a Python string"""
@@ -362,15 +359,15 @@ class Primitive(NamedTuple):
     def to_bytes(self) -> bytes:
         """Undo the Go escapes to create a Python bytes"""
         return bytes_detokenize(self.value_text)
-    
+
     @property
     def is_bytes(self) -> bool:
         return self.type_name in {"bytes_value"}
-    
+
     @property
     def is_string(self) -> bool:
         return not self.is_bytes
-    
+
 
 class Structure(NamedTuple):
     """A name: {value*} pair."""
@@ -381,7 +378,7 @@ class Structure(NamedTuple):
     def type_names(self) -> Set[str]:
         """Transitive closure of all contained types."""
         return set([self.type_name.value]).union(*(i.type_names for i in self.items))
-    
+
     @property
     def all_items(self) -> Set["Structure"]:  # Set[Union["Primitive", "Structure"]]
         return set(self.items).union(*(i.all_items for i in self.items))
@@ -393,9 +390,9 @@ def parse_serialized_value(tokens: Tokens) -> ParseTree:
     Parse the following construct:
 
     ::
-    
+
         structure : type ":" [ primitive | "{" structure* "}" ]
-    
+
     Returns a a union [Primitive | Structure]
 
     TODO: RENAME THIS
@@ -452,23 +449,23 @@ class DoubleType(NamedTuple):
 class DurationType(NamedTuple):
     seconds: float
     nanos: float
-        
+
 class TimestampType(NamedTuple):
     source: Any
-        
+
 class ListType(List[Any]):
     """Built from Values objects."""
     pass
-        
+
 class MapType(Dict[str, Any]):
     """Built from  Entries objects."""
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
-        
+
 class MessageType(Dict[str, Any]):
     """Built from Fields objects."""
     pass
-        
+
 class TypeType(NamedTuple):
     value: Any
 
@@ -500,7 +497,7 @@ class TestAllTypes:
     single_bool: bool = field(default=0)  # bool single_bool = 13;
     single_string: str = field(default="")  # string single_string = 14;
     single_bytes: bytes = field(default=b"")  # bytes single_bytes = 15;
-    
+
     single_any: Any = field(default=None)  #  google.protobuf.Any single_any = 100;
     single_duration: DurationType = field(default=None)  #  google.protobuf.Duration single_duration = 101;
     single_timestamp: TimestampType = field(default=None)  #  google.protobuf.Timestamp single_timestamp = 102;
@@ -575,9 +572,9 @@ def struct_builder(*items: ParseTree) -> CelType:
     """
     Builds MessageType objects from the ``fields`` clauses.
     The ``Any`` special case is taken as a type cast and ignored.
-    
+
     ::
-    
+
         object_value:{
             [type.googleapis.com/google.protobuf.Any]:{
                 [type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{
@@ -601,9 +598,9 @@ def struct_builder(*items: ParseTree) -> CelType:
 def duration_builder(*items: ParseTree) -> CelType:
     """Building duration from ``seconds`` and ``nanos``
     ::
-    
+
         value:{object_value:{[type.googleapis.com/google.protobuf.Duration]:{seconds:123 nanos:123456789}}}
-        
+
     """
     fields = {}
     for field_source in items:
@@ -614,7 +611,7 @@ def duration_builder(*items: ParseTree) -> CelType:
 def timestamp_builder(*items: ParseTree) -> CelType:
     """Building timestamp from ``seconds``
     ::
-    
+
         object_value:{
             [type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_timestamp:{seconds:1234567890}}
         }
@@ -626,7 +623,7 @@ def timestamp_builder(*items: ParseTree) -> CelType:
     return TimestampType(**fields)
 
 def primitive_builder(celtype: Type[CelType], *items: ParseTree) -> CelType:
-    """Building from some primitive, usually a ``value``. 
+    """Building from some primitive, usually a ``value``.
     """
     # debug_call_stack()  # Useful for debugging.
     assert len(items) == 1, f"Unexpected: more than 1 item in {items!r}"
@@ -636,9 +633,9 @@ def primitive_builder(celtype: Type[CelType], *items: ParseTree) -> CelType:
 def any_builder(*items: ParseTree) -> CelType:
     """
     Clandestine object_value can be hidden inside an Any object.
-    
+
     ::
-    
+
         value:{
             object_value:{
                 [type.googleapis.com/google.protobuf.Any]:{
@@ -820,7 +817,7 @@ def structure_builder(structure: ParseTree) -> CelType:
 def gherkinize(gherkinizer_path: Path, source_path: Optional[Path], target_path: Optional[Path]) -> None:
     """
     Convert from textproto to Gherkin that contains Go value serializations.
-    
+
     Requires GO on the Path.
 
     ::
@@ -983,3 +980,4 @@ if __name__ == "__main__":
     gherkinize(mkgherkin, source, interim)
     celify(interim, options.output)
     interim.unlink()
+
