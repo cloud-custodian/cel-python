@@ -985,7 +985,7 @@ def subst(jmes_path: celtypes.StringType,) -> celtypes.StringType:
     return celtypes.StringType(jmes_path.format(**config_args))
 
 
-def credentials(vpc_id: celtypes.Value,) -> celtypes.Value:
+def credentials(resource: celtypes.MapType) -> celtypes.Value:
     """
     Reach into C7N and make a get_related() request using the current C7N filter to get
     the IAM-role credential details.
@@ -999,7 +999,7 @@ def credentials(vpc_id: celtypes.Value,) -> celtypes.Value:
         ``CredentialReportMixin`` mixin to the :py:class:`CELFilter` class.
         The ``get_credential_report()`` function does what we need.
     """
-    return json_to_cel(C7N.filter.get_credential_report())
+    return json_to_cel(C7N.filter.get_credential_report(resource))
 
 
 def kms_alias(vpc_id: celtypes.Value,) -> celtypes.Value:

@@ -1113,7 +1113,9 @@ def test_C7N_CELFilter_credentials(celfilter_instance):
     with celpy.c7nlib.C7NContext(filter=mock_filter):
         credentials = celpy.c7nlib.credentials(ec2_doc)
     assert credentials == str(sentinel.credential)
-    assert mock_filter.get_credential_report.mock_calls == [call()]
+    assert mock_filter.get_credential_report.mock_calls == [call(
+        {'ResourceType': 'ec2', 'InstanceId': 'i-123456789'}
+    )]
 
 
 def test_C7N_CELFilter_kms_alias(celfilter_instance):
