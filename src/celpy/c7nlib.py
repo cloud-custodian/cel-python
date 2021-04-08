@@ -292,7 +292,7 @@ import dateutil
 import jmespath  # type: ignore [import]
 
 from celpy import InterpretedRunner, celtypes
-from celpy.adapter import json_to_cel, CELJSONEncoder
+from celpy.adapter import CELJSONEncoder, json_to_cel
 from celpy.evaluation import Annotation, Context, Evaluator, Result
 
 logger = logging.getLogger(__name__)
@@ -881,7 +881,7 @@ def get_related_igws(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(igws)
 
 
-def get_related_security_configs(resource: celtypes.MapType,) -> celtypes.ListType:
+def get_related_security_configs(resource: celtypes.MapType,) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_security_configs() request using the current C7N filter.
     """

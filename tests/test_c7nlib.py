@@ -523,6 +523,12 @@ def celfilter_instance():
 
     class RelatedResourceMixin:
         get_related_ids = Mock(return_value=[str(sentinel.sg_id)])
+        get_related_sgs = Mock(return_value=[str(sentinel.sg)])
+        get_related_subnets = Mock(return_value=[str(sentinel.subnet)])
+        get_related_nat_gateways = Mock(return_value=[str(sentinel.nat_gateway)])
+        get_related_igws = Mock(return_value=[str(sentinel.igw)])
+        get_related_security_configs = Mock(return_value=[str(sentinel.sec_config)])
+
         get_related = Mock(side_effect=get_related_results)
 
     class CredentialReportMixin:
@@ -1054,6 +1060,45 @@ def test_C7N_CELFilter_get_related_ids(celfilter_instance):
     assert sg_ids == [str(sentinel.sg_id)]
     assert mock_filter.get_related_ids.mock_calls == [call(ec2_doc)]
 
+def test_C7N_CELFilter_get_related_sgs(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
+    ec2_doc = {"ResourceType": "ec2", "InstanceId": "i-123456789"}
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
+        sg = celpy.c7nlib.get_related_sgs(ec2_doc)
+    assert sg == [str(sentinel.sg)]
+    assert mock_filter.get_related_sgs.mock_calls == [call(ec2_doc)]
+
+def test_C7N_CELFilter_get_related_subnets(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
+    ec2_doc = {"ResourceType": "ec2", "InstanceId": "i-123456789"}
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
+        subnet = celpy.c7nlib.get_related_subnets(ec2_doc)
+    assert subnet == [str(sentinel.subnet)]
+    assert mock_filter.get_related_subnets.mock_calls == [call(ec2_doc)]
+
+def test_C7N_CELFilter_get_related_nat_gateways(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
+    ec2_doc = {"ResourceType": "ec2", "InstanceId": "i-123456789"}
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
+        nat_gateway = celpy.c7nlib.get_related_nat_gateways(ec2_doc)
+    assert nat_gateway == [str(sentinel.nat_gateway)]
+    assert mock_filter.get_related_nat_gateways.mock_calls == [call(ec2_doc)]
+
+def test_C7N_CELFilter_get_related_igws(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
+    ec2_doc = {"ResourceType": "ec2", "InstanceId": "i-123456789"}
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
+        igw = celpy.c7nlib.get_related_igws(ec2_doc)
+    assert igw == [str(sentinel.igw)]
+    assert mock_filter.get_related_igws.mock_calls == [call(ec2_doc)]
+
+def test_C7N_CELFilter_get_related_security_configs(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
+    glue_doc = {"ResourceType": "glue", "Name": "default-security-config"}
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
+        sec_config = celpy.c7nlib.get_related_security_configs(glue_doc)
+    assert sec_config == [str(sentinel.sec_config)]
+    assert mock_filter.get_related_security_configs.mock_calls == [call(glue_doc)]
 
 def test_C7N_CELFilter_security_group(celfilter_instance):
     mock_filter = celfilter_instance['the_filter']
