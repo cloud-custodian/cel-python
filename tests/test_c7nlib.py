@@ -528,6 +528,7 @@ def celfilter_instance():
         get_related_nat_gateways = Mock(return_value=[str(sentinel.nat_gateway)])
         get_related_igws = Mock(return_value=[str(sentinel.igw)])
         get_related_security_configs = Mock(return_value=[str(sentinel.sec_config)])
+        get_related_vpc = Mock(return_value=[str(sentinel.vpc)])
 
         get_related = Mock(side_effect=get_related_results)
 
@@ -1099,6 +1100,14 @@ def test_C7N_CELFilter_get_related_security_configs(celfilter_instance):
         sec_config = celpy.c7nlib.get_related_security_configs(glue_doc)
     assert sec_config == [str(sentinel.sec_config)]
     assert mock_filter.get_related_security_configs.mock_calls == [call(glue_doc)]
+
+def test_C7N_CELFilter_get_related_vpc(celfilter_instance):
+    mock_filter = celfilter_instance['the_filter']
+    ec2_doc = {"ResourceType": "ec2", "InstanceId": "i-123456789"}
+    with celpy.c7nlib.C7NContext(filter=mock_filter):
+        vpc = celpy.c7nlib.get_related_vpc(ec2_doc)
+    assert vpc == [str(sentinel.vpc)]
+    assert mock_filter.get_related_vpc.mock_calls == [call(ec2_doc)]
 
 def test_C7N_CELFilter_security_group(celfilter_instance):
     mock_filter = celfilter_instance['the_filter']

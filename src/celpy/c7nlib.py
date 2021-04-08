@@ -889,6 +889,14 @@ def get_related_security_configs(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(security_configs)
 
 
+def get_related_vpc(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    Reach into C7N and make a get_related_vpc() request using the current C7N filter.
+    """
+    vpc = C7N.filter.get_related_vpc(resource)
+    return json_to_cel(vpc)
+
+
 def security_group(security_group_id: celtypes.MapType,) -> celtypes.Value:
     """
     Reach into C7N and make a get_related() request using the current C7N filter to get
@@ -1449,6 +1457,7 @@ DECLARATIONS: Dict[str, Annotation] = {
     "get_related_nat_gateways": celtypes.FunctionType,
     "get_related_igws": celtypes.FunctionType,
     "get_related_security_configs": celtypes.FunctionType,
+    "get_related_vpc": celtypes.FunctionType,
     "get_vpcs": celtypes.FunctionType,
     "get_vpces": celtypes.FunctionType,
     "get_orgids": celtypes.FunctionType,
@@ -1512,6 +1521,7 @@ FUNCTIONS: Dict[str, ExtFunction] = {
         get_related_nat_gateways,
         get_related_igws,
         get_related_security_configs,
+        get_related_vpc,
         get_vpcs,
         get_vpces,
         get_orgids,
