@@ -579,5 +579,3 @@ Scenario: oneof_set_default
     #    bool_value:true
     Then value is BoolType(source=True)
 
-
-

@@ -66,7 +66,8 @@ from typing import Any, List, Optional, cast
 
 import lark.visitors
 from lark import Lark, Token, Tree  # noqa: F401
-from lark.exceptions import LexError, ParseError, UnexpectedCharacters, UnexpectedToken
+from lark.exceptions import (LexError, ParseError, UnexpectedCharacters,
+                             UnexpectedToken)
 
 
 class CELParseError(Exception):

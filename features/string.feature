@@ -343,5 +343,3 @@ Scenario: empty_empty
     #    bytes_value:""
     Then value is BytesType(source=b'')
 
-
-

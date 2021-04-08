@@ -5,7 +5,7 @@ Feature: namespace
 # qualified -- Qualified variable lookups.
 
 Scenario: self_eval_qualified_lookup
-          
+
    #     type:{primitive:BOOL}
    Given type_env parameter "x.y" is TypeType(value='BOOL')
 
@@ -21,7 +21,7 @@ Scenario: self_eval_qualified_lookup
 # namespace -- Namespaced identifiers.
 
 Scenario: self_eval_container_lookup
-          
+
    #     type:{primitive:BOOL}
    Given type_env parameter "x.y" is TypeType(value='BOOL')
 
@@ -42,7 +42,7 @@ Scenario: self_eval_container_lookup
 
 
 Scenario: self_eval_container_lookup_unchecked
-          
+
    #     type:{primitive:BOOL}
    Given type_env parameter "x.y" is TypeType(value='BOOL')
 
@@ -60,6 +60,4 @@ Scenario: self_eval_container_lookup_unchecked
     When CEL expression "y" is evaluated
     #    bool_value:true
     Then value is BoolType(source=True)
-
-
 
