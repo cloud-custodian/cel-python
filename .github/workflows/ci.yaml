@@ -22,10 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8]
+        python-version: [3.7, 3.8]
         include:
-          - python-version: 3.6
-            tox-target: py36
           - python-version: 3.7
             tox-target: py37
           - python-version: 3.8

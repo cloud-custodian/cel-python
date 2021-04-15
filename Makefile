@@ -13,18 +13,37 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
 
+# Tools require GO. Typically, the following kinds of setup is required.
+#        export PATH="/usr/local/go/bin:/usr/local/bin:$PATH"
+#        export GOPATH="~/go"
+
 install:
 	python3 -m venv .
 	. bin/activate && pip install -r requirements-dev.txt
 
+install-tools:
+	cd tools && export PATH="/usr/local/go/bin:/usr/local/bin:$PATH" && go mod init mkgherkin && go mod tidy
+
 test:
+	cd features && $(MAKE) all
 	tox -e py38
 
 test-all:
+	cd features && $(MAKE) all
 	tox
 
+test-wip:
+	cd features && $(MAKE) all
+	tox -e wip
+
+test-tools:
+	tox -e tools
+	cd features && $(MAKE) scan
+
 unit-test:
-	PYTHONPATH=src pytest -vv --cov=src --cov-report=term-missing ${test}
+	PYTHONPATH=src python -m pytest -vv --cov=src --cov-report=term-missing ${test}
+	PYTHONPATH=src python -m doctest tools/*.py
+	PYTHONPATH=src python -m doctest features/steps/*.py
 
 sphinx:
 	PYTHONPATH=src python -m doctest docs/source/*.rst

@@ -98,11 +98,11 @@ Here's the Pythonic approach, using concept patterned after the Go implementatio
 import json  # noqa: F401
 import logging
 import sys
-from typing import Dict, Optional, Type, cast
+from typing import Any, Dict, Optional, Type, cast
 
-import lark  # type: ignore[import]
+import lark
 
-# from celpy import celtypes
+import celpy.celtypes
 from celpy.adapter import (CELJSONDecoder, CELJSONEncoder,  # noqa: F401
                            json_to_cel)
 from celpy.celparser import CELParseError, CELParser  # noqa: F401
@@ -111,7 +111,7 @@ from celpy.evaluation import (Activation, Annotation,  # noqa: F401
                               Result, base_functions)
 
 # A parsed AST.
-Expression = Type[lark.Tree]
+Expression = lark.Tree
 
 
 class Runner:
@@ -125,7 +125,7 @@ class Runner:
     def __init__(
             self,
             environment: 'Environment',
-            ast: Expression,
+            ast: lark.Tree,
             functions: Optional[Dict[str, CELFunction]] = None
     ) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -139,7 +139,7 @@ class Runner:
         """
         return self.environment.activation().nested_activation(vars=context)
 
-    def evaluate(self, activation: Context) -> Result:  # pragma: no cover
+    def evaluate(self, activation: Context) -> celpy.celtypes.Value:  # pragma: no cover
         raise NotImplementedError
 
 
@@ -156,7 +156,7 @@ class InterpretedRunner(Runner):
 
     ..  todo:: Refractor the Evaluator constructor from evaluation.
     """
-    def evaluate(self, context: Context) -> Result:
+    def evaluate(self, context: Context) -> celpy.celtypes.Value:
         e = Evaluator(
             ast=self.ast,
             activation=self.new_activation(context),
@@ -178,7 +178,7 @@ class CompiledRunner(Runner):
     def __init__(
             self,
             environment: 'Environment',
-            ast: Expression,
+            ast: lark.Tree,
             functions: Optional[Dict[str, CELFunction]] = None
     ) -> None:
         super().__init__(environment, ast, functions)
@@ -186,9 +186,44 @@ class CompiledRunner(Runner):
         # compile()
         # cache executable code object.
 
-    def evaluate(self, activation: Context) -> Result:
+    def evaluate(self, activation: Context) -> celpy.celtypes.Value:
         # eval() code object with activation as locals, and built-ins as gobals.
         return super().evaluate(activation)
+
+
+# TODO: Refactor classes into a separate "cel_protobuf" module.
+# TODO: Becomes cel_protobuf.Int32Value
+class Int32Value(celpy.celtypes.IntType):
+    def __new__(
+            cls: Type['Int32Value'],
+            value: Any = 0,
+    ) -> 'Int32Value':
+        """TODO: Check range. This seems to matter for protobuf."""
+        if isinstance(value, celpy.celtypes.IntType):
+            return cast(Int32Value, super().__new__(cls, value))
+        # TODO: elif other type conversions...
+        else:
+            convert = celpy.celtypes.int64(int)
+        return cast(Int32Value, super().__new__(cls, convert(value)))
+
+
+# The "well-known" types in a google.protobuf package.
+# We map these to CEl types instead of defining additional Protobuf Types.
+# This approach bypasses some of the range constraints that are part of these types.
+# It may also cause values to compare as equal when they were originally distinct types.
+googleapis = {
+    'google.protobuf.Int32Value': celpy.celtypes.IntType,
+    'google.protobuf.UInt32Value': celpy.celtypes.UintType,
+    'google.protobuf.Int64Value': celpy.celtypes.IntType,
+    'google.protobuf.UInt64Value': celpy.celtypes.UintType,
+    'google.protobuf.FloatValue': celpy.celtypes.DoubleType,
+    'google.protobuf.DoubleValue': celpy.celtypes.DoubleType,
+    'google.protobuf.BoolValue': celpy.celtypes.BoolType,
+    'google.protobuf.BytesValue': celpy.celtypes.BytesType,
+    'google.protobuf.StringValue': celpy.celtypes.StringType,
+    'google.protobuf.ListValue': celpy.celtypes.ListType,
+    'google.protobuf.Struct': celpy.celtypes.MessageType,
+}
 
 
 class Environment:
@@ -231,14 +266,19 @@ class Environment:
         self.cel_parser = CELParser()
         self.runnable: Runner
 
+        # Fold in standard annotations. These (generally) define well-known protobuf types.
+        self.annotations.update(googleapis)
+        # We'd like to add 'type.googleapis.com/google' directly, but it seems to be an alias
+        # for 'google', the path after the '/' in the uri.
+
     def compile(self, text: str) -> Expression:
         """Compile the CEL source. This can raise syntax error exceptions."""
         ast = self.cel_parser.parse(text)
-        return cast(Expression, ast)
+        return ast
 
     def program(
             self,
-            expr: Expression,
+            expr: lark.Tree,
             functions: Optional[Dict[str, CELFunction]] = None
     ) -> Runner:
         """Transforms the AST into an executable runner."""
@@ -249,4 +289,5 @@ class Environment:
 
     def activation(self) -> Activation:
         """Returns a base activation"""
-        return Activation(annotations=self.annotations, package=self.package)
+        activation = Activation(package=self.package, annotations=self.annotations)
+        return activation

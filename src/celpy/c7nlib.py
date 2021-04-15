@@ -293,7 +293,7 @@ import jmespath  # type: ignore [import]
 
 from celpy import InterpretedRunner, celtypes
 from celpy.adapter import json_to_cel
-from celpy.evaluation import Annotation, Context, Evaluator, Result
+from celpy.evaluation import Annotation, Context, Evaluator
 
 logger = logging.getLogger(__name__)
 
@@ -505,11 +505,11 @@ def version(
 
 
 def present(value: celtypes.StringType,) -> celtypes.Value:
-    return celtypes.BoolType(bool(value))
+    return cast(celtypes.Value, bool(value))
 
 
 def absent(value: celtypes.StringType,) -> celtypes.Value:
-    return celtypes.BoolType(not bool(value))
+    return cast(celtypes.Value, not bool(value))
 
 
 def text_from(url: celtypes.StringType,) -> celtypes.Value:
@@ -1499,7 +1499,7 @@ class C7N_Interpreted_Runner(InterpretedRunner):
     ..  todo: Refactor to be a mixin to the Runner class hierarchy.
     """
 
-    def evaluate(self, context: Context, filter: Optional[Any] = None) -> Result:
+    def evaluate(self, context: Context, filter: Optional[Any] = None) -> celtypes.Value:
         e = Evaluator(
             ast=self.ast,
             activation=self.new_activation(context),

@@ -22,31 +22,35 @@ TOOLS = $(HERE)../tools
 CEL_SPEC_PATH ?= $(HERE)../../cel-spec
 CEL_SIMPLE_TESTDATA ?= $(CEL_SPEC_PATH)/tests/simple/testdata
 
+# This is most -- but not all -- the feature files.
+# Some are built manually. These are built from textproto files.
 FEATURES = \
 	basic.feature \
-	parse.feature \
-	integer_math.feature \
 	comparisons.feature \
-	logic.feature \
-	string.feature \
-	fp_math.feature \
-	lists.feature \
-	fields.feature \
-	namespace.feature \
-	enums.feature \
 	conversions.feature \
-	timestamps.feature \
-	unknowns.feature \
-	macros.feature \
-	plumbing.feature \
 	dynamic.feature \
+	enums.feature \
+	fields.feature \
+	fp_math.feature \
+	integer_math.feature \
+	lists.feature \
+	logic.feature \
+	macros.feature \
+	namespace.feature \
+	parse.feature \
+	plumbing.feature \
 	proto2.feature \
-	proto3.feature
+	proto3.feature \
+	string.feature \
+	timestamps.feature \
+	unknowns.feature
 
 
 SOURCES := $(patsubst %.feature,%.textproto,$(FEATURES))
 
 .PRECIOUS: %.textproto
+
+.DELETE_ON_ERROR:
 
 all : $(FEATURES)
 
@@ -56,18 +60,18 @@ all : $(FEATURES)
 
 # Create Gherkin from the textproto serialization.
 %.feature : %.textproto
-	python $(TOOLS)/textproto_to_gherkin.py $^ -o $@
+	python $(TOOLS)/pb2g.py $^ -o $@
 
 # Run the lark scanner to be sure the grammar works for *all* of the textproto files.
 # This is necessary because we don't have a full textproto implementation.
 scan : $(SOURCES)
-	@python $(TOOLS)/textproto_to_gherkin.py
+	@python $(TOOLS)/pb2g.py
 	@for name in $(SOURCES); do \
-		echo $$name; \
-		python $(TOOLS)/textproto_to_gherkin.py -s $$name >/dev/null; \
+		python $(TOOLS)/pb2g.py $$name >/dev/null; \
 	done
+	@echo "\nAll files scanned successfully"
 
-# When the grammar is incomplete, we'll have empty .feature files.
+# When the grammar was incomplete, we sometimes had empty .feature files.
 # It helps to remove them before rerunning.
 clean-broken:
 	@for name in $(FEATURES); do \
@@ -76,6 +80,9 @@ clean-broken:
 		   rm $$name; \
 		fi; \
 	done
+
+clean-features:
+	rm $(FEATURES)
 
 clean:
 	rm $(FEATURES)

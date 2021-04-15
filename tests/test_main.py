@@ -594,10 +594,10 @@ def test_repl_class_bad_interaction(capsys):
     lines = err.splitlines()
     assert (
             lines[0] ==
-            "ERROR: <input>:1:5 Unexpected token Token(PLUS, '+') at line 1, column 5."
+            "ERROR: <input>:1:5 pi ++ nope | not & proper \ CEL"
     )
     assert (
             lines[4] ==
-            "ERROR: <input>:1:5 Unexpected token Token(BANG, '!') at line 1, column 5."
+            "    | ....^"
     )
     assert c.state == {}

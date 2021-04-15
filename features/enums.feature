@@ -1,2 +1,3 @@
-Feature: "enums"
-         "Tests for strong enum types."
+
+Feature: enums
+         Tests for strong enum types.

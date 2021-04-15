@@ -23,8 +23,8 @@ def before_scenario(context, scenario):
     # context.data used by the CEL conformance test suite converted from textproto.
     context.data = {}
     context.data['disable_check'] = False
-    context.data['type_env'] = []  # Sequence of TypeEnv(name=, kind=, type_ident=) items.
-    context.data['bindings'] = {}
+    context.data['type_env'] = {}   # name: type association
+    context.data['bindings'] = {}   # name: value association
     context.data['container'] = ""  # If set, can associate a type binding from local proto files.
     context.data['json'] = []
 

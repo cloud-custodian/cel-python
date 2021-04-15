@@ -97,6 +97,7 @@ def test_exception_eval_error():
     assert 1 ** ex == ex
     assert not 1 == ex
     assert not ex == 1
+    assert ex() == ex
 
 
 def test_eval_error_decorator():
@@ -171,6 +172,57 @@ def test_function_size():
     assert function_size(None) == 0
 
 
+def test_referent():
+    r_0 = Referent()
+    assert r_0.annotation is None
+    assert r_0.container is None
+    assert r_0.value is None
+    r_1 = Referent(celtypes.IntType)
+    assert r_1.annotation is celtypes.IntType
+    assert r_1.container is None
+    assert r_1.value is celtypes.IntType
+    r_1.value = celtypes.IntType(42)
+    assert r_1.annotation is celtypes.IntType
+    assert r_1.container is None
+    assert r_1.value == celtypes.IntType(42)
+    nc = NameContainer()
+    r_1.container = nc
+    assert repr(r_1) == f"Referent(annotation={celtypes.IntType!r}, container={nc!r}, _value={celtypes.IntType(42)!r})"
+    assert r_1.annotation is celtypes.IntType
+    assert r_1.container is nc
+    assert r_1.value == nc  # preferred over the assigned value.
+    r_c = r_1.clone()
+    assert r_c.container == r_1.container
+    assert r_c.value == r_1.value
+
+
+def test_name_container():
+    """See fields.feature acceptance test cases for more of these."""
+    nc = NameContainer()
+    nc.load_annotations({"a.b": celtypes.MapType, "a.b.c": celtypes.StringType})
+    nc.load_values(
+        {
+            "a.b": celtypes.MapType({"c": celtypes.StringType("oops")}),
+            "a.b.c": celtypes.StringType("yeah"),
+        }
+    )
+    member_dot = nc.resolve_name("", "a").resolve_name("", "b").resolve_name("", "c")
+    assert member_dot == celtypes.StringType("yeah")
+
+
+def test_name_container_init():
+    nc = NameContainer("a", celtypes.MapType)
+    assert nc["a"] == celtypes.MapType
+
+def test_name_container_errors():
+    nc = NameContainer("a", celtypes.MapType)
+    assert nc["a"] == celtypes.MapType
+    with raises(ValueError):
+        nc.load_annotations({"123 456": celtypes.MapType})
+    with raises(ValueError):
+        nc.load_values({"123 456": celtypes.StringType("Invalid")})
+
+
 def test_activation_no_package_no_vars():
     a = Activation()
     with raises(KeyError):
@@ -212,8 +264,8 @@ def test_activation_activation():
             celtypes.StringType("param"): celtypes.DoubleType(42.0)
         }
     )
-    a = Activation(vars=b)
-    assert a.resolve_variable(celtypes.StringType("param")) == celtypes.DoubleType(42.0)
+    c = b.clone()
+    assert c.resolve_variable(celtypes.StringType("param")) == celtypes.DoubleType(42.0)
 
 
 def test_activation_dot_names():
@@ -235,7 +287,10 @@ def test_activation_overlapping_dot_names():
             'A.C': celtypes.BoolType,
         }
     )
-    assert a.resolve_variable("A") == {'B': celtypes.DoubleType, 'C': celtypes.BoolType}
+    assert isinstance(a.resolve_variable("A"), NameContainer)
+    print(f'{a.resolve_variable("A")!r}')
+    assert a.resolve_variable("A")["B"].value == celtypes.DoubleType
+    assert a.resolve_variable("A")["C"].value == celtypes.BoolType
 
 
 def test_activation_multi_package_name():
@@ -243,7 +298,7 @@ def test_activation_multi_package_name():
         annotations={
             'A.B.a': celtypes.DoubleType,
             'A.B.C.a': celtypes.BoolType,
-            'A.B.C': celtypes.IntType,  # This is ambiguous and is ignored.
+            'A.B.C': celtypes.IntType,  # This is ambiguous and is ignored when finding "a".
         },
         package="A.B.C"
     )
@@ -291,8 +346,8 @@ def test_trace_decorator(mock_tree):
     assert result == sentinel.result
 
     assert e.logger.info.mock_calls == [
-        call(f"  {mock_tree!r}"),
-        call('  ident -> sentinel.result'),
+        call(f"| {mock_tree!r}"),
+        call('| ident -> sentinel.result'),
 
     ]
 
@@ -929,6 +984,37 @@ def test_member_dot_good_found(monkeypatch):
     )
     assert evaluator_0.member_dot(tree.children[0]) == celtypes.IntType(42)
 
+def test_member_dot_message_found(monkeypatch):
+    """
+    Made a fake parse tree for a protobuf message-like structure.
+    """
+    visit = Mock(
+        return_value=celtypes.MessageType({celtypes.StringType("name"): celtypes.IntType(42)})
+    )
+    monkeypatch.setattr(Evaluator, 'visit', visit)
+
+    tree = lark.Tree(
+        data="member",
+        children=[
+            lark.Tree(
+                data="member_dot",
+                children=[
+                    lark.Tree(
+                        data="primary",
+                        children=[]
+                    ),
+                    lark.Token("IDENT", "name")
+                ],
+                meta = Mock(line=1, column=1)
+            )
+        ]
+    )
+    evaluator_0 = Evaluator(
+        tree,
+        activation=Mock()
+    )
+    assert evaluator_0.member_dot(tree.children[0]) == celtypes.IntType(42)
+
 
 def test_member_dot_good_notfound(monkeypatch):
     visit = Mock(
@@ -1038,7 +1124,7 @@ def test_member_dot_package(monkeypatch):
         PYTHONPATH=src python -m celpy -v -n 'name1.name2'
     """
     visit = Mock(
-        return_value={"name2": celtypes.IntType}
+        return_value=NameContainer("name2", Referent(celtypes.IntType))
     )
     monkeypatch.setattr(Evaluator, 'visit', visit)
 
@@ -1073,14 +1159,14 @@ def test_member_dot_package(monkeypatch):
 
 
 def test_member_dot_missing_package(monkeypatch):
-    """Activation has ``{"name1": {"name2": Annotation}}`` created from "name1.name1".
+    """Activation has ``{"name1": {"name2": Annotation}}`` created from "name1.name2".
 
     To get a parse tree::
 
         PYTHONPATH=src python -m celpy -v -n 'name1.name2'
     """
     visit = Mock(
-        return_value={"not the expected name": celtypes.IntType}
+        return_value=NameContainer("not the expected name", Referent(celtypes.IntType))
     )
     monkeypatch.setattr(Evaluator, 'visit', visit)
 
@@ -1111,7 +1197,7 @@ def test_member_dot_missing_package(monkeypatch):
         tree,
         activation=Mock()
     )
-    assert evaluator_0.member_dot(tree.children[0]) == CELEvalError("no such key: 'name2'", KeyError, None)
+    assert evaluator_0.member_dot(tree.children[0]) == CELEvalError("No 'name2' in bindings ['not the expected name']", KeyError, None, tree=tree.children[0])
 
 
 def test_member_dot_arg_method_0(monkeypatch):
@@ -1787,7 +1873,7 @@ def test_member_object_2(monkeypatch):
     pb = evaluator_0.member_object(tree.children[0])
     assert pb == sentinel.protobuf_object
     assert protobuf_annotation.mock_calls == [
-        call(field=sentinel.fieldinit)
+        call({"field": sentinel.fieldinit})
     ]
 
 def test_member_object_3(monkeypatch):
@@ -1826,7 +1912,7 @@ def test_member_object_3(monkeypatch):
     )
     pb = evaluator_0.member_object(tree.children[0])
     assert pb == sentinel.protobuf_object
-    assert protobuf_annotation.mock_calls == [call()]
+    assert protobuf_annotation.mock_calls == [call(None)]
 
 
 def test_member_object_error(monkeypatch):

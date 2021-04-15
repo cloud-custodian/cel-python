@@ -187,7 +187,7 @@ def mock_activation(monkeypatch):
 
 
 def test_environment(mock_parser, mock_runner, mock_activation):
-    e = celpy.Environment(sentinel.package, {sentinel.variable, celtypes.UintType})
+    e = celpy.Environment(sentinel.package, {sentinel.variable: celtypes.UintType})
     ast = e.compile(sentinel.Source)
     assert ast == sentinel.AST
     assert mock_parser.return_value.parse.mock_calls == [call(sentinel.Source)]
@@ -197,8 +197,13 @@ def test_environment(mock_parser, mock_runner, mock_activation):
     assert mock_runner.mock_calls == [call(e, sentinel.AST, [sentinel.Function])]
     act = e.activation()
     assert act == mock_activation.return_value
+    expected = {
+        sentinel.variable: celtypes.UintType,
+    }
+    expected.update(celpy.googleapis)
     assert mock_activation.mock_calls == [
         call(
-            annotations={sentinel.variable, celtypes.UintType}, package=sentinel.package
+            annotations=expected,
+            package=sentinel.package
         )
     ]
