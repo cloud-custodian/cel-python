@@ -45,14 +45,14 @@ from typing import (Any, Callable, Dict, Iterable, Iterator, List, Mapping,
                     Match, Optional, Sequence, Sized, Tuple, Type, TypeVar,
                     Union, cast)
 
-import lark  # type: ignore[import]
-import lark.visitors  # type: ignore[import]
+import lark
+import lark.visitors
 
 import celpy.celtypes
 from celpy.celparser import tree_dump
 
 # A CEL type annotation. Used in an environment to describe objects as well as functions.
-# This is a list of types, plus Callable for conversion functions
+# This is a list of types, plus Callable for conversion functions.
 Annotation = Union[
     celpy.celtypes.CELType,
     Callable[..., celpy.celtypes.Value],  # Conversion functions and protobuf message type
@@ -65,7 +65,7 @@ logger = logging.getLogger("evaluation")
 
 class CELSyntaxError(Exception):
     """CEL Syntax error -- the AST did not have the expected structure."""
-    def __init__(self, arg: Any, line: int, column: int) -> None:
+    def __init__(self, arg: Any, line: Optional[int] = None, column: Optional[int] = None) -> None:
         super().__init__(arg)
         self.line = line
         self.column = column
@@ -108,10 +108,10 @@ class CELEvalError(Exception):
         if self.tree and self.token:
             # This is rare
             return (
-                f"{cls}(*{self.args}) in {tree_dump(self.tree)!r} near {self.token!r}"
+                f"{cls}(*{self.args}, tree={tree_dump(self.tree)!r}, token={self.token!r})"
             )  # pragma: no cover
         elif self.tree:
-            return f"{cls}(*{self.args}) in {tree_dump(self.tree)!r}"
+            return f"{cls}(*{self.args}, tree={tree_dump(self.tree)!r})"
         else:
             # Some unit tests do not provide a mock tree.
             return f"{cls}(*{self.args})"  # pragma: no cover
@@ -168,6 +168,9 @@ class CELEvalError(Exception):
         if isinstance(other, CELEvalError):
             return self.args == other.args
         return NotImplemented
+
+    def __call__(self, *args: Any) -> 'CELEvalError':
+        return self
 
 
 # The interim results extends celtypes to include itermediate CELEvalError exception objects.
@@ -367,19 +370,118 @@ base_functions: Mapping[str, CELFunction] = {
 }
 
 
-# Names can refer to any of the following:
-Referent = Union[
-    Annotation,
-    celpy.celtypes.CELType,
-    celpy.celtypes.Value,
-    CELEvalError,
-    CELFunction,
-]
+class Referent:
+    """
+    A Name can refer to any of the following things:
+
+    -   Annotations -- initially most names are these
+        or a CELFunction that may implement a type.
+        Must be provided as part of the initialization.
+
+    -   NameContainer -- some names are these. This is true
+        when the name is *not* provided as part of the initialization because
+        we discovered the name during type or environment binding.
+
+    -   celpy.celtypes.Value -- many annotations also have values.
+        These are provided **after** Annotations, and require them.
+
+    -   CELEvalError -- This seems unlikely, but we include it because it's possible.
+
+    -   Functions -- All of the type conversion functions are names in a NameContainer.
+
+    A name can be ambiguous and refer to both a nested ``NameContainer`` as well
+    as a ``celpy.celtypes.Value`` (usually a MapType instance.)
+
+    Object ``b`` has two possible meanings:
+
+    -   ``b.c`` is a NameContainer for ``c``, a string.
+
+    -   ``b`` is a mapping, and ``b.c`` is syntax sugar for ``b['c']``.
+
+    The "longest name" rule means that the useful value is the "c" object
+    in the nested ``NameContainer``.
+    The syntax sugar interpretation is done in the rare case we can't find the ``NameContainer``.
+
+    >>> nc = NameContainer("c", celpy.celtypes.StringType)
+    >>> b = Referent(celpy.celtypes.MapType)
+    >>> b.value = celpy.celtypes.MapType({"c": "oops"})
+    >>> b.value == celpy.celtypes.MapType({"c": "oops"})
+    True
+    >>> b.container = nc
+    >>> b.value == nc
+    True
+
+    In effect, this class is
+    ::
+
+        Referent = Union[
+            Annotation,
+            celpy.celtypes.Value,
+            CELEvalError,
+            CELFunction,
+        ]
+    """
+    def __init__(
+            self,
+            ref_to: Optional[Annotation] = None
+            # Union[
+            # None, Annotation, celpy.celtypes.Value, CELEvalError,
+            # CELFunction, 'NameContainer'
+            # ] = None
+    ) -> None:
+        self.annotation: Optional[Annotation] = None
+        self.container: Optional['NameContainer'] = None
+        self._value: Union[
+            None, Annotation, celpy.celtypes.Value, CELEvalError, CELFunction,
+            'NameContainer'] = None
+        self._value_set = False
+        if ref_to:
+            self.annotation = ref_to
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}(annotation={self.annotation!r}, "
+            f"container={self.container!r}, "
+            f"_value={self._value!r})"
+        )
+
+    @property
+    def value(self) -> Union[
+            Annotation, celpy.celtypes.Value, CELEvalError, CELFunction, 'NameContainer']:
+        """
+        The longest-path rule means we prefer ``NameContainer`` over any locally defined value.
+        Otherwise, we'll provide a value if there is one.
+        Finally, we'll provide the annotation if there's no value.
+        :return:
+        """
+        if self.container is not None:
+            return self.container
+        elif self._value_set:
+            return self._value
+        else:
+            # Not part of a namespace path. Nor was a value set.
+            return self.annotation
+
+    @value.setter
+    def value(
+            self,
+            ref_to: Union[
+                Annotation, celpy.celtypes.Value, CELEvalError, CELFunction, 'NameContainer']
+    ) -> None:
+        self._value = ref_to
+        self._value_set = True
+
+    def clone(self) -> "Referent":
+        new = Referent(self.annotation)
+        new.container = self.container
+        new._value = self._value
+        new._value_set = self._value_set
+        return new
 
 
-# We'll tolerate a formal activation or a simpler mapping from names to values.
-# This may be more simply expressed as Context = Union['Activation', Dict[str, Referent]]
-Context = Union['Activation', Dict[str, Result]]
+# A name resolution context is a mapping from an identifer to a Value or a ``NameContainer``.
+# This reflects some murkiness in the name resolution algorithm that needs to be cleaned up.
+Context = Mapping[str, Union[Result, "NameContainer"]]
 
 
 # Copied from cel.lark
@@ -394,10 +496,6 @@ class NameContainer(Dict[str, Referent]):
 
         Scenario: "qualified_identifier_resolution_unchecked"
           "namespace resolution should try to find the longest prefix for the evaluator."
-
-    (This requirement seems to apply only to packages.)
-
-    Package are expanded from dotted paths to create nested Package Containers.
 
     NameContainer instances can be chained (via parent) to create a sequence of searchable
     locations for a name.
@@ -416,74 +514,107 @@ class NameContainer(Dict[str, Referent]):
 
         -   The run-time annotations from the environment. There are two kinds:
 
-            -   Protobuf message definitions. These are annotations with a meta-annotation.
+            -   Protobuf message definitions. These are types, really.
 
             -   Annotations for global variables. The annotations tend to be hidden by the values.
-                They're in the lookup chain to simplify access to protobuf annotations.
+                They're in the lookup chain to simplify access to protobuf messages.
 
         -   The environment also provides the built-in type names and aliases for the
-            celtypes package.
+            :mod:`celtypes` package of built-in types.
 
     This means name resolution marches from local-most to remote-most, searching for a binding.
     The global variable bindings have a local-most value and a more remote annotation.
     The annotations (i.e. protobuf message types) have only a fairly remote annotation without
     a value.
 
-    There are two "phases" to building the chain of NameContainers.
+    Structure.
 
-    1.  Initially, the environment provides name : annotation bindings.
+    A NameContainer is a mapping from names to Referents.
+
+    A Referent can be one of three things.
+
+    -   A NameContainer further down the path
+    -   An Annotation
+    -   An Annotation with a value.
+
+    Loading Names.
+
+    There are several "phases" to building the chain of ``NameContainer`` instances.
+
+    1.  The ``Activation`` creates the initial ``name : annotation`` bindings.
         Generally, the names are type names, like "int", bound to :py:class:`celtypes.IntType`.
         In some cases, the name is a future variable name, "resource",
         bound to :py:class:`celtypes.MapType`.
 
-    2.  Later, the Activation creation provides values (functions, objects, packages, messages.)
-        This is a child and is searched first.
-        In strict checking mode,
-        we need to be sure the child Activation objects actually have the correct annotation
-        defined in one of their parents.
+    2.  The ``Activation`` creates a second ``NameContainer`` that has variable names.
+        This has a reference back to the parent to resolve names that are types.
 
-    Resolution Algorithm.
+    This involves decomposing the paths of names to make a tree of nested ``NameContainers``.
+    Upper-level containers don't (necessarily) have types or values -- they're merely
+    ``NameContainer`` along the path to the target names.
+
+    Resolving Names.
 
     See https://github.com/google/cel-spec/blob/master/doc/langdef.md#name-resolution
 
     There are three cases required in the :py:class:`Evaluator` engine.
 
-    -   Variables and Functions. These are ``Result_Function`` instances: ordinary values.
+    -   Variables and Functions. These are ``Result_Function`` instances: i.e., ordinary values.
 
-    -   ``Name.Name`` can be indexing into a mapping when ``Name`` is a value of
-        ``MapType`` or a ``MessageType``.
+    -   ``Name.Name`` can be navigation into a protobuf package, when ``Name`` is protobuf package.
+        The idea is to locate the longest possible match.
 
-    -   ``Name.Name`` can be navigation into a protobuf package, when ``Name`` is protobuf package
-        or message type.
         If a.b is a name to be resolved in the context of a protobuf declaration with scope A.B,
         then resolution is attempted, in order, as A.B.a.b, A.a.b, and finally a.b.
         To override this behavior, one can use .a.b;
         this name will only be attempted to be resolved in the root scope, i.e. as a.b.
 
+    -   ``Name.Name`` can be syntactic sugar for indexing into a mapping when ``Name`` is a value of
+        ``MapType`` or a ``MessageType``. It's evaluated as if it was ``Name["Name"]``.
+        This is a fall-back plan if the previous resolution failed.
+
     The longest chain of nested packages *should* be resolved first.
-    This will happen when each name is a dict-like object containing
-    other dict-like objects. This includes native Python dicts (for packages)
-    as well as CEL ``MapType`` objects.
+    This will happen when each name is a ``NameContainer`` object containing
+    other ``NameContainer`` objects.
 
     The chain of evaluations for ``IDENT . IDENT . IDENT`` is (in effect)
     ::
 
         member_dot(member_dot(primary(IDENT), IDENT), IDENT)
 
-    This makes the ``member_dot` processing properly left associative.
+    This makes the ``member_dot` processing left associative.
 
     The ``primary(IDENT)`` resolves to a CEL object of some kind.
-    Once the ``primary(IDENT)`` has been resolved, it establishes the context
-    the ``member_dot`` methods.
+    Once the ``primary(IDENT)`` has been resolved, it establishes a context
+    for subsequent ``member_dot`` methods.
 
     -   If this is a ``MapType`` or a ``MessageType`` with an object,
         then ``member_dot`` will pluck out a field value and return this.
 
-    -   If this is a ``PackageType`` then the ``member_dot`` will pluck out a sub-package
-        or ``EnumType`` or ``MessageType`` and return the type object instead of a value.
-        At some point ``member_object`` will build an object from the type.
+    -   If this is a ``NameContainer`` or a ``PackageType`` then the ``member_dot``
+        will pluck out a sub-package or ``EnumType`` or ``MessageType``
+        and return the type object instead of a value.
+        At some point a ``member_object`` production will build an object from the type.
 
     The evaluator's :meth:`ident_value` method resolves the identifier into the ``Referent``.
+
+    Acceptance Test Case
+
+    We have two names
+
+    -   `a.b` -> NameContainer in which c = "yeah". (i.e., a.b.c : "yeah")
+    -   `a.b` -> Mapping with {"c": "oops"}.
+
+    This means any given name can have as many as three meanings:
+
+    -   Primarily as a NameContainer. This resolves name.name.name to find the longest
+        namespace possible.
+
+    -   Secondarily as a Mapping. This will be a fallback when name.name.name is really
+        syntactic sugar for name.name['name'].
+
+    -   Finally as a type annotation.
+
     """
     ident_pat = re.compile(IDENT)
     extended_name_path = re.compile(f"^\\.?{IDENT}(?:\\.{IDENT})*$")
@@ -491,116 +622,68 @@ class NameContainer(Dict[str, Referent]):
 
     def __init__(
             self,
-            source: Mapping[str, Referent],
+            name: Optional[str] = None,
+            ref_to: Optional[Referent] = None,
             parent: Optional['NameContainer'] = None
     ) -> None:
-        self.parent = parent
-        self.load_mapping(source)
+        if name and ref_to:
+            super().__init__({name: ref_to})
+        else:
+            super().__init__()
+        self.parent: Optional[NameContainer] = parent
 
-    def load_mapping(self, names: Mapping[str, Referent]) -> None:
+    def load_annotations(
+            self,
+            names: Mapping[str, Annotation],
+    ) -> None:
         """
-        Build a container used to resolve long path names. Set annotations for all identifiers.
+        Used by an ``Activation`` to build a container used to resolve
+        long path names into nested NameContainers.
+        Sets annotations for all supplied identifiers.
 
-        Every name's Annotation must be loaded initially. Later the name's value can be provided
-        in the case of variables or functions.
+        ``{"name1.name2": annotation}`` becomes two things:
 
-        ``{"name1.name2": annotation}`` becomes ``{"name1": {"name2": annotation}}``.
+        1. nc2 = NameContainer({"name2" : Referent(annotation)})
+
+        2. nc1 = NameContainer({"name1" : Referent(nc2)})
 
         :param names: A dictionary of {"name1.name1....": Referent, ...} items.
         """
-
         for name, refers_to in names.items():
-            self.logger.info(f"load_mapping {name!r} : {refers_to!r}")
+            self.logger.info(f"load_annotations {name!r} : {refers_to!r}")
             if not self.extended_name_path.match(name):
                 raise ValueError(f"Invalid name {name}")
 
-            # Expand "name1.name2...." into ["name1", "name2", ...]
-            name_path = self.ident_pat.findall(name)
+            context = self
 
-            # Create nested Referent(s) with the names leading to the target Referent.
-            # V1: top_mapping only has a single name: value pair in it.
-            top_mapping = NameContainer.make_nested_ident(refers_to, name_path)
-            top_name, top_ident = list(top_mapping.items())[0]
+            # Expand "name1.name2....": refers_to into ["name1", "name2", ...]: refers_to
+            *path, final = self.ident_pat.findall(name)
+            for name in path:
+                ref = context.setdefault(name, Referent())
+                if ref.container is None:
+                    ref.container = NameContainer(parent=self.parent)
+                context = ref.container
+            context.setdefault(final, Referent(refers_to))
 
-            # V2: don't emit the mapping,
-            # top_name, top_ident = NameContainer.make_nested_ident(refers_to, name_path)
+    def load_values(self, values: Context) -> None:
+        """Update annotations with actual values."""
+        for name, refers_to in values.items():
+            self.logger.info(f"load_values {name!r} : {refers_to!r}")
+            if not self.extended_name_path.match(name):
+                raise ValueError(f"Invalid name {name}")
 
-            # Merge the namespaces into this NameContainer, sharing common elements.
-            # i.e., "A.B" and "A.C" both share a common "A".
-            # V1: NameContainer.merge_ident(self, top_mapping)
-            NameContainer.merge_ident(self, top_name, top_ident)
+            context = self
 
-    @staticmethod
-    def make_nested_ident(object: Referent, path_list: List[str]) -> Dict[str, Referent]:
-        """
-        V1: Bottom-up creation of nested mappings to contain names and their values.
-        """
-        if len(path_list) > 1:
-            child_namespace = cast('Referent',
-                                   NameContainer.make_nested_ident(object, path_list[1:]))
-            return {path_list[0]: child_namespace}
-        return {path_list[0]: object}
-
-    # @staticmethod
-    # def make_nested_ident(object: Any, path_list: List[str]) -> Tuple[str, Any]:
-    #     """
-    #     V2: Bottom-up creation of nested mappings to contain names and their values.
-    #     """
-    #     if len(path_list) > 1:
-    #         child_name, child_ident = NameContainer.make_nested_ident(object, path_list[1:])
-    #         return (path_list[0], child_ident)
-    #     return path_list[0], object
-
-    @staticmethod
-    def merge_ident(
-            context: Union['NameContainer', Dict[str, Referent]],
-            name: str,
-            cel_value: Referent
-    ) -> None:
-        """
-        V2: Merge the given {name: Referent} into the ``NameContainer``.
-        Avoids overwriting by walking down the tree and merging new names under common parents.
-
-        ``"A.B" : type`` becomes ``{"A": {"B": type}}``
-
-        ``"A.C" : type`` becomes ``{"A": {"C": type}}``
-
-        Merged, they become ``{"A": {"B": type, "C": type}}``.
-
-        ..  important:L This doesn't handle ambiguity well
-
-            Given the above structure, When we fold in the following ``"A" : type``,
-            Then there's no place to put this information.
-
-            The name "A" is now ambiguous -- both a container and a variable on its own.
-
-            We can't easily handle "A" as package container AND "A" as independent name.
-            A reference to "A" can't easily decode the intent -- the simple name or the path
-            to a deeper name.
-
-        If the given name is already in the context, we descend into the context, recursively.
-
-        :param context: A ``NameContainer`` or a subsidiary MapType objects with names and values
-        :param name: The top-level name to insert
-        :param cel_ident: A top-level Referent to insert.
-        """
-        NameContainer.logger.debug(f"merge_ident {context} {name!r} : {cel_value!r}")
-        if name in context:
-            if isinstance(cel_value, dict):
-                # :func:`make_nested_ident` created a chain of one-item dictionaries.
-                child_name, child_referent = list(cast(Dict[str, Referent], cel_value).items())[0]
-                NameContainer.merge_ident(
-                    cast(Dict[str, Referent], context[name]),
-                    child_name,
-                    child_referent
-                )
-            else:
-                # No easy way to merge nested package with name at a higher level.
-                # TODO: Better represent "a.b" : annotation and "a" : annotation.
-                NameContainer.logger.warning(f"Identifier {name!r} is ambiguous in {context!r})")
-                pass
-        else:
-            context[name] = cel_value
+            # Expand "name1.name2....": refers_to into ["name1", "name2", ...]: refers_to
+            # Update NameContainer("name1", NameContainer("name2", NameContainer(..., refers_to)))
+            *path, final = self.ident_pat.findall(name)
+            for name in path:
+                ref = context.setdefault(name, Referent())
+                if ref.container is None:
+                    ref.container = NameContainer(parent=self.parent)
+                context = ref.container
+            context.setdefault(final, Referent())  # No annotation.
+            context[final].value = refers_to
 
     class NotFound(Exception):
         """
@@ -610,36 +693,64 @@ class NameContainer(Dict[str, Referent]):
         pass
 
     @staticmethod
-    def find_name(
-            context: Union['NameContainer', Dict[str, Any]],
-            path: List[str]
-    ) -> Referent:
+    def dict_find_name(some_dict: Dict[str, Referent], path: List[str]) -> Result:
+        """
+        Extension to navgiate into mappings, messages, and packages.
+
+        :param some_dict: An instance of a MapType, MessageType, or PackageType.
+        :param path: names to follow into the structure.
+        :returns: Value found down inside the structure.
+        """
+        if path:
+            head, *tail = path
+            try:
+                return NameContainer.dict_find_name(
+                    cast(Dict[str, Referent], some_dict[head]),
+                    tail)
+            except KeyError:
+                NameContainer.logger.debug(f"{head!r} not found in {some_dict.keys()}")
+                raise NameContainer.NotFound(path)
+        else:
+            return cast(Result, some_dict)
+
+    def find_name(self, path: List[str]) -> Union["NameContainer", Result]:
         """
         Find the name by searching down through nested packages or raise NotFound.
         This is a kind of in-order tree walk of contained packages.
         """
-        if path and isinstance(context, (Dict, NameContainer)):
+        if path:
             head, *tail = path
             try:
-                sub_context = cast(Dict[str, Any], context[head])
+                sub_context = self[head].value
             except KeyError:
-                NameContainer.logger.debug(f"{head!r} not found in {context.keys()}")
+                self.logger.debug(f"{head!r} not found in {self.keys()}")
                 raise NameContainer.NotFound(path)
-            return NameContainer.find_name(sub_context, tail)
-        elif not path:
-            # Fully matched. This is what we were looking for.
-            return cast(Referent, context)
+            if isinstance(sub_context, NameContainer):
+                return sub_context.find_name(tail)
+            elif isinstance(
+                    sub_context,
+                    (celpy.celtypes.MessageType, celpy.celtypes.MapType,
+                     celpy.celtypes.PackageType, dict)
+            ):
+                # Out of defined NameContainers, moving into Values: Messages, Mappings or Packages
+                # Make a fake Referent return value.
+                item: Union["NameContainer", Result] = NameContainer.dict_find_name(
+                    cast(Dict[str, Referent], sub_context),
+                    tail
+                )
+                return item
+            else:
+                # Fully matched. No more Referents with NameContainers or Referents with Mappings.
+                return cast(NameContainer, sub_context)
         else:
-            # Still path to match, but out of containers to search. Fail.
-            NameContainer.logger.debug(f"{path!r} not found in {context!r}")
-            raise NameContainer.NotFound(path)
+            # Fully matched. This NameContainer is what we were looking for.
+            return self
 
-    @staticmethod
-    def parent_iter(nc: 'NameContainer') -> Iterator['NameContainer']:
+    def parent_iter(self) -> Iterator['NameContainer']:
         """Yield this NameContainer and all of its parents to create a flat list."""
-        yield nc
-        if nc.parent is not None:
-            yield from NameContainer.parent_iter(nc.parent)
+        yield self
+        if self.parent is not None:
+            yield from self.parent.parent_iter()
 
     def resolve_name(
             self,
@@ -662,7 +773,6 @@ class NameContainer(Dict[str, Referent]):
         To override this behavior, one can use .a.b;
         this name will only be attempted to be resolved in the root scope, i.e. as a.b.
 
-
         We Start with the longest package name, a ``List[str]`` assigned to ``target``.
 
         Given a target, search through this ``NameContainer`` and all parents in the
@@ -672,6 +782,7 @@ class NameContainer(Dict[str, Referent]):
 
         If we can't find the identifier with given package target,
         truncate the package name from the end to create a new target and try again.
+        This is a bottom-up look that favors the longest name.
 
         :param package: Prefix string "name.name.name"
         :param name: The variable we're looking for
@@ -687,13 +798,14 @@ class NameContainer(Dict[str, Referent]):
         else:
             target = [""]
         # Pool of matches
-        matches: List[Tuple[List[str], Referent]] = []
+        matches: List[Tuple[List[str], Union["NameContainer", Result]]] = []
+        # Target has an extra item to make the len non-zero.
         while not matches and target:
             target = target[:-1]
-            for p in NameContainer.parent_iter(self):
+            for p in self.parent_iter():
                 try:
-                    package_ident = target + [name]
-                    match = NameContainer.find_name(p, package_ident)
+                    package_ident: List[str] = target + [name]
+                    match: Union["NameContainer", Result] = p.find_name(package_ident)
                     matches.append((package_ident, match))
                 except NameContainer.NotFound:
                     # No matches; move to the parent and try again.
@@ -701,9 +813,16 @@ class NameContainer(Dict[str, Referent]):
             self.logger.debug(f"resolve_name: target={target}+[{name!r}], matches={matches}")
         if not matches:
             raise KeyError(name)
-        # Find the longest name match.
+        # This feels hackish -- it should be the first referent value.
+        # Find the longest name match.p
         path, value = max(matches, key=lambda path_value: len(path_value[0]))
-        return value
+        return cast(Referent, value)
+
+    def clone(self) -> 'NameContainer':
+        new = NameContainer(parent=self.parent)
+        for k, v in self.items():
+            new[k] = v.clone()
+        return new
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({dict(self)}, parent={self.parent})"
@@ -777,7 +896,7 @@ class Activation:
 
     def __init__(
             self,
-            annotations: Optional[Mapping[str, Referent]] = None,
+            annotations: Optional[Mapping[str, Annotation]] = None,
             package: Optional[str] = None,
             vars: Optional[Context] = None,
             parent: Optional['Activation'] = None,
@@ -792,7 +911,7 @@ class Activation:
         :param annotations: Variables and type annotations.
             Annotations are loaded first to serve as defaults to create a parent NameContainer.
         :param package: The package name to assume as a prefix for name resolution.
-        :param vars: Variables and their values, loaded second to create a child NameContainer.
+        :param vars: Variables and their values, loaded to update the NameContainer.
         :param parent: A parent activation in the case of macro evaluations.
         """
         logger.info(
@@ -801,8 +920,10 @@ class Activation:
         )
         # Seed the annotation identifiers for this activation.
         self.identifiers: NameContainer = NameContainer(
-            annotations or {}, parent.identifiers if parent else None
+            parent=parent.identifiers if parent else None
         )
+        if annotations is not None:
+            self.identifiers.load_annotations(annotations)
 
         # The name of the run-time package -- an assumed prefix for name resolution
         self.package = package
@@ -810,42 +931,55 @@ class Activation:
         # Create a child NameContainer with variables (if any.)
         if vars is None:
             pass
-        elif isinstance(vars, Activation):
-            # Clone variables from an existing Activation's variables.
-            # Not sure this is a good idea or even needed.
-            new_container = NameContainer(vars.identifiers, parent=self.identifiers)
-            self.identifiers = new_container
+        elif isinstance(vars, Activation):  # pragma: no cover
+            # Deprecated legacy feature.
+            raise NotImplementedError("Use Activation.clone()")
+
         else:
-            # Create variables from is a dictionary of names and values.
-            new_container = NameContainer(vars, parent=self.identifiers)
-            self.identifiers = new_container
+            # Set values from a dictionary of names and values.
+            self.identifiers.load_values(vars)
+
+    def clone(self) -> "Activation":
+        """
+        Create a clone of this activation with a deep copy of the identifiers.
+        """
+        clone = Activation()
+        clone.package = self.package
+        clone.identifiers = self.identifiers.clone()
+        return clone
 
     def nested_activation(
             self,
-            annotations: Optional[Mapping[str, Referent]] = None,
+            annotations: Optional[Mapping[str, Annotation]] = None,
             vars: Optional[Context] = None
     ) -> 'Activation':
         """
         Create a nested sub-Activation that chains to the current activation.
-        This propagates the chaining to the variables.
+        The sub-activations don't have the same implied package context,
 
         :param annotations: Variable type annotations
         :param vars: Variables with literals to be converted to the desired types.
-        :return: An activate that chains to the previous activation.
+        :return: An ``Activation`` that chains to this Activation.
         """
         new = Activation(
-            annotations=annotations,  # or {},
-            package=self.package,
-            vars=vars,  # or {},
-            parent=self)
+            annotations=annotations,
+            vars=vars,
+            parent=self,
+            package=self.package
+        )
         return new
 
-    def resolve_variable(self, name: str) -> Referent:
+    def resolve_variable(self, name: str) -> Union[Result, NameContainer]:
         """Find the object referred to by the name.
 
         An Activation usually has a chain of NameContainers to be searched.
+
+        A variable can refer to an annotation and/or a value and/or a nested
+        container.  Most of the time, we want the `value` attribute of the Referent.
+        This can be a Result (a Union[Value, CelType])
         """
-        return self.identifiers.resolve_name(self.package, str(name))
+        container_or_value = self.identifiers.resolve_name(self.package, str(name))
+        return cast(Union[Result, NameContainer], container_or_value)
 
     def __repr__(self) -> str:
         return (
@@ -857,7 +991,7 @@ class Activation:
         )
 
 
-class FindIdent(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
+class FindIdent(lark.visitors.Visitor_Recursive):
     """Locate the ident token at the bottom of an AST.
 
     This is needed to find the bind variable for macros.
@@ -866,14 +1000,14 @@ class FindIdent(lark.visitors.Visitor_Recursive):  # type: ignore[misc]
     the details of the ``ident`` nodes only.
     """
     def __init__(self) -> None:
-        self.ident_token = None
+        self.ident_token: Optional[str] = None
 
     def ident(self, tree: lark.Tree) -> None:
-        ident_token = tree.children[0]
+        ident_token = cast(lark.Token, tree.children[0])
         self.ident_token = ident_token.value
 
     @classmethod
-    def in_tree(cls: Type['FindIdent'], tree: lark.Tree) -> lark.Token:
+    def in_tree(cls: Type['FindIdent'], tree: lark.Tree) -> Optional[str]:
         fi = FindIdent()
         fi.visit(tree)
         return fi.ident_token
@@ -888,14 +1022,14 @@ def trace(
     """
     @wraps(method)
     def concrete_method(self: 'Evaluator', tree: lark.Tree) -> Any:
-        self.logger.info(f"{self.level*'  '}{tree!r}")
+        self.logger.info(f"{self.level*'| '}{tree!r}")
         result = method(self, tree)
-        self.logger.info(f"{self.level*'  '}{tree.data} -> {result!r}")
+        self.logger.info(f"{self.level*'| '}{tree.data} -> {result!r}")
         return result
     return concrete_method
 
 
-class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
+class Evaluator(lark.visitors.Interpreter[Result]):
     """
     Evaluate an AST in the context of a specific Activation.
 
@@ -1000,7 +1134,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         """
         return Evaluator(ast, activation=self.activation, functions=self.functions)
 
-    def set_activation(self, activation: Context) -> 'Evaluator':
+    def set_activation(self, values: Context) -> 'Evaluator':
         """
         Chain a new activation using the given Context.
         This is used for two things:
@@ -1009,7 +1143,8 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
 
         2. Build local variable(s) for macro evaluation.
         """
-        self.activation = self.base_activation.nested_activation(vars=activation)
+        self.activation = self.base_activation.clone()
+        self.activation.identifiers.load_values(values)
         self.logger.info(f"Activation: {self.activation!r}")
         return self
 
@@ -1037,7 +1172,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         -   Internally, we sometimes want to silence CELEvalError exceptions so that
             we can apply short-circuit logic and choose a non-exceptional result.
         """
-        value = cast(Result, self.visit(self.ast))
+        value = self.visit(self.ast)
         if isinstance(value, CELEvalError):
             raise value
         return cast(celpy.celtypes.Value, value)
@@ -1048,7 +1183,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         self.level += 1
         result = super().visit_children(tree)
         self.level -= 1
-        return cast(List[Result], result)
+        return result
 
     def function_eval(
             self,
@@ -1068,7 +1203,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         except KeyError as ex:
             err = (
                 f"undeclared reference to '{name_token}' "
-                f"(in container '{self.package}')"
+                f"(in activation '{self.activation}')"
             )
             value = CELEvalError(err, ex.__class__, ex.args, token=name_token)
             value.__cause__ = ex
@@ -1110,7 +1245,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             self.logger.debug(f"functions: {self.functions}")
             err = (
                 f"undeclared reference to {method_ident.value!r} "
-                f"(in container '{self.package}')"
+                f"(in activation '{self.activation}')"
             )
             value = CELEvalError(err, ex.__class__, ex.args, token=method_ident)
             value.__cause__ = ex
@@ -1202,8 +1337,8 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         else:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad expr node",
-                line=tree.line,
-                column=tree.column,
+                line=tree.meta.line,
+                column=tree.meta.column,
             )
 
     @trace
@@ -1235,8 +1370,8 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         else:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad conditionalor node",
-                line=tree.line,
-                column=tree.column,
+                line=tree.meta.line,
+                column=tree.meta.column,
             )
 
     @trace
@@ -1268,8 +1403,8 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         else:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad conditionalor node",
-                line=tree.line,
-                column=tree.column,
+                line=tree.meta.line,
+                column=tree.meta.column,
             )
 
     @trace
@@ -1302,7 +1437,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             return values[0]
 
         elif len(tree.children) == 2:
-            left_op, right_tree = tree.children
+            left_op, right_tree = cast(Tuple[lark.Tree, lark.Tree], tree.children)
             op_name = {
                 "relation_lt": "_<_",
                 "relation_le": "_<=_",
@@ -1331,8 +1466,8 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         else:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad relation node",
-                line=tree.line,
-                column=tree.column,
+                line=tree.meta.line,
+                column=tree.meta.column,
             )
 
     @trace
@@ -1359,7 +1494,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             return values[0]
 
         elif len(tree.children) == 2:
-            left_op, right_tree = tree.children
+            left_op, right_tree = cast(Tuple[lark.Tree, lark.Tree], tree.children)
             op_name = {
                 "addition_add": "_+_",
                 "addition_sub": "_-_",
@@ -1388,8 +1523,8 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         else:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad addition node",
-                line=tree.line,
-                column=tree.column,
+                line=tree.meta.line,
+                column=tree.meta.column,
             )
 
     @trace
@@ -1417,7 +1552,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             return values[0]
 
         elif len(tree.children) == 2:
-            left_op, right_tree = tree.children
+            left_op, right_tree = cast(Tuple[lark.Tree, lark.Tree], tree.children)
             op_name = {
                 "multiplication_div": "_/_",
                 "multiplication_mul": "_*_",
@@ -1452,8 +1587,9 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         else:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad multiplication node",
-                line=tree.line,
-                column=tree.column,
+                line=tree.meta.line,
+                column=tree.meta.column,
+
             )
 
     @trace
@@ -1476,11 +1612,12 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         """
         if len(tree.children) == 1:
             # member with no preceeding unary_not or unary_neg
+            # TODO: If there are two possible values (namespace v. mapping) chose the namespace.
             values = self.visit_children(tree)
             return values[0]
 
         elif len(tree.children) == 2:
-            op_tree, right_tree = tree.children
+            op_tree, right_tree = cast(Tuple[lark.Tree, lark.Tree], tree.children)
             op_name = {
                 "unary_not": "!_",
                 "unary_neg": "-_",
@@ -1509,11 +1646,12 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         else:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad unary node",
-                line=tree.line,
-                column=tree.column,
+                line=tree.meta.line,
+                column=tree.meta.column,
+
             )
 
-    def build_macro_eval(self, child: lark.Tree) -> Callable[[Result], Result]:
+    def build_macro_eval(self, child: lark.Tree) -> Callable[[celpy.celtypes.Value], Any]:
         """
         Builds macro function.
 
@@ -1534,17 +1672,25 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         - [2] is the arguments in ()'s.
           Within this, there are two children: a variable and an expression.
         """
-        var_tree, expr_tree = child.children[2].children
+        args = cast(lark.Tree, child.children[2])
+        var_tree, expr_tree = cast(Tuple[lark.Tree, lark.Tree], args.children)
         identifier = FindIdent.in_tree(var_tree)
+        if identifier is None:  # pragma: no cover
+            # This seems almost impossible.
+            raise CELSyntaxError(
+                f"{child.data} {child.children}: bad macro node",
+                line=child.meta.line,
+                column=child.meta.column,
+            )
         # nested_eval = Evaluator(ast=expr_tree, activation=self.activation)
         nested_eval = self.sub_evaluator(ast=expr_tree)
 
-        def sub_expr(v: Result) -> Result:
-            return nested_eval.set_activation({identifier: v}).evaluate()
+        def sub_expr(v: celpy.celtypes.Value) -> Any:
+            return nested_eval.set_activation({cast(str, identifier): v}).evaluate()
 
         return sub_expr
 
-    def build_ss_macro_eval(self, child: lark.Tree) -> Callable[[Result], Result]:
+    def build_ss_macro_eval(self, child: lark.Tree) -> Callable[[celpy.celtypes.Value], Any]:
         """
         Builds macro function for short-circuit logical evaluation ignoring exception values.
 
@@ -1556,21 +1702,30 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
 
         The function will swallow exceptions, enabling short-circuit ``||`` and ``&&``.
         """
-        var_tree, expr_tree = child.children[2].children
+        args = cast(lark.Tree, child.children[2])
+        var_tree, expr_tree = cast(Tuple[lark.Tree, lark.Tree], args.children)
         identifier = FindIdent.in_tree(var_tree)
+        if identifier is None:  # pragma: no cover
+            # This seems almost impossible.
+            raise CELSyntaxError(
+                f"{child.data} {child.children}: bad macro node",
+                line=child.meta.line,
+                column=child.meta.column,
+            )
         # nested_eval = Evaluator(ast=expr_tree, activation=self.activation)
         nested_eval = self.sub_evaluator(ast=expr_tree)
 
-        def sub_expr(v: Result) -> Result:
+        def sub_expr(v: celpy.celtypes.Value) -> Any:
             try:
-                return nested_eval.set_activation({identifier: v}).evaluate()
+                return nested_eval.set_activation({cast(str, identifier): v}).evaluate()
             except CELEvalError as ex:
                 return ex
 
         return sub_expr
 
     def build_reduce_macro_eval(
-            self, child: lark.Tree) -> Tuple[Callable[[Result, Result], Result], lark.Tree]:
+            self, child: lark.Tree
+    ) -> Tuple[Callable[[Result, Result], Result], lark.Tree]:
         """
         Builds macro function and intiial expression for reduce().
 
@@ -1589,14 +1744,25 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         - [2] is the arguments in ()'s.
           Within this, there are four children: two variables and two expressions.
         """
-        reduce_var_tree, iter_var_tree, init_expr_tree, expr_tree = child.children[2].children
+        args = cast(lark.Tree, child.children[2])
+        reduce_var_tree, iter_var_tree, init_expr_tree, expr_tree = (
+            cast(Tuple[lark.Tree, lark.Tree, lark.Tree, lark.Tree], args.children)
+        )
         reduce_ident = FindIdent.in_tree(reduce_var_tree)
         iter_ident = FindIdent.in_tree(iter_var_tree)
+        if reduce_ident is None or iter_ident is None:  # pragma: no cover
+            # This seems almost impossible.
+            raise CELSyntaxError(
+                f"{child.data} {child.children}: bad macro node",
+                line=child.meta.line,
+                column=child.meta.column,
+            )
         # nested_eval = Evaluator(ast=expr_tree, activation=self.activation)
         nested_eval = self.sub_evaluator(ast=expr_tree)
 
         def sub_expr(r: Result, i: Result) -> Result:
-            return nested_eval.set_activation({reduce_ident: r, iter_ident: i}).evaluate()
+            return nested_eval.set_activation(
+                {cast(str, reduce_ident): r, cast(str, iter_ident): i}).evaluate()
 
         return sub_expr, init_expr_tree
 
@@ -1661,31 +1827,40 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
 
         TODO: implement member "." IDENT for messages.
         """
-        member_tree, property_name_token = tree.children
+        member_tree, property_name_token = cast(Tuple[lark.Tree, lark.Token], tree.children)
         member = self.visit(member_tree)
         property_name = property_name_token.value
         result: Result
         if isinstance(member, CELEvalError):
             result = member
-        elif isinstance(member, celpy.celtypes.MapType):
-            # Syntactic sugar: a.b is a["b"] when a is a mapping.
-            if property_name in member:
-                result = member[property_name]
-            else:
-                err = f"no such key: {property_name!r}"
-                result = CELEvalError(err, KeyError, None, tree=tree)
-        # elif isinstance(member, celpy.celtypes.MessageType):
-        # elif isinstance(member, celpy.celtypes.PackageType):
-        elif isinstance(member, dict):
+        elif isinstance(member, NameContainer):
             # Navigation through names provided as external run-time bindings.
             # The dict is the value of a Referent that was part of a namespace path.
             if property_name in member:
-                result = member[property_name]
+                result = member[property_name].value
             else:
-                err = f"no such key: {property_name!r}"
+                err = f"No {property_name!r} in bindings {sorted(member.keys())}"
+                result = CELEvalError(err, KeyError, None, tree=tree)
+        # TODO: Not sure this is needed...
+        elif isinstance(member, celpy.celtypes.MessageType):
+            self.logger.info(f"member_dot({member!r}, {property_name!r})")
+            result = member.get(property_name)
+        # TODO: Future Expansion, handle Protobuf message package...
+        # elif isinstance(member, celpy.celtypes.PackageType):
+        #     if property_name in member:
+        #         result = member[property_name]
+        #     else:
+        #         err = f"no such message {property_name!r} in package {member}"
+        #         result = CELEvalError(err, KeyError, None, tree=tree)
+        elif isinstance(member, celpy.celtypes.MapType):
+            # Syntactic sugar: a.b is a["b"] when a is a mapping.
+            try:
+                result = member[property_name]
+            except KeyError:
+                err = f"no such member in mapping: {property_name!r}"
                 result = CELEvalError(err, KeyError, None, tree=tree)
         else:
-            err = f"type: '{type(member)}' does not support field selection"
+            err = f"{member!r} with type: '{type(member)}' does not support field selection"
             result = CELEvalError(err, TypeError, None, tree=tree)
         return result
 
@@ -1711,72 +1886,74 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         """
         sub_expr: CELFunction
         result: Result
+        reduction: Result
         CELBoolFunction = Callable[[celpy.celtypes.BoolType, Result], celpy.celtypes.BoolType]
 
-        member_tree, method_name_token = tree.children[:2]
+        member_tree, method_name_token = cast(Tuple[lark.Tree, lark.Token], tree.children[:2])
 
         if method_name_token.value == "map":
-            member = self.visit(member_tree)
+            member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
             sub_expr = self.build_macro_eval(tree)
-            mapping = cast(Iterable[celpy.celtypes.Value], map(sub_expr, member))
+            mapping = cast(Iterable[celpy.celtypes.Value], map(sub_expr, member_list))
             result = celpy.celtypes.ListType(mapping)
             return result
 
         elif method_name_token.value == "filter":
-            member = self.visit(member_tree)
+            member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
             sub_expr = self.build_macro_eval(tree)
-            result = celpy.celtypes.ListType(filter(sub_expr, member))
+            result = celpy.celtypes.ListType(filter(sub_expr, member_list))
             return result
 
         elif method_name_token.value == "all":
-            member = self.visit(member_tree)
+            member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
             and_oper = cast(
                 CELBoolFunction,
                 eval_error("no such overload", TypeError)(
                     celpy.celtypes.logical_and)
             )
             sub_expr = self.build_ss_macro_eval(tree)
-            result = reduce(and_oper, map(sub_expr, member), celpy.celtypes.BoolType(True))
-            return result
+            reduction = reduce(and_oper, map(sub_expr, member_list), celpy.celtypes.BoolType(True))
+            return reduction
 
         elif method_name_token.value == "exists":
-            member = self.visit(member_tree)
+            member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
             or_oper = cast(
                 CELBoolFunction,
                 eval_error("no such overload", TypeError)(
                     celpy.celtypes.logical_or)
             )
             sub_expr = self.build_ss_macro_eval(tree)
-            result = reduce(or_oper, map(sub_expr, member), celpy.celtypes.BoolType(False))
-            return result
+            reduction = reduce(or_oper, map(sub_expr, member_list), celpy.celtypes.BoolType(False))
+            return reduction
 
         elif method_name_token.value == "exists_one":
             # Is there exactly 1?
-            member = self.visit(member_tree)
+            member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
             sub_expr = self.build_macro_eval(tree)
-            count = sum(1 for value in member if sub_expr(value))
+            count = sum(1 for value in member_list if bool(sub_expr(value)))
             return celpy.celtypes.BoolType(count == 1)
 
         elif method_name_token.value == "reduce":
             # Apply a function to reduce the list to a single value.
             # The `tree` is a `member_dot_arg` construct with (member, method_name, args)
             # The args have two variables and two expressions.
-            member = self.visit(member_tree)
-            sub_expr, init_expr_tree = self.build_reduce_macro_eval(tree)
+            member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
+            reduce_expr, init_expr_tree = self.build_reduce_macro_eval(tree)
             initial_value = self.visit(init_expr_tree)
-            result = reduce(sub_expr, member, initial_value)
-            return result
+            reduction = reduce(reduce_expr, member_list, initial_value)
+            return reduction
 
         elif method_name_token.value == "min":
             # Special case of "reduce()"
             # with <member>.min() -> <member>.reduce(r, i, int_max, r < i ? r : i)
-            member = self.visit(member_tree)
+            member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
             try:
-                result = min(member)
+                # Note. The Result type includes None, which will raise an exception.
+                reduction = min(member_list)  # type: ignore [type-var]
             except ValueError as ex:
-                err = "Attempt to reduce an empty sequence"
-                result = CELEvalError(err, ex.__class__, ex.args, tree=tree)
-            return result
+                err = "Attempt to reduce an empty sequence or a sequence with a None value"
+                reduction = CELEvalError(err, ex.__class__, ex.args, tree=tree)
+            return reduction
 
         else:
             # Not a macro: a method evaluation.
@@ -1789,11 +1966,11 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
                 result = self.method_eval(member, ident)
             else:
                 # assert len(tree.children) == 3
-                member, ident, exprlist = cast(
+                member, ident, expr_iter = cast(
                     Tuple[Result, lark.Token, Iterable[Result]],
                     self.visit_children(tree)
                 )
-                result = self.method_eval(member, ident, exprlist)
+                result = self.method_eval(member, ident, expr_iter)
             return result
 
     @trace
@@ -1853,15 +2030,22 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
 
         if len(values) == 1:
             # primary | member "{" "}"
-            if tree.children[0].data == "primary":
-                return values[0]
+            if cast(lark.Tree, tree.children[0]).data == "primary":
+                value = values[0]
             else:
                 # Build a default protobuf message.
                 protobuf_class = cast(
                     celpy.celtypes.FunctionType,
                     values[0]
                 )
-                return protobuf_class()
+                self.logger.debug(f"Creating {protobuf_class}()")
+                try:
+                    value = protobuf_class(None)
+                except (TypeError, ValueError) as ex:  # pragma: no cover
+                    value = CELEvalError(ex.args[0], ex.__class__, ex.args, tree=tree)
+            self.logger.debug(f"Created {value}")
+            return value
+
         elif len(values) == 2:
             # protobuf feature:  member "{" fieldinits "}"
             member, fieldinits = values
@@ -1872,13 +2056,22 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
                 celpy.celtypes.FunctionType,
                 member
             )
-            message_instance = protobuf_class(**cast(Dict[str, Any], fieldinits))
-            return message_instance
+            # NOTE: protobuf MessageType conversions are the responsibility of the target type.
+            # We can't -- easily -- generalize this.
+            self.logger.info(f"Creating {protobuf_class}({fieldinits!r})")
+            try:
+                value = protobuf_class(cast(celpy.celtypes.Value, fieldinits))
+            except (TypeError, ValueError) as ex:  # pragma: no cover
+                value = CELEvalError(ex.args[0], ex.__class__, ex.args, tree=tree)
+            self.logger.info(f"Created {value!r}")
+            return value
+
         else:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad member_object node",
-                line=tree.line,
-                column=tree.column,
+                line=tree.meta.line,
+                column=tree.meta.column,
+
             )
 
     @trace
@@ -1908,11 +2101,11 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         if len(tree.children) != 1:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad primary node",
-                line=tree.line,
-                column=tree.column,
+                line=tree.meta.line,
+                column=tree.meta.column,
             )
 
-        child = tree.children[0]
+        child = cast(lark.Tree, tree.children[0])
         if child.data == "literal":
             # A literal value
             values = self.visit_children(tree)
@@ -1956,7 +2149,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         elif child.data in ("dot_ident", "dot_ident_arg"):
             # "." IDENT ["(" [exprlist] ")"]
             # Leading "." means the name is resolved in the root scope **only**.
-            # No searching through alterantive pacakges.
+            # No searching through alterantive packages.
             # len(child) == 1 -- "." IDENT
             # len(child) == 2 -- "." IDENT "(" exprlist ")" -- TODO: Implement dot_ident_arg.
             values = self.visit_children(child)
@@ -1974,15 +2167,16 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             # Can be a proper function or one of the function-like macros: "has()", "dyn()".
             exprlist: lark.Tree
             if len(child.children) == 1:
-                name_token = child.children[0]
+                name_token = cast(lark.Token, child.children[0])
                 exprlist = lark.Tree(data="exprlist", children=[])
             elif len(child.children) == 2:
                 name_token, exprlist = cast(Tuple[lark.Token, lark.Tree], child.children)
             else:
                 raise CELSyntaxError(  # pragma: no cover
                     f"{tree.data} {tree.children}: bad primary node",
-                    line=tree.line,
-                    column=tree.column,
+                    line=tree.meta.line,
+                    column=tree.meta.column,
+
                 )
 
             if name_token.value == "has":
@@ -2000,7 +2194,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
 
         elif child.data == "ident":
             # IDENT -- simple identifier from the current activation.
-            name_token = child.children[0]
+            name_token = cast(lark.Token, child.children[0])
             try:
                 # Should not be a Function.
                 # Generally Result object (i.e., a variable)
@@ -2009,7 +2203,7 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             except KeyError as ex:
                 err = (
                     f"undeclared reference to '{name_token}' "
-                    f"(in container '{self.package}')"
+                    f"(in activation '{self.activation}')"
                 )
                 result = CELEvalError(err, ex.__class__, ex.args, tree=tree)
             return result
@@ -2017,8 +2211,8 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         else:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad primary node",
-                line=tree.line,
-                column=tree.column,
+                line=tree.meta.line,
+                column=tree.meta.column,
             )
 
     @trace
@@ -2031,10 +2225,11 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         if len(tree.children) != 1:
             raise CELSyntaxError(
                 f"{tree.data} {tree.children}: bad literal node",
-                line=tree.line,
-                column=tree.column,
+                line=tree.meta.line,
+                column=tree.meta.column,
+
             )
-        value_token = tree.children[0]
+        value_token = cast(lark.Token, tree.children[0])
         try:
             result: Result
             if value_token.type == "FLOAT_LIT":
@@ -2045,8 +2240,8 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
                 if not value_token.value[-1].lower() == 'u':
                     raise CELSyntaxError(
                         f"invalid unsigned int literal {value_token!r}",
-                        line=tree.line,
-                        column=tree.column,
+                        line=tree.meta.line,
+                        column=tree.meta.column,
                     )
                 result = celpy.celtypes.UintType(value_token.value[:-1])
             elif value_token.type in ("MLSTRING_LIT", "STRING_LIT"):
@@ -2062,8 +2257,8 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
             else:
                 raise CELUnsupportedError(
                     f"{tree.data} {tree.children}: type not implemented",
-                    line=tree.line,
-                    column=tree.column,
+                    line=value_token.line,
+                    column=value_token.column,
                 )
         except ValueError as ex:
             result = CELEvalError(ex.args[0], ex.__class__, ex.args, tree=tree)
@@ -2096,16 +2291,18 @@ class Evaluator(lark.visitors.Interpreter):  # type: ignore[misc]
         This creates a mapping, used by the :meth:`member_object` method to create
         and populate a protobuf object. Duplicate names are an error.
         """
-        result = celpy.celtypes.MapType()
-
-        pairs = zip(tree.children[0::2], tree.children[1::2])
+        fields: Dict[str, Any] = {}
+        pairs = cast(
+            Iterable[Tuple[lark.Token, lark.Tree]],
+            zip(tree.children[0::2], tree.children[1::2])
+        )
         for ident_node, expr_node in pairs:
-            ident = celpy.celtypes.StringType(ident_node.value)
+            ident = ident_node.value
             expr = cast(celpy.celtypes.Value, self.visit_children(expr_node)[0])
-            if ident in result:
+            if ident in fields:
                 raise ValueError(f"Duplicate field label {ident!r}")
-            result[ident] = expr
-        return result
+            fields[ident] = expr
+        return celpy.celtypes.MessageType(**fields)
 
     @trace
     def mapinits(self, tree: lark.Tree) -> Result:
