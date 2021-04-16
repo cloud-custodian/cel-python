@@ -849,7 +849,55 @@ def get_related_ids(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(related_ids)
 
 
-def security_group(security_group_id: celtypes.Value,) -> celtypes.Value:
+def get_related_sgs(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    Reach into C7N and make a get_related_sgs() request using the current C7N filter.
+    """
+    security_groups = C7N.filter.get_related_sgs(resource)
+    return json_to_cel(security_groups)
+
+
+def get_related_subnets(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    Reach into C7N and make a get_related_subnets() request using the current C7N filter.
+    """
+    subnets = C7N.filter.get_related_subnets(resource)
+    return json_to_cel(subnets)
+
+
+def get_related_nat_gateways(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    Reach into C7N and make a get_related_nat_gateways() request using the current C7N filter.
+    """
+    nat_gateways = C7N.filter.get_related_nat_gateways(resource)
+    return json_to_cel(nat_gateways)
+
+
+def get_related_igws(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    Reach into C7N and make a get_related_igws() request using the current C7N filter.
+    """
+    igws = C7N.filter.get_related_igws(resource)
+    return json_to_cel(igws)
+
+
+def get_related_security_configs(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    Reach into C7N and make a get_related_security_configs() request using the current C7N filter.
+    """
+    security_configs = C7N.filter.get_related_security_configs(resource)
+    return json_to_cel(security_configs)
+
+
+def get_related_vpc(resource: celtypes.MapType,) -> celtypes.Value:
+    """
+    Reach into C7N and make a get_related_vpc() request using the current C7N filter.
+    """
+    vpc = C7N.filter.get_related_vpc(resource)
+    return json_to_cel(vpc)
+
+
+def security_group(security_group_id: celtypes.MapType,) -> celtypes.Value:
     """
     Reach into C7N and make a get_related() request using the current C7N filter to get
     the security group.
@@ -944,7 +992,7 @@ def subst(jmes_path: celtypes.StringType,) -> celtypes.StringType:
     return celtypes.StringType(jmes_path.format(**config_args))
 
 
-def credentials(vpc_id: celtypes.Value,) -> celtypes.Value:
+def credentials(resource: celtypes.MapType) -> celtypes.Value:
     """
     Reach into C7N and make a get_related() request using the current C7N filter to get
     the IAM-role credential details.
@@ -958,7 +1006,7 @@ def credentials(vpc_id: celtypes.Value,) -> celtypes.Value:
         ``CredentialReportMixin`` mixin to the :py:class:`CELFilter` class.
         The ``get_credential_report()`` function does what we need.
     """
-    return json_to_cel(C7N.filter.get_credential_report())
+    return json_to_cel(C7N.filter.get_credential_report(resource))
 
 
 def kms_alias(vpc_id: celtypes.Value,) -> celtypes.Value:
@@ -1403,6 +1451,12 @@ DECLARATIONS: Dict[str, Annotation] = {
     "kms_key": celtypes.FunctionType,
     "resource_schedule": celtypes.FunctionType,
     "get_accounts": celtypes.FunctionType,
+    "get_related_sgs": celtypes.FunctionType,
+    "get_related_subnets": celtypes.FunctionType,
+    "get_related_nat_gateways": celtypes.FunctionType,
+    "get_related_igws": celtypes.FunctionType,
+    "get_related_security_configs": celtypes.FunctionType,
+    "get_related_vpc": celtypes.FunctionType,
     "get_vpcs": celtypes.FunctionType,
     "get_vpces": celtypes.FunctionType,
     "get_orgids": celtypes.FunctionType,
@@ -1461,6 +1515,12 @@ FUNCTIONS: Dict[str, ExtFunction] = {
         kms_key,
         resource_schedule,
         get_accounts,
+        get_related_sgs,
+        get_related_subnets,
+        get_related_nat_gateways,
+        get_related_igws,
+        get_related_security_configs,
+        get_related_vpc,
         get_vpcs,
         get_vpces,
         get_orgids,
