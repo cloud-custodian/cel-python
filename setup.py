@@ -24,7 +24,7 @@ here = Path(__file__).parent
 
 setup(
     name="cel-python",
-    version='0.1.2',
+    version='0.1.3',
     description='Pure Python CEL Implementation',
     license='Apache-2.0',
     long_description=(here/"README.rst").read_text(),
@@ -33,10 +33,10 @@ setup(
     author_email=None,
     maintainer=None,
     maintainer_email=None,
-    url='https://cel-python.io',
+    url='https://github.com/cloud-custodian/cel-python',
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
     package_data={"celpy": ["*.lark"]},
     install_requires=(here/"requirements.txt").read_text().splitlines(),
-    python_requires='>=3.6, <4',
+    python_requires='>=3.7, <4',
 )
