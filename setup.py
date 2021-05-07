@@ -24,8 +24,9 @@ here = Path(__file__).parent
 
 setup(
     name="cel-python",
-    version='0.1.1',
+    version='0.1.2',
     description='Pure Python CEL Implementation',
+    license='Apache-2.0',
     long_description=(here/"README.rst").read_text(),
     long_description_content_type='text/x-rst',
     author='Cloud Custodian Project',
