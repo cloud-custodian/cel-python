@@ -27,7 +27,7 @@ setup(
     version='0.1.4',
     description='Pure Python CEL Implementation',
     license='Apache-2.0',
-    classifiers='License :: OSI Approved :: Apache Software License',
+    classifiers=['License :: OSI Approved :: Apache Software License'],
     long_description=(here/"README.rst").read_text(),
     long_description_content_type='text/x-rst',
     author='Cloud Custodian Project',
