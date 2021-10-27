@@ -34,10 +34,10 @@ setup(
     author_email=None,
     maintainer=None,
     maintainer_email=None,
-    url='https://github.com/cloud-custodian/cel-python',
+    url='https://github.com/DataDog/cel-python',
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
     package_data={"celpy": ["*.lark"]},
     install_requires=(here/"requirements.txt").read_text().splitlines(),
-    python_requires='>=3.7, <4',
+    python_requires='>=3.6, <4',
 )
