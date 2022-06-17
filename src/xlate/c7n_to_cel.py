@@ -449,7 +449,7 @@ class C7N_Rewriter:
         if "tz" in c7n_filter:  # pragma: no cover
             # Not widely used.
             tz = c7n_filter.get("tz", "utc")
-            logger.error(f"Cannot convert mark-for-op: with tz: {tz} in {c7n_filter}")
+            logger.error("Cannot convert mark-for-op: with tz: %s in %s", tz, c7n_filter)
 
         clauses = [
             f'{key}.marked_key({C7N_Rewriter.q(tag)}).action == {C7N_Rewriter.q(op)}',
@@ -512,7 +512,7 @@ class C7N_Rewriter:
         op = cast(str, c7n_filter["op"])
         cel_value = f'{C7N_Rewriter.q(c7n_filter["value"])}'
         if "(?!" in cel_value:
-            logger.error(f"Image patterns like {cel_value!r} require a manual rewrite.")
+            logger.error("Image patterns like %r require a manual rewrite.", cel_value)
 
         return C7N_Rewriter.atomic_op_map[op].format(key, cel_value)
 
@@ -1342,7 +1342,7 @@ class C7N_Rewriter:
             exclude = ""
         for k in c7n_filter:
             if k.startswith("whitelist_") and k != "whitelist_from":
-                logger.error(f"Not handled well {k}: {c7n_filter[k]}")
+                logger.error("Not handled well %s: %s", k, c7n_filter[k])
                 values = ", ".join(f'"{item}"' for item in c7n_filter[k])
                 exclude += f".filter(p, ! p.attr in [{values}])"
         return f"size({attr}{exclude}) > 0"
