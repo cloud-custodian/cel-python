@@ -111,7 +111,7 @@ class CELEvalError(Exception):
                 f"{cls}(*{self.args}, tree={tree_dump(self.tree)!r}, token={self.token!r})"
             )  # pragma: no cover
         elif self.tree:
-            return f"{cls}(*{self.args}, tree={tree_dump(self.tree)!r})"
+            return f"{cls}(*{self.args}, tree={tree_dump(self.tree)!r})"  # pragma: no cover
         else:
             # Some unit tests do not provide a mock tree.
             return f"{cls}(*{self.args})"  # pragma: no cover
