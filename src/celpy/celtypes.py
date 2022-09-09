@@ -266,7 +266,7 @@ def logical_condition(e: Value, x: Value, y: Value) -> Value:
     if not isinstance(e, BoolType):
         raise TypeError(f"Unexpected {type(e)} ? {type(x)} : {type(y)}")
     result = x if e else y
-    logger.debug(f"logical_condition({e!r}, {x!r}, {y!r}) = {result!r}")
+    logger.debug("logical_condition(%r, %r, %r) = %r", e, x, y, result)
     return result
 
 
@@ -299,7 +299,7 @@ def logical_not(x: Value) -> Value:
         result = BoolType(not x)
     else:
         raise TypeError(f"not {type(x)}")
-    logger.debug(f"logical_not({x!r}) = {result!r}")
+    logger.debug("logical_not(%r) = %r", x, result)
     return result
 
 

@@ -346,9 +346,8 @@ def test_trace_decorator(mock_tree):
     assert result == sentinel.result
 
     assert e.logger.info.mock_calls == [
-        call(f"| {mock_tree!r}"),
-        call('| ident -> sentinel.result'),
-
+        call('%s%r', '| ', mock_tree),
+        call('%s%s -> %r', '| ', 'ident', sentinel.result)
     ]
 
 def test_evaluator_init():

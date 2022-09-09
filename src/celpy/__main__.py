@@ -341,11 +341,11 @@ def process_json_doc(
     except CELEvalError as ex:
         # ``jq`` KeyError problems result in ``None``.
         # Other errors should, perhaps, be more visible.
-        logger.debug(f"Encountered {ex} on document {document!r}")
+        logger.debug("Encountered %s on document %r", ex, document)
         display(None)
         return 0
     except json.decoder.JSONDecodeError as ex:
-        logger.error(f"{ex.args[0]} on document {document!r}")
+        logger.error("%s on document %r", ex.args[0], document)
         # print(f"{ex.args[0]} in {document!r}", file=sys.stderr)
         return 3
 
@@ -426,7 +426,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 if isinstance(result, (celtypes.BoolType, bool)):
                     summary = 0 if result else 1
                 else:
-                    logger.warning(f"Expected celtypes.BoolType, got {type(result)} = {result!r}")
+                    logger.warning("Expected celtypes.BoolType, got %s = %r", type(result), result)
                     summary = 2
             else:
                 output_display(result)

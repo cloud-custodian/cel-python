@@ -25,6 +25,7 @@ import celpy.celtypes
 def test_json_to_cel():
     assert celpy.adapter.json_to_cel(True) == celpy.celtypes.BoolType(True)
     assert celpy.adapter.json_to_cel(False) == celpy.celtypes.BoolType(False)
+    assert str(celpy.adapter.json_to_cel(False)) == str(celpy.celtypes.BoolType(False))
     assert celpy.adapter.json_to_cel(2.5) == celpy.celtypes.DoubleType(2.5)
     assert celpy.adapter.json_to_cel(42) == celpy.celtypes.IntType(42)
     assert celpy.adapter.json_to_cel("Hello, world!") == celpy.celtypes.StringType("Hello, world!")

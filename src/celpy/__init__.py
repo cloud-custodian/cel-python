@@ -261,7 +261,7 @@ class Environment:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.package: Optional[str] = package
         self.annotations: Dict[str, Annotation] = annotations or {}
-        self.logger.info(f"Type Annotations {self.annotations!r}")
+        self.logger.info("Type Annotations %r", self.annotations)
         self.runner_class: Type[Runner] = runner_class or InterpretedRunner
         self.cel_parser = CELParser()
         self.runnable: Runner
@@ -282,7 +282,7 @@ class Environment:
             functions: Optional[Dict[str, CELFunction]] = None
     ) -> Runner:
         """Transforms the AST into an executable runner."""
-        self.logger.info(f"Package {self.package!r}")
+        self.logger.info("Package %r", self.package)
         runner_class = self.runner_class
         self.runnable = runner_class(self, expr, functions)
         return self.runnable

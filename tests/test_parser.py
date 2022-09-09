@@ -31,7 +31,7 @@ from textwrap import dedent
 from lark import Tree
 from pytest import *  # type: ignore[import]
 
-from celpy.celparser import CELParseError, CELParser, DumpAST
+from celpy.celparser import CELParseError, CELParser, DumpAST, tree_dump
 
 
 @fixture
@@ -437,3 +437,8 @@ def test_dump_ast(parser):
     # An odd degenerate case
     ast6 = parser.parse("[].min()")
     assert DumpAST.display(ast6) == ".min()"
+
+
+def test_tree_dump(parser):
+    ast = parser.parse("-(3*4+5-1/2%3==1)?name[index]:f(1,2)||false&&true")
+    assert tree_dump(ast) == '- (3 *  4 +  5 -  1 /  2 %  3 ==  1) ? name[index] : f(1, 2) || false && true'

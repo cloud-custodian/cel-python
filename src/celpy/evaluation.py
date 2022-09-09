@@ -111,7 +111,7 @@ class CELEvalError(Exception):
                 f"{cls}(*{self.args}, tree={tree_dump(self.tree)!r}, token={self.token!r})"
             )  # pragma: no cover
         elif self.tree:
-            return f"{cls}(*{self.args}, tree={tree_dump(self.tree)!r})"
+            return f"{cls}(*{self.args}, tree={tree_dump(self.tree)!r})"  # pragma: no cover
         else:
             # Some unit tests do not provide a mock tree.
             return f"{cls}(*{self.args})"  # pragma: no cover
@@ -218,13 +218,13 @@ def eval_error(new_text: str, exc_class: Exception_Filter) -> Callable[[TargetFu
             try:
                 return function(*args, **kwargs)
             except exc_class as ex:  # type: ignore[misc]
-                logger.debug(f"{function.__name__}(*{args}, **{kwargs}) --> {ex}")
+                logger.debug("%s(*%s, **%s) --> %s", function.__name__, args, kwargs, ex)
                 _, _, tb = sys.exc_info()
                 value = CELEvalError(new_text, ex.__class__, ex.args).with_traceback(tb)
                 value.__cause__ = ex
                 return value
             except Exception:
-                logger.error(f"{function.__name__}(*{args}, **{kwargs})")
+                logger.error("%s(*%s, **%s)", function.__name__, args, kwargs)
                 raise
         return cast(TargetFunc, new_function)
     return concrete_decorator
@@ -287,9 +287,9 @@ def operator_in(item: Result, container: Result) -> Result:
             if c == item:
                 return celpy.celtypes.BoolType(True)
         except TypeError as ex:
-            logger.debug(f"operator_in({item}, {container}) --> {ex}")
+            logger.debug("operator_in(%s, %s) --> %s", item, container, ex)
             result = CELEvalError("no such overload", ex.__class__, ex.args)
-    logger.debug(f"operator_in({item!r}, {container!r}) = {result!r}")
+    logger.debug("operator_in(%r, %r) = %r", item, container, result)
     return result
 
 
@@ -312,7 +312,7 @@ def function_size(container: Result) -> Result:
         return celpy.celtypes.IntType(0)
     sized_container = cast(Sized, container)
     result = celpy.celtypes.IntType(len(sized_container))
-    logger.debug(f"function_size({container!r}) = {result!r}")
+    logger.debug("function_size(%r) = %r", container, result)
     return result
 
 
@@ -650,7 +650,7 @@ class NameContainer(Dict[str, Referent]):
         :param names: A dictionary of {"name1.name1....": Referent, ...} items.
         """
         for name, refers_to in names.items():
-            self.logger.info(f"load_annotations {name!r} : {refers_to!r}")
+            self.logger.info("load_annotations %r : %r", name, refers_to)
             if not self.extended_name_path.match(name):
                 raise ValueError(f"Invalid name {name}")
 
@@ -668,7 +668,7 @@ class NameContainer(Dict[str, Referent]):
     def load_values(self, values: Context) -> None:
         """Update annotations with actual values."""
         for name, refers_to in values.items():
-            self.logger.info(f"load_values {name!r} : {refers_to!r}")
+            self.logger.info("load_values %r : %r", name, refers_to)
             if not self.extended_name_path.match(name):
                 raise ValueError(f"Invalid name {name}")
 
@@ -708,7 +708,7 @@ class NameContainer(Dict[str, Referent]):
                     cast(Dict[str, Referent], some_dict[head]),
                     tail)
             except KeyError:
-                NameContainer.logger.debug(f"{head!r} not found in {some_dict.keys()}")
+                NameContainer.logger.debug("%r not found in %s", head, some_dict.keys())
                 raise NameContainer.NotFound(path)
         else:
             return cast(Result, some_dict)
@@ -723,7 +723,7 @@ class NameContainer(Dict[str, Referent]):
             try:
                 sub_context = self[head].value
             except KeyError:
-                self.logger.debug(f"{head!r} not found in {self.keys()}")
+                self.logger.debug("%r not found in %s", head, self.keys())
                 raise NameContainer.NotFound(path)
             if isinstance(sub_context, NameContainer):
                 return sub_context.find_name(tail)
@@ -790,7 +790,7 @@ class NameContainer(Dict[str, Referent]):
             annotation.
         """
         self.logger.info(
-            f"resolve_name({package!r}.{name!r}) in {self.keys()}, parent={self.parent}"
+            "resolve_name(%r.%r) in %s, parent=%s", package, name, self.keys, self.parent
         )
         # Longest Name
         if package:
@@ -810,7 +810,7 @@ class NameContainer(Dict[str, Referent]):
                 except NameContainer.NotFound:
                     # No matches; move to the parent and try again.
                     pass
-            self.logger.debug(f"resolve_name: target={target}+[{name!r}], matches={matches}")
+            self.logger.debug("resolve_name: target=%s+[%r], matches=%s", target, name, matches)
         if not matches:
             raise KeyError(name)
         # This feels hackish -- it should be the first referent value.
@@ -915,8 +915,8 @@ class Activation:
         :param parent: A parent activation in the case of macro evaluations.
         """
         logger.info(
-            f"Activation(annotations={annotations!r}, package={package!r}, vars={vars!r}, "
-            f"parent={parent})"
+            "Activation(annotations=%r, package=%r, vars=%r, "
+            "parent=%s)", annotations, package, vars, parent
         )
         # Seed the annotation identifiers for this activation.
         self.identifiers: NameContainer = NameContainer(
@@ -1022,9 +1022,9 @@ def trace(
     """
     @wraps(method)
     def concrete_method(self: 'Evaluator', tree: lark.Tree) -> Any:
-        self.logger.info(f"{self.level*'| '}{tree!r}")
+        self.logger.info("%s%r", self.level * '| ', tree)
         result = method(self, tree)
-        self.logger.info(f"{self.level*'| '}{tree.data} -> {result!r}")
+        self.logger.info("%s%s -> %r", self.level * '| ', tree.data, result)
         return result
     return concrete_method
 
@@ -1123,8 +1123,8 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             self.functions = base_functions
 
         self.level = 0
-        self.logger.info(f"activation: {self.activation!r}")
-        self.logger.info(f"functions: {self.functions!r}")
+        self.logger.info("activation: %r", self.activation)
+        self.logger.info("functions: %r", self.functions)
 
     def sub_evaluator(self, ast: lark.Tree) -> 'Evaluator':
         """
@@ -1145,7 +1145,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
         """
         self.activation = self.base_activation.clone()
         self.activation.identifiers.load_values(values)
-        self.logger.info(f"Activation: {self.activation!r}")
+        self.logger.info("Activation: %r", self.activation)
         return self
 
     def ident_value(self, name: str, root_scope: bool = False) -> Result_Function:
@@ -1221,7 +1221,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             value.__cause__ = ex
             return value
         except (TypeError, AttributeError) as ex:
-            self.logger.debug(f"function_eval({name_token!r}, {exprlist}) --> {ex}")
+            self.logger.debug("function_eval(%r, %s) --> %s", name_token, exprlist, ex)
             value = CELEvalError(
                 "no such overload", ex.__class__, ex.args, token=name_token)
             value.__cause__ = ex
@@ -1241,8 +1241,8 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             # TODO: Transitive Lookup of function in all parent activation contexts.
             function = self.functions[method_ident.value]
         except KeyError as ex:
-            self.logger.debug(f"method_eval({object!r}, {method_ident!r}, {exprlist}) --> {ex!r}")
-            self.logger.debug(f"functions: {self.functions}")
+            self.logger.debug("method_eval(%r, %r, %s) --> %r", object, method_ident, exprlist, ex)
+            self.logger.debug("functions: %s", self.functions)
             err = (
                 f"undeclared reference to {method_ident.value!r} "
                 f"(in activation '{self.activation}')"
@@ -1265,7 +1265,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             value.__cause__ = ex
             return value
         except (TypeError, AttributeError) as ex:
-            self.logger.debug(f"method_eval({object!r}, {method_ident!r}, {exprlist}) --> {ex!r}")
+            self.logger.debug("method_eval(%r, %r, %s) --> %r", object, method_ident, exprlist, ex)
             value = CELEvalError("no such overload", ex.__class__, ex.args, token=method_ident)
             value.__cause__ = ex
             return value
@@ -1326,7 +1326,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             try:
                 return func(cond_value, left, right)
             except TypeError as ex:
-                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug("%s(%s, %s) --> %s", func.__name__, left, right, ex)
                 err = (
                     f"found no matching overload for _?_:_ "
                     f"applied to '({type(cond_value)}, {type(left)}, {type(right)})'"
@@ -1359,7 +1359,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             try:
                 return func(left, right)
             except TypeError as ex:
-                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug("%s(%s, %s) --> %s", func.__name__, left, right, ex)
                 err = (
                     f"found no matching overload for _||_ "
                     f"applied to '({type(left)}, {type(right)})'"
@@ -1392,7 +1392,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             try:
                 return func(left, right)
             except TypeError as ex:
-                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug("%s(%s, %s) --> %s", func.__name__, left, right, ex)
                 err = (
                     f"found no matching overload for _&&_ "
                     f"applied to '({type(left)}, {type(right)})'"
@@ -1450,11 +1450,11 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             func = self.functions[op_name]
             # NOTE: values have the structure [[left], right]
             (left, *_), right = cast(Tuple[List[Result], Result], self.visit_children(tree))
-            self.logger.debug(f"relation {left!r} {op_name} {right!r}")
+            self.logger.debug("relation %r %s %r", left, op_name, right)
             try:
                 return func(left, right)
             except TypeError as ex:
-                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug("%s(%s, %s) --> %s", func.__name__, left, right, ex)
                 err = (
                     f"found no matching overload for {left_op.data!r} "
                     f"applied to '({type(left)}, {type(right)})'"
@@ -1502,11 +1502,11 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             func = self.functions[op_name]
             # NOTE: values have the structure [[left], right]
             (left, *_), right = cast(Tuple[List[Result], Result], self.visit_children(tree))
-            self.logger.debug(f"addition {left!r} {op_name} {right!r}")
+            self.logger.debug("addition %r %s %r", left, op_name, right)
             try:
                 return func(left, right)
             except TypeError as ex:
-                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug("%s(%s, %s) --> %s", func.__name__, left, right, ex)
                 err = (
                     f"found no matching overload for {left_op.data!r} "
                     f"applied to '({type(left)}, {type(right)})'"
@@ -1515,7 +1515,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
                 value.__cause__ = ex
                 return value
             except (ValueError, OverflowError) as ex:
-                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug("%s(%s, %s) --> %s", func.__name__, left, right, ex)
                 value = CELEvalError("return error for overflow", ex.__class__, ex.args, tree=tree)
                 value.__cause__ = ex
                 return value
@@ -1561,11 +1561,11 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             func = self.functions[op_name]
             # NOTE: values have the structure [[left], right]
             (left, *_), right = cast(Tuple[List[Result], Result], self.visit_children(tree))
-            self.logger.debug(f"multiplication {left!r} {op_name} {right!r}")
+            self.logger.debug("multiplication %r %s %r", left, op_name, right)
             try:
                 return func(left, right)
             except TypeError as ex:
-                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug("%s(%s, %s) --> %s", func.__name__, left, right, ex)
                 err = (
                     f"found no matching overload for {left_op.data!r} "
                     f"applied to '({type(left)}, {type(right)})'"
@@ -1574,12 +1574,12 @@ class Evaluator(lark.visitors.Interpreter[Result]):
                 value.__cause__ = ex
                 return value
             except ZeroDivisionError as ex:
-                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug("%s(%s, %s) --> %s", func.__name__, left, right, ex)
                 value = CELEvalError("modulus or divide by zero", ex.__class__, ex.args, tree=tree)
                 value.__cause__ = ex
                 return value
             except (ValueError, OverflowError) as ex:
-                self.logger.debug(f"{func.__name__}({left}, {right}) --> {ex}")
+                self.logger.debug("%s(%s, %s) --> %s", func.__name__, left, right, ex)
                 value = CELEvalError("return error for overflow", ex.__class__, ex.args, tree=tree)
                 value.__cause__ = ex
                 return value
@@ -1625,11 +1625,11 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             func = self.functions[op_name]
             # NOTE: values has the structure [[], right]
             left, right = cast(Tuple[List[Result], Result], self.visit_children(tree))
-            self.logger.debug(f"unary {op_name} {right!r}")
+            self.logger.debug("unary %s %r", op_name, right)
             try:
                 return func(right)
             except TypeError as ex:
-                self.logger.debug(f"{func.__name__}({right}) --> {ex}")
+                self.logger.debug("%s(%s) --> %s", func.__name__, right, ex)
                 err = (
                     f"found no matching overload for {op_tree.data!r} "
                     f"applied to '({type(right)})'"
@@ -1638,7 +1638,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
                 value.__cause__ = ex
                 return value
             except ValueError as ex:
-                self.logger.debug(f"{func.__name__}({right}) --> {ex}")
+                self.logger.debug("%s(%s) --> %s", func.__name__, right, ex)
                 value = CELEvalError("return error for overflow", ex.__class__, ex.args, tree=tree)
                 value.__cause__ = ex
                 return value
@@ -1843,7 +1843,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
                 result = CELEvalError(err, KeyError, None, tree=tree)
         # TODO: Not sure this is needed...
         elif isinstance(member, celpy.celtypes.MessageType):
-            self.logger.info(f"member_dot({member!r}, {property_name!r})")
+            self.logger.info("member_dot(%r, %r)", member, property_name)
             result = member.get(property_name)
         # TODO: Future Expansion, handle Protobuf message package...
         # elif isinstance(member, celpy.celtypes.PackageType):
@@ -1993,7 +1993,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
         try:
             return func(member, index)
         except TypeError as ex:
-            self.logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
+            self.logger.debug("%s(%s, %s) --> %s", func.__name__, member, index, ex)
             err = (
                 f"found no matching overload for _[_] "
                 f"applied to '({type(member)}, {type(index)})'"
@@ -2002,12 +2002,12 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             value.__cause__ = ex
             return value
         except KeyError as ex:
-            self.logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
+            self.logger.debug("%s(%s, %s) --> %s", func.__name__, member, index, ex)
             value = CELEvalError("no such key", ex.__class__, ex.args, tree=tree)
             value.__cause__ = ex
             return value
         except IndexError as ex:
-            self.logger.debug(f"{func.__name__}({member}, {index}) --> {ex}")
+            self.logger.debug("%s(%s, %s) --> %s", func.__name__, member, index, ex)
             value = CELEvalError("invalid_argument", ex.__class__, ex.args, tree=tree)
             value.__cause__ = ex
             return value
@@ -2038,12 +2038,12 @@ class Evaluator(lark.visitors.Interpreter[Result]):
                     celpy.celtypes.FunctionType,
                     values[0]
                 )
-                self.logger.debug(f"Creating {protobuf_class}()")
+                self.logger.debug("Creating %s()", protobuf_class)
                 try:
                     value = protobuf_class(None)
                 except (TypeError, ValueError) as ex:  # pragma: no cover
                     value = CELEvalError(ex.args[0], ex.__class__, ex.args, tree=tree)
-            self.logger.debug(f"Created {value}")
+            self.logger.debug("Created %s", value)
             return value
 
         elif len(values) == 2:
@@ -2058,12 +2058,12 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             )
             # NOTE: protobuf MessageType conversions are the responsibility of the target type.
             # We can't -- easily -- generalize this.
-            self.logger.info(f"Creating {protobuf_class}({fieldinits!r})")
+            self.logger.info("Creating %s(%r)", protobuf_class, fieldinits)
             try:
                 value = protobuf_class(cast(celpy.celtypes.Value, fieldinits))
             except (TypeError, ValueError) as ex:  # pragma: no cover
                 value = CELEvalError(ex.args[0], ex.__class__, ex.args, tree=tree)
-            self.logger.info(f"Created {value!r}")
+            self.logger.info("Created %r", value)
             return value
 
         else:
