@@ -2,6 +2,9 @@
 cel-python
 ##########
 
+..  image:: https://img.shields.io/pypi/v/cel-python.svg
+    :target: https://pypi.org/projects/cel-python/
+    :alt: PyPI: cel-python
 
 ..  image:: https://github.com/cloud-custodian/cel-python/workflows/CI/badge.svg
     :target: https://github.com/cloud-custodian/cel-python/actions
