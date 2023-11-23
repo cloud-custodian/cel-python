@@ -3,18 +3,13 @@ cel-python
 ##########
 
 
-..  image:: https://travis-ci.org/cloud-custodian/cel-python.svg?branch=master
-    :target: https://travis-ci.org/cloud-custodian/cel-python
-    :alt: Travis Build Status
-
-..  image:: https://requires.io/github/cloud-custodian/cel-python/requirements.svg?branch=master
-    :target: https://requires.io/github/cloud-custodian/cel-python/requirements/?branch=master
-    :alt: Requirements Status
+..  image:: https://github.com/cloud-custodian/cel-python/workflows/CI/badge.svg
+    :target: https://github.com/cloud-custodian/cel-python/actions
+    :alt: GitHub Actions Build Status
 
 ..  image:: https://img.shields.io/badge/license-Apache%202-blue.svg
     :target: https://www.apache.org/licenses/LICENSE-2.0
     :alt: Apache License
-
 
 Pure Python implementation of Google Common Expression Language, https://opensource.google/projects/cel.
 
