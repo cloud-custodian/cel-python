@@ -1322,10 +1322,12 @@ class Evaluator(lark.visitors.Interpreter[Result]):
         elif len(tree.children) == 3:
             # full conditionalor "?" conditionalor ":" expr.
             func = self.functions["_?_:_"]
-            cond_value, left, right = cast(Tuple[Result, Result, Result], self.visit_children(tree))
+            cond_value = self.visit(tree.children[0])
             try:
-                return func(cond_value, left, right)
+                return self.visit(tree.children[1]) if func(cond_value, True, False) else self.visit(tree.children[2])
             except TypeError as ex:
+                left = self.visit(tree.children[1]) if cond_value else '-'
+                right = self.visit(tree.children[2]) if cond_value else '-'
                 self.logger.debug("%s(%s, %s) --> %s", func.__name__, left, right, ex)
                 err = (
                     f"found no matching overload for _?_:_ "
@@ -1340,6 +1342,9 @@ class Evaluator(lark.visitors.Interpreter[Result]):
                 line=tree.meta.line,
                 column=tree.meta.column,
             )
+
+    def visit(self, child: Union[str, lark.Tree]):
+        return super().visit(child) if isinstance(child, lark.Tree) else child
 
     @trace
     def conditionalor(self, tree: lark.Tree) -> Result:
