@@ -28,7 +28,7 @@ jobs:
           - python-version: "3.11"
             tox-target: py311
           - python-version: "3.12"
-            tox-target: py312        
+            tox-target: py312
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
