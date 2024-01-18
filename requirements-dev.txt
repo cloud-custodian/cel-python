@@ -1,9 +1,9 @@
 behave==1.2.6
-flake8==3.8.4
-isort[pyproject]==5.6.4
-mypy==0.812
-pre-commit==2.9.3
-pytest==6.1.2
-pytest-cov==2.10.1
-sphinx==3.2.1
-tox==3.20.1
+flake8==7.0.0
+isort[pyproject]==5.13.2
+mypy==1.8.0
+pre-commit==3.6.0
+pytest==7.4.4
+pytest-cov==4.1.0
+tox==4.12.1
+sphinx==7.2.6
