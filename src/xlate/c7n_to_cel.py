@@ -1661,7 +1661,7 @@ class C7N_Rewriter:
             "waf-enabled": C7N_Rewriter.waf_enabled_rewrite,
             "network-location": C7N_Rewriter.network_location_rewrite,
         }
-        if type(c7n_filter) == str:
+        if isinstance(c7n_filter, str):
             # Singleton word like "used" or "unused" abbreviates a longer expression:
             c7n_filter = {"type": c7n_filter, "value": True}
         c7n_filter = cast(Dict[str, Any], c7n_filter)

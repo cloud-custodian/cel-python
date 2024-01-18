@@ -237,7 +237,7 @@ def type_matched(method: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]
     """Decorates a method to assure the "other" value has the same type."""
     @wraps(method)
     def type_matching_method(self: Any, other: Any) -> Any:
-        if not(issubclass(type(other), type(self)) or issubclass(type(self), type(other))):
+        if not (issubclass(type(other), type(self)) or issubclass(type(self), type(other))):
             raise TypeError(f"no such overload: {self!r} {type(self)} != {other!r} {type(other)}")
         return method(self, other)
     return type_matching_method
