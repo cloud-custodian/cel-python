@@ -193,7 +193,7 @@ def arg_type_value(text: str) -> Tuple[str, Annotation, celtypes.Value]:
         except ValueError:
             raise argparse.ArgumentTypeError(f"arg {text} value invalid for the supplied type")
     else:
-        value = celtypes.StringType(value_text)
+        value = celtypes.StringType(value_text or "")
         type_definition = celtypes.StringType
     return name, type_definition, value
 
@@ -306,14 +306,13 @@ class CEL_REPL(cmd.Cmd):
     do_exit = do_quit
     do_bye = do_quit
 
-    def default(self, args: str) -> bool:
+    def default(self, args: str) -> None:
         """Evaluate an expression."""
         try:
             value = self.cel_eval(args)
             print(value)
         except Exception as ex:
             self.logger.error(ex)
-        return False
 
 
 def process_json_doc(
