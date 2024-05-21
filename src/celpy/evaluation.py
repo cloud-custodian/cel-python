@@ -1314,6 +1314,13 @@ class Evaluator(lark.visitors.Interpreter[Result]):
 
         The default implementation short-circuits
         and can ignore an CELEvalError in a sub-expression.
+
+        See https://github.com/google/cel-spec/blob/master/doc/langdef.md#logical-operators
+
+        > To get traditional left-to-right short-circuiting evaluation of logical operators,
+        as in C or other languages (also called "McCarthy Evaluation"),
+        the expression e1 && e2 can be rewritten `e1 ? e2 : false`.
+        Similarly, `e1 || e2` can be rewritten `e1 ? true : e2`.
         """
         if len(tree.children) == 1:
             # expr is a single conditionalor.
@@ -1322,8 +1329,13 @@ class Evaluator(lark.visitors.Interpreter[Result]):
         elif len(tree.children) == 3:
             # full conditionalor "?" conditionalor ":" expr.
             func = self.functions["_?_:_"]
-            cond_value, left, right = cast(Tuple[Result, Result, Result], self.visit_children(tree))
+            cond_value = self.visit(cast(lark.Tree, tree.children[0]))
+            left = right = cast(Result, celpy.celtypes.BoolType(False))
             try:
+                if cond_value:
+                    left = self.visit(cast(lark.Tree, tree.children[1]))
+                else:
+                    right = self.visit(cast(lark.Tree, tree.children[2]))
                 return func(cond_value, left, right)
             except TypeError as ex:
                 self.logger.debug("%s(%s, %s) --> %s", func.__name__, left, right, ex)

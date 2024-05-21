@@ -485,7 +485,7 @@ def test_eval_expr_1():
     assert evaluator.evaluate() == celtypes.IntType(42)
 
 @fixture
-def mock_expr_tree():
+def mock_left_expr_tree():
     tree = lark.Tree(
         data='expr',
         children=[
@@ -513,26 +513,63 @@ def mock_expr_tree():
     return tree
 
 
-def test_eval_expr_3_good(mock_expr_tree):
+def test_eval_expr_3_left_good(mock_left_expr_tree):
     activation = Mock()
     evaluator = Evaluator(
-        mock_expr_tree,
+        mock_left_expr_tree,
         activation
     )
     assert evaluator.evaluate() == celtypes.IntType(6)
 
 
-def test_eval_expr_3_bad_override(mock_expr_tree):
+def test_eval_expr_3_bad_override(mock_left_expr_tree):
     def bad_condition(a, b, c):
         raise TypeError
     activation = Mock()
     evaluator = Evaluator(
-        mock_expr_tree,
+        mock_left_expr_tree,
         activation,
         functions={"_?_:_": bad_condition}
     )
     with raises(celpy.evaluation.CELEvalError):
         evaluator.evaluate()
+
+@fixture
+def mock_right_expr_tree():
+    tree = lark.Tree(
+        data='expr',
+        children=[
+            lark.Tree(
+                data='literal',
+                children=[
+                    lark.Token(type_="BOOL_LIT", value="false"),
+                ]
+            ),
+            lark.Tree(
+                data='literal',
+                children=[
+                    lark.Token(type_="INT_LIT", value="6"),
+                ]
+            ),
+            lark.Tree(
+                data='literal',
+                children=[
+                    lark.Token(type_="INT_LIT", value="7"),
+                ]
+            ),
+        ],
+        meta=Mock(line=1, column=1)
+    )
+    return tree
+
+def test_eval_expr_3_right_good(mock_right_expr_tree):
+    activation = Mock()
+    evaluator = Evaluator(
+        mock_right_expr_tree,
+        activation
+    )
+    assert evaluator.evaluate() == celtypes.IntType(7)
+
 
 def test_eval_expr_0():
     tree = lark.Tree(
