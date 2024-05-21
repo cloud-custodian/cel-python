@@ -515,7 +515,7 @@ The ``cel_program`` in the above example is an executable CEL program wrapped in
     ...         ast = self.env.compile(object["expr"])
     ...         self.prgm = self.env.program(ast, cel_functions)
     ...     def __call__(self, resource):
-    ...         now = datetime.datetime.utcnow()
+    ...         now = datetime.datetime.now(tz=datetime.timezone.utc)
     ...         activation = {"resource": celpy.json_to_cel(resource), "now": celpy.celtypes.TimestampType(now)}
     ...         return bool(self.prgm.evaluate(activation))
 

@@ -283,7 +283,7 @@ import sys
 import urllib.request
 import zlib
 from contextlib import closing
-from distutils import version as version_lib
+from packaging.version import Version
 from types import TracebackType
 from typing import (Any, Callable, Dict, Iterator, List, Optional, Type, Union,
                     cast)
@@ -485,16 +485,18 @@ def size_parse_cidr(value: celtypes.StringType,) -> Optional[celtypes.IntType]:
         return None
 
 
-class ComparableVersion(version_lib.LooseVersion):
+class ComparableVersion(Version):
     """
-    The default LooseVersion will fail on comparing present strings, used
+    The old LooseVersion could fail on comparing present strings, used
     in the value as shorthand for certain options.
+
+    The new Version doesn't fail as easily.
     """
 
     def __eq__(self, other: object) -> bool:
         try:
             return super(ComparableVersion, self).__eq__(other)
-        except TypeError:
+        except TypeError:  # pragma: no cover
             return False
 
 
