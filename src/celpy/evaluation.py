@@ -1116,9 +1116,9 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             local_functions = {
                 f.__name__: f for f in functions or []
             }
-            self.functions = collections.ChainMap(local_functions, base_functions)
+            self.functions = collections.ChainMap(local_functions, base_functions)  # type: ignore [arg-type]
         elif isinstance(functions, Mapping):
-            self.functions = collections.ChainMap(functions, base_functions)
+            self.functions = collections.ChainMap(functions, base_functions)  # type: ignore [arg-type]
         else:
             self.functions = base_functions
 
@@ -1686,7 +1686,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
         nested_eval = self.sub_evaluator(ast=expr_tree)
 
         def sub_expr(v: celpy.celtypes.Value) -> Any:
-            return nested_eval.set_activation({cast(str, identifier): v}).evaluate()
+            return nested_eval.set_activation({identifier: v}).evaluate()
 
         return sub_expr
 
@@ -1717,7 +1717,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
 
         def sub_expr(v: celpy.celtypes.Value) -> Any:
             try:
-                return nested_eval.set_activation({cast(str, identifier): v}).evaluate()
+                return nested_eval.set_activation({identifier: v}).evaluate()
             except CELEvalError as ex:
                 return ex
 
@@ -1762,7 +1762,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
 
         def sub_expr(r: Result, i: Result) -> Result:
             return nested_eval.set_activation(
-                {cast(str, reduce_ident): r, cast(str, iter_ident): i}).evaluate()
+                {reduce_ident: r, iter_ident: i}).evaluate()
 
         return sub_expr, init_expr_tree
 
