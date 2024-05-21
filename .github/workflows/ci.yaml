@@ -68,6 +68,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Install poetry
+        shell: bash
+        run: pipx install poetry==${{ env.POETRY_VERSION }}
+
       - uses: actions/setup-python@v1
         with:
           python-version: ${{ env.DEFAULT_PY_VERSION }}
