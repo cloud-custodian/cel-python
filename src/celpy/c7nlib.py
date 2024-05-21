@@ -283,13 +283,13 @@ import sys
 import urllib.request
 import zlib
 from contextlib import closing
-from distutils import version as version_lib
+from packaging.version import Version
 from types import TracebackType
 from typing import (Any, Callable, Dict, Iterator, List, Optional, Type, Union,
                     cast)
 
 import dateutil
-import jmespath  # type: ignore [import]
+import jmespath  # type: ignore [import-untyped]
 
 from celpy import InterpretedRunner, celtypes
 from celpy.adapter import json_to_cel
@@ -457,7 +457,7 @@ CIDR = Union[None, IPv4Network, ipaddress.IPv4Address]
 CIDR_Class = Union[Type[IPv4Network], Callable[..., ipaddress.IPv4Address]]
 
 
-def parse_cidr(value):  # type: ignore[no-untyped-def]
+def parse_cidr(value: str) -> CIDR:
     """
     Process cidr ranges.
 
@@ -467,7 +467,7 @@ def parse_cidr(value):  # type: ignore[no-untyped-def]
     """
     klass: CIDR_Class = IPv4Network
     if "/" not in value:
-        klass = ipaddress.ip_address
+        klass = ipaddress.ip_address  # type: ignore[assignment]
     v: CIDR
     try:
         v = klass(value)
@@ -478,23 +478,25 @@ def parse_cidr(value):  # type: ignore[no-untyped-def]
 
 def size_parse_cidr(value: celtypes.StringType,) -> Optional[celtypes.IntType]:
     """CIDR prefixlen value"""
-    cidr = parse_cidr(value)  # type: ignore[no-untyped-call]
-    if cidr:
+    cidr = parse_cidr(value)
+    if cidr and isinstance(cidr, IPv4Network):
         return celtypes.IntType(cidr.prefixlen)
     else:
         return None
 
 
-class ComparableVersion(version_lib.LooseVersion):
+class ComparableVersion(Version):
     """
-    The default LooseVersion will fail on comparing present strings, used
+    The old LooseVersion could fail on comparing present strings, used
     in the value as shorthand for certain options.
+
+    The new Version doesn't fail as easily.
     """
 
     def __eq__(self, other: object) -> bool:
         try:
             return super(ComparableVersion, self).__eq__(other)
-        except TypeError:
+        except TypeError:  # pragma: no cover
             return False
 
 
