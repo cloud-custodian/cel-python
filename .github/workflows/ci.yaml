@@ -3,6 +3,9 @@ name: "CI"
 on:
   push:
   pull_request:
+env:
+  POETRY_VERSION: "1.5.1"
+  DEFAULT_PY_VERSION: "3.11"
 
 jobs:
   Lint:
@@ -13,6 +16,8 @@ jobs:
         with:
           python-version: 3.12
       - name: Linting
+        env:
+          RUFF_OUTPUT_FORMAT: github
         run: |
           pip install ruff
           ruff check src
@@ -36,6 +41,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      - name: Install poetry
+        shell: bash
+        run: pipx install poetry==${{ inputs.poetry-version }}
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v1
         with:
