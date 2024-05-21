@@ -81,7 +81,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install tox
 
-      - name: Coverage Create and Upload XML
-        run: |
-          tox -e lint && \
-          bash <(curl -s https://codecov.io/bash) -Z -v -f coverage.xml
+      - name: Upload Code Coverage
+        uses: codecov/codecov-action@v4
+        if: contains(matrix.python-version, '3.10') && contains(matrix.os, 'ubuntu')
+        with:
+          files: ./coverage.xml
+          name: codecov
