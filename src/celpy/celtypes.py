@@ -809,9 +809,9 @@ class ListType(List[Value]):
         result = (
             len(self) == len(other)
             and reduce(  # noqa: W503
-                logical_and,
+                logical_and,  # type: ignore [arg-type]
                 (equal(item_s, item_o) for item_s, item_o in zip(self, other)),
-                cast(Value, BoolType(True))
+                BoolType(True)  # type: ignore [arg-type]
             )
         )
         if isinstance(result, TypeError):
@@ -831,9 +831,9 @@ class ListType(List[Value]):
         result = (
             len(self) != len(other)
             or reduce(  # noqa: W503
-                logical_or,
+                logical_or,  # type: ignore [arg-type]
                 (not_equal(item_s, item_o) for item_s, item_o in zip(self, other)),
-                cast(Value, BoolType(False))
+                BoolType(False)  # type: ignore [arg-type]
             )
         )
         if isinstance(result, TypeError):
@@ -905,9 +905,9 @@ class MapType(Dict[Value, Value]):
         result = (
             keys_s == keys_o
             and reduce(  # noqa: W503
-                logical_and,
+                logical_and,  # type: ignore [arg-type]
                 (equal(self[k], other[k]) for k in keys_s),
-                cast(Value, BoolType(True))
+                BoolType(True)  # type: ignore [arg-type]
             )
         )
         if isinstance(result, TypeError):
@@ -934,9 +934,9 @@ class MapType(Dict[Value, Value]):
         result = (
             keys_s != keys_o
             or reduce(  # noqa: W503
-                logical_or,
+                logical_or,  # type: ignore [arg-type]
                 (not_equal(self[k], other[k]) for k in keys_s),
-                cast(Value, BoolType(False))
+                BoolType(False)  # type: ignore [arg-type]
             )
         )
         if isinstance(result, TypeError):
@@ -1071,7 +1071,7 @@ class TimestampType(datetime.datetime):
                 cls, source, *args, **kwargs
             )
             if not ts.tzinfo:
-                ts = cast(TimestampType, ts.replace(tzinfo=datetime.timezone.utc))
+                ts = ts.replace(tzinfo=datetime.timezone.utc)
             return ts
 
         elif isinstance(source, str):
@@ -1268,13 +1268,13 @@ class DurationType(datetime.timedelta):
         if isinstance(seconds, datetime.timedelta):
             if not (cls.MinSeconds <= seconds.total_seconds() <= cls.MaxSeconds):
                 raise ValueError("range error: {seconds}")
-            return cast(DurationType, super().__new__(  # type: ignore[call-arg]
-                cls, days=seconds.days, seconds=seconds.seconds, microseconds=seconds.microseconds))
+            return super().__new__(
+                cls, days=seconds.days, seconds=seconds.seconds, microseconds=seconds.microseconds)
         elif isinstance(seconds, int):
             if not (cls.MinSeconds <= seconds <= cls.MaxSeconds):
                 raise ValueError("range error: {seconds}")
-            return cast(DurationType, super().__new__(  # type: ignore[call-arg]
-                cls, seconds=seconds, microseconds=nanos // 1000))
+            return super().__new__(
+                cls, seconds=seconds, microseconds=nanos // 1000)
         elif isinstance(seconds, str):
             duration_pat = re.compile(r"^[-+]?([0-9]*(\.[0-9]*)?[a-z]+)+$")
 
@@ -1306,8 +1306,8 @@ class DurationType(datetime.timedelta):
 
             if not (cls.MinSeconds <= seconds <= cls.MaxSeconds):
                 raise ValueError("range error: {seconds}")
-            return cast(DurationType, super().__new__(  # type: ignore[call-arg]
-                cls, seconds=seconds))
+            return super().__new__(
+                cls, seconds=seconds)
         else:
             raise TypeError(f"Invalid initial value type: {type(seconds)}")
 

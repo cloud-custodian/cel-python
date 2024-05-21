@@ -81,8 +81,9 @@ def test_get_options():
     assert options.verbose == 2
 
 
-def test_arg_type_bad(capsys):
+def test_arg_type_bad(capsys, monkeypatch):
     """GIVEN invalid arg values; WHEN parsing; THEN correct interpretation."""
+    monkeypatch.setenv("COLUMNS", "80")
     with raises(SystemExit) as exc_info:
         options = celpy.__main__.get_options(
             ["--arg", "name:nope=42", "-n", "355./113."]
@@ -101,8 +102,9 @@ def test_arg_type_bad(capsys):
     ]
 
 
-def test_arg_value_bad(capsys):
+def test_arg_value_bad(capsys, monkeypatch):
     """GIVEN invalid arg values; WHEN parsing; THEN correct interpretation."""
+    monkeypatch.setenv("COLUMNS", "80")
     with raises(SystemExit) as exc_info:
         options = celpy.__main__.get_options(
             ["--arg", "name:int=nope", "-n", "355./113."]
@@ -117,9 +119,10 @@ def test_arg_value_bad(capsys):
     ]
 
 
-def test_arg_combo_bad(capsys):
+def test_arg_combo_bad(capsys, monkeypatch):
     """GIVEN invalid arg combinations; WHEN parsing; THEN correct interpretation."""
 
+    monkeypatch.setenv("COLUMNS", "80")
     error_prefix = [
         "usage: celpy [-h] [-v] [-a ARG] [-n] [-s] [-i] [--json-package NAME]",
         "             [--json-document NAME] [-b] [-f FORMAT]",
