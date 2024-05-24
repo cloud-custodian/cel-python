@@ -37,6 +37,21 @@ Installation
 
 You now have the CEL run-time available to Python-based applications.
 
+
+re2
+---
+
+CEL specifies that regular expressions use re2 syntax,
+https://github.com/google/re2/wiki/Syntax. To keep its dependencies minimal and
+this implementation easily embeddable, cel-python uses the Python standard
+library ``re`` syntax by default. If a ``re2`` package is installed or the
+``re2`` extra is provided, cel-python will use ``re2`` syntax instead.
+
+::
+
+    pip install cel-python[re2]
+
+
 Command Line
 ============
 
