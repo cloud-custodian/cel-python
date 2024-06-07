@@ -37,6 +37,7 @@ from pytest import *
 import celpy.evaluation  # For monkeypatching
 from celpy import celparser, celtypes
 from celpy.evaluation import *
+from celpy.evaluation import _function_matches_re, _function_matches_re2
 
 
 def test_exception_syntax_error():
@@ -156,6 +157,25 @@ def test_operator_in():
     ])
     assert operator_in(celtypes.IntType(42), container_2)
     assert isinstance(operator_in(celtypes.IntType(-1), container_2), CELEvalError)
+
+
+def test_function_matches_re2():
+    empty_string = celtypes.StringType("")
+    # re2-specific patterns which behave differently than standard re
+    assert _function_matches_re2(empty_string, "^\\z")
+    assert isinstance(_function_matches_re2(empty_string, "^\\Z"), CELEvalError)
+
+
+def test_function_matches_re():
+    empty_string = celtypes.StringType("")
+    # re2-specific patterns which behave differently than standard re
+    assert isinstance(_function_matches_re(empty_string, "^\\z"), CELEvalError)
+    assert _function_matches_re(empty_string, "^\\Z")
+
+
+def test_function_matches():
+    empty_string = celtypes.StringType("")
+    assert function_matches(empty_string, "^$")
 
 
 def test_function_size():
