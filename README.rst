@@ -3,7 +3,7 @@ cel-python
 ##########
 
 ..  image:: https://img.shields.io/pypi/v/cel-python.svg
-    :target: https://pypi.org/projects/cel-python/
+    :target: https://pypi.org/project/cel-python/
     :alt: PyPI: cel-python
 
 ..  image:: https://github.com/cloud-custodian/cel-python/workflows/CI/badge.svg
@@ -31,9 +31,9 @@ Specifically, the intent is to be part of Cloud Custodian, C7N, as part of the s
 Installation
 =============
 
-::
+.. code:: console
 
-    pip install cel-python
+    % pip install cel-python
 
 You now have the CEL run-time available to Python-based applications.
 
@@ -42,7 +42,7 @@ Command Line
 
 We can read JSON directly from stdin, making this a bit like ``jq``.
 
-::
+.. code:: console
 
     % python -m celpy '.this.from.json * 3 + 3' <<EOF
     heredoc> {"this": {"from": {"json": 13}}}
@@ -52,7 +52,7 @@ We can read JSON directly from stdin, making this a bit like ``jq``.
 
 It's also a desk calculator, like ``expr``, but with float values:
 
-::
+.. code:: console
 
     % python -m celpy -n '355.0 / 113.0'
     3.1415929203539825
@@ -63,7 +63,7 @@ to embed Google CEL into other contexts where you don't *really* want Python's p
 
 It's also capable of decision-making, like ``test``:
 
-::
+.. code:: console
 
     % echo '{"status": 3}' | python -m celpy -sb '.status == 0'
     false
@@ -73,17 +73,17 @@ It's also capable of decision-making, like ``test``:
 We can provide a ``-a`` option to define objects with specific data types.
 This is particularly helpful for providing protobuf message definitions.
 
-::
+.. code:: console
 
-    python -m celpy -n --arg x:int=6 --arg y:int=7 'x*y'
+    % python -m celpy -n --arg x:int=6 --arg y:int=7 'x*y'
     42
 
 If you want to see details of evaluation, use ``-v``.
 
-::
+.. code:: console
 
-    python -m celpy -v -n '[2, 4, 6].map(n, n/2)'
-    ... a lot of output
+    % python -m celpy -v -n '[2, 4, 6].map(n, n/2)'
+    # ... a lot of output
     [1, 2, 3]
 
 Library
@@ -93,7 +93,7 @@ To follow the pattern defined in the Go implementation, there's a multi-step
 process for compiling a CEL expression to create a runnable "program". This program
 can then be applied to argument values.
 
-::
+.. code:: python
 
     >>> import celpy
     >>> cel_source = """
