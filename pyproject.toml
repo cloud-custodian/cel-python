@@ -25,7 +25,7 @@ skip = [
   ]
 
 [tool.poetry]
-name = "celpy"
+name = "cel-python"
 version = "0.2.0"
 description = "Pure Python implementation of Google Common Expression Language"
 authors = ["S. Lott <slott56@gmail.com>"]
@@ -35,6 +35,7 @@ classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python"
 ]
+packages = [{ include = "src/celpy" }]
 
 [tool.poetry.dependencies]
 python = "^3.8"

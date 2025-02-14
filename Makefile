@@ -26,7 +26,7 @@ install-tools:
 
 test:
 	cd features && $(MAKE) all
-	tox -e py39
+	tox -e py312
 
 test-all:
 	cd features && $(MAKE) all
