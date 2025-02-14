@@ -18,8 +18,7 @@
 #        export GOPATH="~/go"
 
 install:
-	python3 -m venv .
-	. bin/activate && pip install -r requirements-dev.txt
+	poetry install
 
 install-tools:
 	cd tools && export PATH="/usr/local/go/bin:/usr/local/bin:$PATH" && go mod init mkgherkin && go mod tidy
