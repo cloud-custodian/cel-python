@@ -515,13 +515,13 @@ It returns two values: the sentinel and, generally, a converted value that shoul
 -   'age' -- ``parse_date(value), datetime.datetime.now(tz=tzutc()) - timedelta(sentinel)``
     Note that these are reversed to make it easier to compare age against a given value.
     A global ``Now`` variable removes the need for an implicit age computation.
-    The :func:`parse_date` is the :func:`dateutil.parser.parse` function.
+    The :func:`parse_date` is the :func:`pendulum.parse` function.
 
 -   'integer' -- ``sentinel, int(str(value).strip())``
 
 -   'expiration' -- ``datetime.datetime.now(tz=tzutc()) + timedelta(sentinel), parse_date(value)``
     A global ``Now`` variable removes the need for an implicit expiration computation.
-    The :func:`parse_date` is the :func:`dateutil.parser.parse` function.
+    The :func:`parse_date` is the :func:`pendulum.parse` function.
 
 -   'normalize' -- ``sentinel, value.strip().lower()``
 

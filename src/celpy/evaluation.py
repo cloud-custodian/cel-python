@@ -54,7 +54,7 @@ from celpy.celparser import tree_dump
 _USE_RE2 = True
 try:
     import re2
-except ImportError:
+except ImportError:  # pragma: no cover
     _USE_RE2 = False
 
 # A CEL type annotation. Used in an environment to describe objects as well as functions.

@@ -288,7 +288,8 @@ from types import TracebackType
 from typing import (Any, Callable, Dict, Iterator, List, Optional, Type, Union,
                     cast)
 
-import dateutil
+# import dateutil
+from pendulum import parse as parse_date
 import jmespath  # type: ignore [import-untyped]
 
 from celpy import InterpretedRunner, celtypes
@@ -677,7 +678,8 @@ def image(resource: celtypes.MapType) -> celtypes.Value:
         image_name = ""
 
     return json_to_cel(
-        {"CreationDate": dateutil.parser.isoparse(creation_date), "Name": image_name}
+        # {"CreationDate": dateutil.parser.isoparse(creation_date), "Name": image_name}
+        {"CreationDate": parse_date(creation_date), "Name": image_name}
     )
 
 
