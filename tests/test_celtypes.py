@@ -339,6 +339,17 @@ def test_timestamp_type():
     assert ts_1.getSeconds() == IntType(30)
 
 
+def test_timestamp_type_issue_28():
+    utc = TimestampType('2020-10-20T12:00:00Z')
+    not_utc = TimestampType('2020-10-20T12:00:00-05:00')
+
+    assert repr(utc) == "TimestampType('2020-10-20T12:00:00Z')"
+    assert repr(not_utc) == "TimestampType('2020-10-20T12:00:00-05:00')"
+
+    assert utc != not_utc
+    assert str(utc) != str(not_utc)
+
+
 def test_extended_timestamp_type():
     others = {
         'et': 'US/Eastern',
