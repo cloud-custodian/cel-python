@@ -1098,7 +1098,10 @@ class TimestampType(datetime.datetime):
         return f"{self.__class__.__name__}({str(self)!r})"
 
     def __str__(self) -> str:
-        return self.strftime("%Y-%m-%dT%H:%M:%SZ")
+        text = self.strftime("%Y-%m-%dT%H:%M:%S%z")
+        if text.endswith("+0000"):
+            return f"{text[:-5]}Z"
+        return f"{text[:-2]}:{text[-2:]}"
 
     def __add__(self, other: Any) -> 'TimestampType':
         """Timestamp + Duration -> Timestamp"""
