@@ -335,6 +335,8 @@ class DumpAST(lark.visitors.Visitor_Recursive):
         if self.stack:
             left = self.stack.pop()
             self.stack.append(f"[{left}]")
+        else:
+            self.stack.append("")
 
     def map_lit(self, tree: lark.Tree) -> None:
         if self.stack:
