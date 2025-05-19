@@ -505,7 +505,7 @@ def test_eval_expr_1():
     assert evaluator.evaluate() == celtypes.IntType(42)
 
 @fixture
-def mock_expr_tree():
+def mock_left_expr_tree():
     tree = lark.Tree(
         data='expr',
         children=[
@@ -521,6 +521,48 @@ def mock_expr_tree():
                     lark.Token(type_="INT_LIT", value="6"),
                 ]
             ),
+            sentinel.DO_NOT_EVALUATE  # Test will crash if this is evaluated
+        ],
+        meta=Mock(line=1, column=1)
+    )
+    return tree
+
+
+def test_eval_expr_3_left_good(mock_left_expr_tree):
+    """Assert ``true ? 6 : invalid`` does not execute the invalid expression."""
+    activation = Mock()
+    evaluator = Evaluator(
+        mock_left_expr_tree,
+        activation
+    )
+    assert evaluator.evaluate() == celtypes.IntType(6)
+    # assert did not crash; therefore, invalid node not touched
+
+
+def test_eval_expr_3_bad_override(mock_left_expr_tree):
+    def bad_condition(a, b, c):
+        raise TypeError
+    activation = Mock()
+    evaluator = Evaluator(
+        mock_left_expr_tree,
+        activation,
+        functions={"_?_:_": bad_condition}
+    )
+    with raises(celpy.evaluation.CELEvalError):
+        evaluator.evaluate()
+
+@fixture
+def mock_right_expr_tree():
+    tree = lark.Tree(
+        data='expr',
+        children=[
+            lark.Tree(
+                data='literal',
+                children=[
+                    lark.Token(type_="BOOL_LIT", value="false"),
+                ]
+            ),
+            sentinel.DO_NOT_EVALUATE,  # Test will crash if this is evaluated
             lark.Tree(
                 data='literal',
                 children=[
@@ -532,27 +574,16 @@ def mock_expr_tree():
     )
     return tree
 
-
-def test_eval_expr_3_good(mock_expr_tree):
+def test_eval_expr_3_right_good(mock_right_expr_tree):
+    """Assert ``false ? invalid : 7`` does not execute the invalid expression."""
     activation = Mock()
     evaluator = Evaluator(
-        mock_expr_tree,
+        mock_right_expr_tree,
         activation
     )
-    assert evaluator.evaluate() == celtypes.IntType(6)
+    assert evaluator.evaluate() == celtypes.IntType(7)
+    # assert did not crash; therefore, invalid node not touched
 
-
-def test_eval_expr_3_bad_override(mock_expr_tree):
-    def bad_condition(a, b, c):
-        raise TypeError
-    activation = Mock()
-    evaluator = Evaluator(
-        mock_expr_tree,
-        activation,
-        functions={"_?_:_": bad_condition}
-    )
-    with raises(celpy.evaluation.CELEvalError):
-        evaluator.evaluate()
 
 def test_eval_expr_0():
     tree = lark.Tree(

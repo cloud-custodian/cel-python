@@ -28,8 +28,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - python-version: "3.8"
-            tox-target: py38
           - python-version: "3.9"
             tox-target: py39
           - python-version: "3.10"
