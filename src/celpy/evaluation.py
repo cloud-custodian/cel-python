@@ -51,6 +51,12 @@ import lark.visitors
 import celpy.celtypes
 from celpy.celparser import tree_dump
 
+_USE_RE2 = True
+try:
+    import re2
+except ImportError:  # pragma: no cover
+    _USE_RE2 = False
+
 # A CEL type annotation. Used in an environment to describe objects as well as functions.
 # This is a list of types, plus Callable for conversion functions.
 Annotation = Union[
@@ -59,9 +65,7 @@ Annotation = Union[
     Type[celpy.celtypes.FunctionType],  # Concrete class for annotations
 ]
 
-
 logger = logging.getLogger("evaluation")
-
 
 class CELSyntaxError(Exception):
     """CEL Syntax error -- the AST did not have the expected structure."""
@@ -293,6 +297,27 @@ def operator_in(item: Result, container: Result) -> Result:
     return result
 
 
+def _function_matches_re(text: str, pattern: str) -> Result:
+    try:
+        m = re.search(pattern, text)
+    except re.error as ex:
+        return CELEvalError("match error", ex.__class__, ex.args)
+
+    return celpy.celtypes.BoolType(m is not None)
+
+
+def _function_matches_re2(text: str, pattern: str) -> Result:
+    try:
+        m = re2.search(pattern, text)
+    except re2.error as ex:
+        return CELEvalError("match error", ex.__class__, ex.args)
+
+    return celpy.celtypes.BoolType(m is not None)
+
+
+function_matches = _function_matches_re2 if _USE_RE2 else _function_matches_re
+
+
 def function_size(container: Result) -> Result:
     """
     The size() function applied to a Value. Delegate to Python's :py:func:`len`.
@@ -340,7 +365,7 @@ base_functions: Mapping[str, CELFunction] = {
     # StringType methods
     "endsWith": lambda s, text: celpy.celtypes.BoolType(s.endswith(text)),
     "startsWith": lambda s, text: celpy.celtypes.BoolType(s.startswith(text)),
-    "matches": lambda s, pattern: celpy.celtypes.BoolType(re.search(pattern, s) is not None),
+    "matches": function_matches,
     "contains": lambda s, text: celpy.celtypes.BoolType(text in s),
     # TimestampType methods. Type details are redundant, but required because of the lambdas
     "getDate": lambda ts, tz_name=None: celpy.celtypes.IntType(ts.getDate(tz_name)),

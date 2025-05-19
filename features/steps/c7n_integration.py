@@ -38,7 +38,8 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from behave import *
-from dateutil.parser import parse as parse_date
+# from dateutil.parser import parse as parse_date
+from pendulum import parse as parse_date
 
 import celpy
 import celpy.c7nlib

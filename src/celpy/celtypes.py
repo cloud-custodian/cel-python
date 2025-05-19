@@ -172,13 +172,13 @@ Timzone Details
 ===============
 
 An implementation may have additional timezone names that must be injected into
-th dateutil.gettz() processing.
+the ``pendulum`` processing. (Formerly ``dateutil.gettz()``.)
 
 For example, there may be the following sequence:
 
-1. A lowercase match for an alias or an existing dateutil timezone.
+1. A lowercase match for an alias or an existing timezone.
 
-2. A titlecase match for an existing dateutil timezone.
+2. A titlecase match for an existing timezone.
 
 3. The fallback, which is a +/-HH:MM string.
 
@@ -194,8 +194,10 @@ from typing import (Any, Callable, Dict, Iterable, List, Mapping, NoReturn,
                     Optional, Sequence, Tuple, Type, TypeVar, Union, cast,
                     overload)
 
-import dateutil.parser
-import dateutil.tz
+import pendulum
+from pendulum import timezone
+import pendulum.tz.exceptions
+
 
 logger = logging.getLogger("celtypes")
 
@@ -1035,12 +1037,12 @@ class TimestampType(datetime.datetime):
     The Joda project (https://www.joda.org/joda-time/timezones.html)
     says "Time zone data is provided by the public IANA time zone database."
 
-    The ``dateutil`` project (https://pypi.org/project/python-dateutil/)
-    is used for TZ handling and timestamp parsing.
+    TZ handling and timestamp parsing is doine with
+    the ``pendulum`` (https://pendulum.eustace.io) project.
 
     Additionally, there is a ``TZ_ALIASES`` mapping available in this class to permit additional
     timezone names. By default, the mapping is empty, and the only names
-    available are those recognized by :mod:`dateutil.tz`.
+    available are those recognized by :mod:`pendulum.timezone`.
     """
 
     TZ_ALIASES: Dict[str, str] = {}
@@ -1076,7 +1078,7 @@ class TimestampType(datetime.datetime):
 
         elif isinstance(source, str):
             # Use dateutil to try a variety of text formats.
-            parsed_datetime = dateutil.parser.isoparse(source)
+            parsed_datetime = cast(datetime.datetime, pendulum.parse(source))
             return super().__new__(
                 cls,
                 year=parsed_datetime.year,
@@ -1143,10 +1145,15 @@ class TimestampType(datetime.datetime):
             Tweak ``celpy.celtypes.TimestampType.TZ_ALIASES``.
         """
         tz_lookup = str(tz_name)
+        tz: Optional[datetime.tzinfo]
         if tz_lookup in cls.TZ_ALIASES:
-            tz = dateutil.tz.gettz(cls.TZ_ALIASES[tz_lookup])
+            tz = timezone(cls.TZ_ALIASES[tz_lookup])
         else:
-            tz = dateutil.tz.gettz(tz_lookup)
+            try:
+                tz = cast(datetime.tzinfo, timezone(tz_lookup))
+            except pendulum.tz.exceptions.InvalidTimezone:
+                # ±hh:mm format...
+                tz = cls.tz_offset_parse(tz_name)
         return tz
 
     @classmethod
@@ -1165,11 +1172,9 @@ class TimestampType(datetime.datetime):
     def tz_parse(tz_name: Optional[str]) -> Optional[datetime.tzinfo]:
         if tz_name:
             tz = TimestampType.tz_name_lookup(tz_name)
-            if tz is None:
-                tz = TimestampType.tz_offset_parse(tz_name)
             return tz
         else:
-            return dateutil.tz.UTC
+            return timezone("UTC")
 
     def getDate(self, tz_name: Optional[StringType] = None) -> IntType:
         new_tz = self.tz_parse(tz_name)
