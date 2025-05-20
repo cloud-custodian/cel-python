@@ -2030,71 +2030,71 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             Tuple[lark.Tree, lark.Token], tree.children[:2]
         )
 
-        if method_name_token.value == "map":
+        if method_name_token.value in {"map", "filter", "all", "exists", "exists_one", "reduce", "min"}:
             member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
-            sub_expr = self.build_macro_eval(tree)
-            mapping = cast(Iterable[celpy.celtypes.Value], map(sub_expr, member_list))
-            result = celpy.celtypes.ListType(mapping)
-            return result
 
-        elif method_name_token.value == "filter":
-            member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
-            sub_expr = self.build_macro_eval(tree)
-            result = celpy.celtypes.ListType(filter(sub_expr, member_list))
-            return result
+            if isinstance(member_list, CELEvalError):
+                return member_list
 
-        elif method_name_token.value == "all":
-            member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
-            and_oper = cast(
-                CELBoolFunction,
-                eval_error("no such overload", TypeError)(celpy.celtypes.logical_and),
-            )
-            sub_expr = self.build_ss_macro_eval(tree)
-            reduction = reduce(
-                and_oper, map(sub_expr, member_list), celpy.celtypes.BoolType(True)
-            )
-            return reduction
+            if method_name_token.value == "map":
+                sub_expr = self.build_macro_eval(tree)
+                mapping = cast(Iterable[celpy.celtypes.Value], map(sub_expr, member_list))
+                result = celpy.celtypes.ListType(mapping)
+                return result
 
-        elif method_name_token.value == "exists":
-            member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
-            or_oper = cast(
-                CELBoolFunction,
-                eval_error("no such overload", TypeError)(celpy.celtypes.logical_or),
-            )
-            sub_expr = self.build_ss_macro_eval(tree)
-            reduction = reduce(
-                or_oper, map(sub_expr, member_list), celpy.celtypes.BoolType(False)
-            )
-            return reduction
+            elif method_name_token.value == "filter":
+                sub_expr = self.build_macro_eval(tree)
+                result = celpy.celtypes.ListType(filter(sub_expr, member_list))
+                return result
 
-        elif method_name_token.value == "exists_one":
-            # Is there exactly 1?
-            member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
-            sub_expr = self.build_macro_eval(tree)
-            count = sum(1 for value in member_list if bool(sub_expr(value)))
-            return celpy.celtypes.BoolType(count == 1)
+            elif method_name_token.value == "all":
+                sub_expr = self.build_ss_macro_eval(tree)
+                and_oper = cast(
+                    CELBoolFunction,
+                    eval_error("no such overload", TypeError)(
+                        celpy.celtypes.logical_and)
+                )
+                reduction = reduce(and_oper, map(sub_expr, member_list), celpy.celtypes.BoolType(True))
+                return reduction
 
-        elif method_name_token.value == "reduce":
-            # Apply a function to reduce the list to a single value.
-            # The `tree` is a `member_dot_arg` construct with (member, method_name, args)
-            # The args have two variables and two expressions.
-            member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
-            reduce_expr, init_expr_tree = self.build_reduce_macro_eval(tree)
-            initial_value = self.visit(init_expr_tree)
-            reduction = reduce(reduce_expr, member_list, initial_value)
-            return reduction
+            elif method_name_token.value == "exists":
+                sub_expr = self.build_ss_macro_eval(tree)
+                or_oper = cast(
+                    CELBoolFunction,
+                    eval_error("no such overload", TypeError)(
+                        celpy.celtypes.logical_or)
+                )
+                reduction = reduce(or_oper, map(sub_expr, member_list), celpy.celtypes.BoolType(False))
+                return reduction
 
-        elif method_name_token.value == "min":
-            # Special case of "reduce()"
-            # with <member>.min() -> <member>.reduce(r, i, int_max, r < i ? r : i)
-            member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
-            try:
-                # Note. The Result type includes None, which will raise an exception.
-                reduction = min(member_list)  # type: ignore [type-var]
-            except ValueError as ex:
-                err = "Attempt to reduce an empty sequence or a sequence with a None value"
-                reduction = CELEvalError(err, ex.__class__, ex.args, tree=tree)
-            return reduction
+            elif method_name_token.value == "exists_one":
+                # Is there exactly 1?
+                sub_expr = self.build_macro_eval(tree)
+                count = sum(1 for value in member_list if bool(sub_expr(value)))
+                return celpy.celtypes.BoolType(count == 1)
+
+            elif method_name_token.value == "reduce":
+                # Apply a function to reduce the list to a single value.
+                # The `tree` is a `member_dot_arg` construct with (member, method_name, args)
+                # The args have two variables and two expressions.
+                reduce_expr, init_expr_tree = self.build_reduce_macro_eval(tree)
+                initial_value = self.visit(init_expr_tree)
+                reduction = reduce(reduce_expr, member_list, initial_value)
+                return reduction
+
+            elif method_name_token.value == "min":
+                # Special case of "reduce()"
+                # with <member>.min() -> <member>.reduce(r, i, int_max, r < i ? r : i)
+                try:
+                    # Note. The Result type includes None, which will raise an exception.
+                    reduction = min(member_list)  # type: ignore [type-var]
+                except ValueError as ex:
+                    err = "Attempt to reduce an empty sequence or a sequence with a None value"
+                    reduction = CELEvalError(err, ex.__class__, ex.args, tree=tree)
+                return reduction
+
+            else:
+                raise RuntimeError("Internal Design Error")  # pragma: no cover
 
         else:
             # Not a macro: a method evaluation.

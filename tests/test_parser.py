@@ -448,3 +448,4 @@ def test_dump_issue_35():
 def test_tree_dump(parser):
     ast = parser.parse("-(3*4+5-1/2%3==1)?name[index]:f(1,2)||false&&true")
     assert tree_dump(ast) == '- (3 *  4 +  5 -  1 /  2 %  3 ==  1) ? name[index] : f(1, 2) || false && true'
+

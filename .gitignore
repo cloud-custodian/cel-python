@@ -131,3 +131,4 @@ type_check/lineprecision.txt
 
 # PyCharm Stuff
 .idea/*
+demo/issue_41.py

@@ -1,11 +1,11 @@
 Name              Lines  Precise  Imprecise  Any  Empty  Unanalyzed
 -------------------------------------------------------------------
-celpy               306       76          0    4    226           0
-celpy.__main__      508      204          8   42    254           0
-celpy.adapter       141       34          3    9     89           6
-celpy.c7nlib       1663      351         14  149   1149           0
-celpy.celparser     389      199          3   23    164           0
-celpy.celtypes     1504      417         14  224    812          37
-celpy.evaluation   2578      866         38  176   1481          17
+celpy               293       76          0    4    213           0
+celpy.__main__      465      172          7   42    244           0
+celpy.adapter       137       35          3    9     85           5
+celpy.c7nlib       1584      340         15  154   1075           0
+celpy.celparser     401      207          2   22    170           0
+celpy.celtypes     1503      438         14  221    791          39
+celpy.evaluation   2472      835         33  177   1411          16
 xlate                 0        0          0    0      0           0
-xlate.c7n_to_cel   1755      385        103  146   1115           6
+xlate.c7n_to_cel   1730      377        102  145   1101           5

@@ -1631,6 +1631,15 @@ def test_member_dot_arg_all(monkeypatch):
     )
 
 
+def test_member_dot_arg_all_issue_41(monkeypatch):
+    """The filter macro CelEvalError().all(x, x) == CelEvalError()"""
+    tree = macro_member_tree("all")
+    the_error = CELEvalError()
+    eval_0 = Evaluator(tree, activation=Mock(resolve_variable=Mock(return_value=the_error)))
+    assert eval_0.member_dot_arg(tree.children[0]) is the_error
+
+
+
 def test_member_dot_arg_exists(monkeypatch):
     """The filter macro [true, false].exists(x, x) == [true]"""
     visit = Mock(
