@@ -60,22 +60,20 @@ Example::
 
 
 """
+
 import re
 from pathlib import Path
 from typing import Any, List, Optional, cast
 
 import lark.visitors
 from lark import Lark, Token, Tree  # noqa: F401
-from lark.exceptions import (LexError, ParseError, UnexpectedCharacters,
-                             UnexpectedToken)
+from lark.exceptions import LexError, ParseError, UnexpectedCharacters, UnexpectedToken
 
 
 class CELParseError(Exception):
     def __init__(
-            self,
-            *args: Any,
-            line: Optional[int] = None,
-            column: Optional[int] = None) -> None:
+        self, *args: Any, line: Optional[int] = None, column: Optional[int] = None
+    ) -> None:
         super().__init__(*args)
         self.line = line
         self.column = column
@@ -83,6 +81,7 @@ class CELParseError(Exception):
 
 class CELParser:
     """Wrapper for the CEL parser and the syntax error messages."""
+
     CEL_PARSER: Optional[Lark] = None
 
     def __init__(self) -> None:
@@ -94,7 +93,7 @@ class CELParser:
                 start="expr",
                 debug=True,
                 g_regex_flags=re.M,
-                lexer_callbacks={'IDENT': self.ambiguous_literals},
+                lexer_callbacks={"IDENT": self.ambiguous_literals},
                 propagate_positions=True,
             )
 
@@ -121,10 +120,8 @@ class CELParser:
             raise CELParseError(message, *ex.args)
 
     def error_text(
-            self,
-            message: str,
-            line: Optional[int] = None,
-            column: Optional[int] = None) -> str:
+        self, message: str, line: Optional[int] = None, column: Optional[int] = None
+    ) -> str:
         source = self.text.splitlines()[line - 1] if line else self.text
         message = (
             f"ERROR: <input>:{line or '?'}:{column or '?'} {message}\n"
@@ -153,9 +150,7 @@ class DumpAST(lark.visitors.Visitor_Recursive):
             right = self.stack.pop()
             left = self.stack.pop()
             cond = self.stack.pop()
-            self.stack.append(
-                f"{cond} ? {left} : {right}"
-            )
+            self.stack.append(f"{cond} ? {left} : {right}")
 
     def conditionalor(self, tree: lark.Tree) -> None:
         if len(tree.children) == 1:
@@ -163,9 +158,7 @@ class DumpAST(lark.visitors.Visitor_Recursive):
         else:
             right = self.stack.pop()
             left = self.stack.pop()
-            self.stack.append(
-                f"{left} || {right}"
-            )
+            self.stack.append(f"{left} || {right}")
 
     def conditionaland(self, tree: lark.Tree) -> None:
         if len(tree.children) == 1:
@@ -173,9 +166,7 @@ class DumpAST(lark.visitors.Visitor_Recursive):
         else:
             right = self.stack.pop()
             left = self.stack.pop()
-            self.stack.append(
-                f"{left} && {right}"
-            )
+            self.stack.append(f"{left} && {right}")
 
     def relation(self, tree: lark.Tree) -> None:
         if len(tree.children) == 1:
@@ -183,9 +174,7 @@ class DumpAST(lark.visitors.Visitor_Recursive):
         else:
             right = self.stack.pop()
             left = self.stack.pop()
-            self.stack.append(
-                f"{left} {right}"
-            )
+            self.stack.append(f"{left} {right}")
 
     def relation_lt(self, tree: lark.Tree) -> None:
         left = self.stack.pop()
@@ -221,9 +210,7 @@ class DumpAST(lark.visitors.Visitor_Recursive):
         else:
             right = self.stack.pop()
             left = self.stack.pop()
-            self.stack.append(
-                f"{left} {right}"
-            )
+            self.stack.append(f"{left} {right}")
 
     def addition_add(self, tree: lark.Tree) -> None:
         left = self.stack.pop()
@@ -239,9 +226,7 @@ class DumpAST(lark.visitors.Visitor_Recursive):
         else:
             right = self.stack.pop()
             left = self.stack.pop()
-            self.stack.append(
-                f"{left} {right}"
-            )
+            self.stack.append(f"{left} {right}")
 
     def multiplication_mul(self, tree: lark.Tree) -> None:
         left = self.stack.pop()
@@ -261,9 +246,7 @@ class DumpAST(lark.visitors.Visitor_Recursive):
         else:
             right = self.stack.pop()
             left = self.stack.pop()
-            self.stack.append(
-                f"{left} {right}"
-            )
+            self.stack.append(f"{left} {right}")
 
     def unary_not(self, tree: lark.Tree) -> None:
         self.stack.append("!")
@@ -350,7 +333,9 @@ class DumpAST(lark.visitors.Visitor_Recursive):
         names = cast(List[lark.Token], tree.children[::2])
         values = cast(List[lark.Token], tree.children[1::2])
         assert len(names) == len(values)
-        pairs = reversed(list((n.value, self.stack.pop()) for n, v in zip(names, values)))
+        pairs = reversed(
+            list((n.value, self.stack.pop()) for n, v in zip(names, values))
+        )
         items = ", ".join(f"{n}: {v}" for n, v in pairs)
         self.stack.append(items)
 
@@ -359,10 +344,12 @@ class DumpAST(lark.visitors.Visitor_Recursive):
         keys = tree.children[::2]
         values = tree.children[1::2]
         assert len(keys) == len(values)
-        pairs = reversed(list(
-            {'value': self.stack.pop(), 'key': self.stack.pop()}
-            for k, v in zip(keys, values)
-        ))
+        pairs = reversed(
+            list(
+                {"value": self.stack.pop(), "key": self.stack.pop()}
+                for k, v in zip(keys, values)
+            )
+        )
         items = ", ".join(f"{k_v['key']}: {k_v['value']}" for k_v in pairs)
         self.stack.append(items)
 

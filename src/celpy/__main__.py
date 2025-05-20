@@ -104,29 +104,23 @@ logger = logging.getLogger("celpy")
 # Note the reliance on `ast.literal_eval` for ListType and MapType conversions.
 # Other types convert strings directly. These types need some help.
 CLI_ARG_TYPES: Dict[str, Annotation] = {
-    "int":
-        celtypes.IntType,
-    "uint":
-        celtypes.UintType,
-    "double":
-        celtypes.DoubleType,
-    "bool":
-        celtypes.BoolType,
-    "string":
-        celtypes.StringType,
-    "bytes":
-        celtypes.BytesType,
-    "list":
-        cast(Callable[..., celtypes.Value], lambda arg: celtypes.ListType(ast.literal_eval(arg))),
-    "map":
-        cast(Callable[..., celtypes.Value], lambda arg: celtypes.MapType(ast.literal_eval(arg))),
-    "null_type":
-        cast(Callable[..., celtypes.Value], lambda arg: None),
-    "single_duration":
-        celtypes.DurationType,
-    "single_timestamp":
-        celtypes.TimestampType,
-
+    "int": celtypes.IntType,
+    "uint": celtypes.UintType,
+    "double": celtypes.DoubleType,
+    "bool": celtypes.BoolType,
+    "string": celtypes.StringType,
+    "bytes": celtypes.BytesType,
+    "list": cast(
+        Callable[..., celtypes.Value],
+        lambda arg: celtypes.ListType(ast.literal_eval(arg)),
+    ),
+    "map": cast(
+        Callable[..., celtypes.Value],
+        lambda arg: celtypes.MapType(ast.literal_eval(arg)),
+    ),
+    "null_type": cast(Callable[..., celtypes.Value], lambda arg: None),
+    "single_duration": celtypes.DurationType,
+    "single_timestamp": celtypes.TimestampType,
     "int64_value": celtypes.IntType,
     "uint64_value": celtypes.UintType,
     "double_value": celtypes.DoubleType,
@@ -175,7 +169,8 @@ def arg_type_value(text: str) -> Tuple[str, Annotation, celtypes.Value]:
     match = arg_pattern.match(text)
     if match is None:
         raise argparse.ArgumentTypeError(
-            f"arg {text} not 'var=string', 'var:type=value', or `var:type")
+            f"arg {text} not 'var=string', 'var:type=value', or `var:type"
+        )
     name, type_name, value_text = match.groups()
     if value_text is None:
         value_text = os.environ.get(name)
@@ -186,12 +181,16 @@ def arg_type_value(text: str) -> Tuple[str, Annotation, celtypes.Value]:
             type_definition = CLI_ARG_TYPES[type_name]
             value = cast(
                 celtypes.Value,
-                type_definition(value_text)  # type: ignore[arg-type, call-arg]
+                type_definition(value_text),  # type: ignore[arg-type, call-arg]
             )
         except KeyError:
-            raise argparse.ArgumentTypeError(f"arg {text} type name not in {list(CLI_ARG_TYPES)}")
+            raise argparse.ArgumentTypeError(
+                f"arg {text} type name not in {list(CLI_ARG_TYPES)}"
+            )
         except ValueError:
-            raise argparse.ArgumentTypeError(f"arg {text} value invalid for the supplied type")
+            raise argparse.ArgumentTypeError(
+                f"arg {text} value invalid for the supplied type"
+            )
     else:
         value = celtypes.StringType(value_text or "")
         type_definition = celtypes.StringType
@@ -199,56 +198,83 @@ def arg_type_value(text: str) -> Tuple[str, Annotation, celtypes.Value]:
 
 
 def get_options(argv: Optional[List[str]] = None) -> argparse.Namespace:
-    """Parses command-line arguments.
-    """
+    """Parses command-line arguments."""
     parser = argparse.ArgumentParser(prog="celpy", description="Pure Python CEL")
-    parser.add_argument(
-        "-v", "--verbose", default=0, action='count')
+    parser.add_argument("-v", "--verbose", default=0, action="count")
 
     # Inputs
     parser.add_argument(
-        "-a", "--arg", action='append', type=arg_type_value,
+        "-a",
+        "--arg",
+        action="append",
+        type=arg_type_value,
         help="Variables to set; -a name:type=value, or -a name=value for strings, "
-             "or -a name to read an environment variable"
+        "or -a name to read an environment variable",
     )
     parser.add_argument(
-        "-n", "--null-input", dest='null_input', default=False, action='store_true',
-        help="Avoid reading Newline-Delimited JSON documents from stdin"
+        "-n",
+        "--null-input",
+        dest="null_input",
+        default=False,
+        action="store_true",
+        help="Avoid reading Newline-Delimited JSON documents from stdin",
     )
     parser.add_argument(
-        "-s", "--slurp", default=False, action="store_true",
-        help="Slurp a single, multiple JSON document from stdin"
+        "-s",
+        "--slurp",
+        default=False,
+        action="store_true",
+        help="Slurp a single, multiple JSON document from stdin",
     )
     parser.add_argument(
-        "-i", "--interactive", default=False, action="store_true",
-        help="Interactive REPL"
+        "-i",
+        "--interactive",
+        default=False,
+        action="store_true",
+        help="Interactive REPL",
     )
 
     # JSON handling
     parser.add_argument(
-        "--json-package", "-p", metavar="NAME", dest="package", default=None, action="store",
-        help="Each JSON input is a CEL package, allowing .name to work"
+        "--json-package",
+        "-p",
+        metavar="NAME",
+        dest="package",
+        default=None,
+        action="store",
+        help="Each JSON input is a CEL package, allowing .name to work",
     )
     parser.add_argument(
-        "--json-document", "-d", metavar="NAME", dest="document", default=None, action="store",
-        help="Each JSON input is a variable, allowing name.map(x, x*2) to work"
+        "--json-document",
+        "-d",
+        metavar="NAME",
+        dest="document",
+        default=None,
+        action="store",
+        help="Each JSON input is a variable, allowing name.map(x, x*2) to work",
     )
 
     # Outputs and Status
     parser.add_argument(
-        "-b", "--boolean", default=False, action='store_true',
-        help="If the result is True, the exit status is 0, for False, it's 1, otherwise 2"
+        "-b",
+        "--boolean",
+        default=False,
+        action="store_true",
+        help="If the result is True, the exit status is 0, for False, it's 1, otherwise 2",
     )
     parser.add_argument(
-        "-f", "--format", default=None, action='store',
+        "-f",
+        "--format",
+        default=None,
+        action="store",
         help=(
             "Use Python formating instead of JSON conversion of results; "
             "Example '.6f' to format a DoubleType result"
-        )
+        ),
     )
 
     # The expression
-    parser.add_argument("expr", nargs='?')
+    parser.add_argument("expr", nargs="?")
 
     options = parser.parse_args(argv)
     if options.package and options.document:
@@ -273,7 +299,10 @@ class CEL_REPL(cmd.Cmd):
             prgm = self.env.program(expr)
             return prgm.evaluate(self.state)
         except CELParseError as ex:
-            print(self.env.cel_parser.error_text(ex.args[0], ex.line, ex.column), file=sys.stderr)
+            print(
+                self.env.cel_parser.error_text(ex.args[0], ex.line, ex.column),
+                file=sys.stderr,
+            )
             raise
 
     def preloop(self) -> None:
@@ -285,7 +314,7 @@ class CEL_REPL(cmd.Cmd):
 
         Evaluates the expression, saves the result as the given variable in the current activation.
         """
-        name, space, args = args.partition(' ')
+        name, space, args = args.partition(" ")
         try:
             value: celtypes.Value = self.cel_eval(args)
             print(value)
@@ -316,12 +345,13 @@ class CEL_REPL(cmd.Cmd):
 
 
 def process_json_doc(
-        display: Callable[[Result], None],
-        prgm: Runner,
-        activation: Dict[str, Any],
-        variable: str,
-        document: str,
-        boolean_to_status: bool = False) -> int:
+    display: Callable[[Result], None],
+    prgm: Runner,
+    activation: Dict[str, Any],
+    variable: str,
+    document: str,
+    boolean_to_status: bool = False,
+) -> int:
     """
     Process a single JSON document. Either one line of an NDJSON stream
     or the only document in slurp mode. We assign it to the variable "jq".
@@ -334,7 +364,7 @@ def process_json_doc(
         activation[variable] = json.loads(document, cls=CELJSONDecoder)
         result = prgm.evaluate(activation)
         display(result)
-        if (boolean_to_status and isinstance(result, (celtypes.BoolType, bool))):
+        if boolean_to_status and isinstance(result, (celtypes.BoolType, bool)):
             return 0 if result else 1
         return 0
     except CELEvalError as ex:
@@ -378,9 +408,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if options.format:
+
         def output_display(result: Result) -> None:
-            print('{0:{format}}'.format(result, format=options.format))
+            print("{0:{format}}".format(result, format=options.format))
     else:
+
         def output_display(result: Result) -> None:
             print(json.dumps(result, cls=CELJSONEncoder))
 
@@ -391,9 +423,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     annotations: Optional[Dict[str, Annotation]]
     if options.arg:
-        annotations = {
-            name: type for name, type, value in options.arg
-        }
+        annotations = {name: type for name, type, value in options.arg}
     else:
         annotations = None
 
@@ -407,13 +437,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         expr = env.compile(options.expr)
         prgm = env.program(expr)
     except CELParseError as ex:
-        print(env.cel_parser.error_text(ex.args[0], ex.line, ex.column), file=sys.stderr)
+        print(
+            env.cel_parser.error_text(ex.args[0], ex.line, ex.column), file=sys.stderr
+        )
         return 1
 
     if options.arg:
-        activation = {
-            name: value for name, type, value in options.arg
-        }
+        activation = {name: value for name, type, value in options.arg}
     else:
         activation = {}
 
@@ -425,21 +455,30 @@ def main(argv: Optional[List[str]] = None) -> int:
                 if isinstance(result, (celtypes.BoolType, bool)):
                     summary = 0 if result else 1
                 else:
-                    logger.warning("Expected celtypes.BoolType, got %s = %r", type(result), result)
+                    logger.warning(
+                        "Expected celtypes.BoolType, got %s = %r", type(result), result
+                    )
                     summary = 2
             else:
                 output_display(result)
                 summary = 0
         except CELEvalError as ex:
-            print(env.cel_parser.error_text(ex.args[0], ex.line, ex.column), file=sys.stderr)
+            print(
+                env.cel_parser.error_text(ex.args[0], ex.line, ex.column),
+                file=sys.stderr,
+            )
             summary = 2
 
     elif options.slurp:
         # If slurp, one big document, part of the "jq" package in the activation context.
         document = sys.stdin.read()
         summary = process_json_doc(
-            output_display, prgm, activation, options.document or options.package, document,
-            options.boolean
+            output_display,
+            prgm,
+            activation,
+            options.document or options.package,
+            document,
+            options.boolean,
         )
 
     else:
@@ -450,9 +489,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             summary = max(
                 summary,
                 process_json_doc(
-                    output_display, prgm, activation, options.document or options.package, document,
-                    options.boolean
-                )
+                    output_display,
+                    prgm,
+                    activation,
+                    options.document or options.package,
+                    document,
+                    options.boolean,
+                ),
             )
 
     return summary
