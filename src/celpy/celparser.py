@@ -283,11 +283,8 @@ class DumpAST(lark.visitors.Visitor_Recursive):
         else:
             exprlist = ""
         right = cast(lark.Token, tree.children[1]).value
-        if self.stack:
-            left = self.stack.pop()
-            self.stack.append(f"{left}.{right}({exprlist})")
-        else:
-            self.stack.append(f".{right}({exprlist})")
+        left = self.stack.pop()
+        self.stack.append(f"{left}.{right}({exprlist})")
 
     def member_index(self, tree: lark.Tree) -> None:
         right = self.stack.pop()
