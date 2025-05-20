@@ -25,6 +25,7 @@ The protobuf decoder is TBD.
 A more sophisticated type injection capability may be needed to permit
 additional types or extensions to :mod:`celpy.celtypes`.
 """
+
 import base64
 import datetime
 import json
@@ -43,9 +44,11 @@ class CELJSONEncoder(json.JSONEncoder):
     without any more detailed type marker.
     Specifically timestamps, durations, and bytes.
     """
+
     @staticmethod
     def to_python(
-            cel_object: celtypes.Value) -> Union[celtypes.Value, List[Any], Dict[Any, Any], bool]:
+        cel_object: celtypes.Value,
+    ) -> Union[celtypes.Value, List[Any], Dict[Any, Any], bool]:
         """Recursive walk through the CEL object, replacing BoolType with native bool instances.
         This lets the :py:mod:`json` module correctly represent the obects
         with JSON ``true`` and ``false``.
@@ -91,6 +94,7 @@ class CELJSONDecoder(json.JSONDecoder):
     to TimestampType or DurationType or BytesType is handled by celtype
     constructors.
     """
+
     def decode(self, source: str, _w: Any = None) -> Any:
         raw_json = super().decode(source)
         return json_to_cel(raw_json)
@@ -122,9 +126,7 @@ MapType({StringType('hello'): StringType('world')})])
     elif document is None:
         return None
     elif isinstance(document, (tuple, List)):
-        return celtypes.ListType(
-            [json_to_cel(item) for item in document]
-        )
+        return celtypes.ListType([json_to_cel(item) for item in document])
     elif isinstance(document, Dict):
         return celtypes.MapType(
             {json_to_cel(key): json_to_cel(value) for key, value in document.items()}
@@ -134,4 +136,6 @@ MapType({StringType('hello'): StringType('world')})])
     elif isinstance(document, datetime.timedelta):
         return celtypes.DurationType(document)
     else:
-        raise ValueError(f"unexpected type {type(document)} in JSON structure {document!r}")
+        raise ValueError(
+            f"unexpected type {type(document)} in JSON structure {document!r}"
+        )

@@ -296,6 +296,13 @@ def test_string_type():
     assert id(s_1) != id(s_2)
 
 
+def test_string_issue_48():
+    s_1 = StringType("temp")
+    n_1 = NullType()
+    assert s_1 != n_1
+    assert not (s_1 == n_1)
+
+
 def test_timestamp_type():
     ts_1_dt = TimestampType(datetime.datetime(2009, 2, 13, 23, 31, 30))
     ts_1_tuple = TimestampType(2009, 2, 13, 23, 31, 30)

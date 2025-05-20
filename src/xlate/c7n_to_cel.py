@@ -44,11 +44,11 @@ There are three explicit limitations here.
 -   Some policy filters are so rarely used that there's little point in automated
     translation of the policy filter.
 """
+
 import collections
 import logging
 import re
-from typing import (Any, Callable, DefaultDict, Dict, List, Optional, Tuple,
-                    Union, cast)
+from typing import Any, Callable, DefaultDict, Dict, List, Optional, Tuple, Union, cast
 
 import yaml
 
@@ -77,10 +77,10 @@ class C7N_Rewriter:
     def q(text: Optional[str], quote: str = '"') -> str:
         """Force specific quotes on CEL literals."""
         if text is None:
-            return f'{quote}{quote}'
+            return f"{quote}{quote}"
         if quote in text:
-            text = text.replace(quote, f'\\{quote}')
-        return f'{quote}{text}{quote}'
+            text = text.replace(quote, f"\\{quote}")
+        return f"{quote}{text}{quote}"
 
     @staticmethod
     def key_to_cel(operation_key: str, context: Optional[str] = None) -> str:
@@ -115,17 +115,17 @@ class C7N_Rewriter:
         if function_arg_match:
             function, arg = function_arg_match.groups()
             cel_name = function_map[function]
-            key = f'{cel_name}({key_context}[{C7N_Rewriter.q(arg)}])'
+            key = f"{cel_name}({key_context}[{C7N_Rewriter.q(arg)}])"
         elif "." in operation_key:
             names = operation_key.split(".")
-            key = f'{key_context}[{C7N_Rewriter.q(names[0])}]' + "".join(
-                f'[{C7N_Rewriter.q(n)}]' for n in names[1:]
+            key = f"{key_context}[{C7N_Rewriter.q(names[0])}]" + "".join(
+                f"[{C7N_Rewriter.q(n)}]" for n in names[1:]
             )
         elif operation_key.startswith("tag:"):
             prefix, _, name = operation_key.partition(":")
             key = f'{key_context}["Tags"].filter(x, x["Key"] == {C7N_Rewriter.q(name)})[0]["Value"]'
         else:
-            key = f'{key_context}[{C7N_Rewriter.q(operation_key)}]'
+            key = f"{key_context}[{C7N_Rewriter.q(operation_key)}]"
         return key
 
     # Transformations from C7N ``op:`` to CEL.
@@ -226,7 +226,8 @@ class C7N_Rewriter:
 
         if (
             isinstance(value, str)
-            and value in ("true", "false") or isinstance(value, bool)  # noqa: W503
+            and value in ("true", "false")
+            or isinstance(value, bool)  # noqa: W503
         ):
             # Boolean cases
             # Rewrite == true, != true, == false, and != false
@@ -318,10 +319,10 @@ class C7N_Rewriter:
         url = value_from["url"]
         if "format" in value_from:
             format = value_from["format"].strip()
-            source = f'value_from({C7N_Rewriter.q(url)}, {C7N_Rewriter.q(format)})'
+            source = f"value_from({C7N_Rewriter.q(url)}, {C7N_Rewriter.q(format)})"
         else:
             # Parse URL to get format from path.
-            source = f'value_from({C7N_Rewriter.q(url)})'
+            source = f"value_from({C7N_Rewriter.q(url)})"
 
         if "expr" in value_from:
             # if expr is a string, it's jmespath. Escape embedded apostrophes.
@@ -449,12 +450,14 @@ class C7N_Rewriter:
         if "tz" in c7n_filter:  # pragma: no cover
             # Not widely used.
             tz = c7n_filter.get("tz", "utc")
-            logger.error("Cannot convert mark-for-op: with tz: %s in %s", tz, c7n_filter)
+            logger.error(
+                "Cannot convert mark-for-op: with tz: %s in %s", tz, c7n_filter
+            )
 
         clauses = [
-            f'{key}.marked_key({C7N_Rewriter.q(tag)}).action == {C7N_Rewriter.q(op)}',
+            f"{key}.marked_key({C7N_Rewriter.q(tag)}).action == {C7N_Rewriter.q(op)}",
             f'{C7N_Rewriter.now} >= {key}.marked_key("{tag}").action_date '
-            f'- duration("{skew}d{skew_hours}h")'
+            f'- duration("{skew}d{skew_hours}h")',
         ]
         return " && ".join(filter(None, clauses))
 
@@ -536,7 +539,9 @@ class C7N_Rewriter:
         op = cast(str, c7n_filter["op"])
         cel_value = c7n_filter["value"]
 
-        return C7N_Rewriter.atomic_op_map[op].format(key, f'{C7N_Rewriter.q(cel_value)}')
+        return C7N_Rewriter.atomic_op_map[op].format(
+            key, f"{C7N_Rewriter.q(cel_value)}"
+        )
 
     @staticmethod
     def type_metrics_rewrite(resource: str, c7n_filter: Dict[str, Any]) -> str:
@@ -746,13 +751,16 @@ class C7N_Rewriter:
             "asg": "resource.get_related_ids().map(sg. sg.security_group())",
             "lambda": "VpcConfig.SecurityGroupIds.map(sg, sg.security_group())",
             "batch-compute": (
-                "resource.computeResources.securityGroupIds.map(sg, sg.security_group())"),
+                "resource.computeResources.securityGroupIds.map(sg, sg.security_group())"
+            ),
             "codecommit": "resource.vpcConfig.securityGroupIds.map(sg, sg.security_group())",
             "directory": "resource.VpcSettings.SecurityGroupId.security_group()",
             "dms-instance": (
-                "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())"),
+                "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())"
+            ),
             "dynamodb-table": (
-                "resource.SecurityGroups.map(sg, sg..SecurityGroupIdentifier.security_group())"),
+                "resource.SecurityGroups.map(sg, sg..SecurityGroupIdentifier.security_group())"
+            ),
             "ec2": "resource.SecurityGroups.map(sg, sg.GroupId.security_group())",
             "efs": "resource.get_related_ids().map(sg, sg.security_group())",
             "eks": "resource.resourcesVpcConfig.securityGroupIds.map(sg, sg.security_group())",
@@ -765,9 +773,11 @@ class C7N_Rewriter:
             "message-broker": "resource.SecurityGroups.map(sg, sg.security_group())",
             "rds": "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())",
             "rds-cluster": (
-                "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())"),
+                "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())"
+            ),
             "redshift": (
-                "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())"),
+                "resource.VpcSecurityGroups.map(sg, sg.VpcSecurityGroupId.security_group())"
+            ),
             "sagemaker-notebook": "resource.SecurityGroups.map(sg, sg.security_group())",
             "vpc": "resource.get_related_ids().map(sg. sg.security_group())",
             "eni": "resource.Groups.map(sg, sg.GroupId.security_group())",
@@ -881,49 +891,53 @@ class C7N_Rewriter:
             log_group = c7n_filter.get("log-group")
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().LogGroupName", f'{C7N_Rewriter.q(log_group)}'
+                    "resource.flow_logs().LogGroupName", f"{C7N_Rewriter.q(log_group)}"
                 )
             )
         if c7n_filter.get("log-format"):
             log_format = c7n_filter.get("log-format")
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().LogFormat", f'{C7N_Rewriter.q(log_format)}'
+                    "resource.flow_logs().LogFormat", f"{C7N_Rewriter.q(log_format)}"
                 )
             )
         if c7n_filter.get("traffic-type"):
             traffic_type = cast(str, c7n_filter.get("traffic-type"))
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().TrafficType", f'{C7N_Rewriter.q(traffic_type.upper())}'
+                    "resource.flow_logs().TrafficType",
+                    f"{C7N_Rewriter.q(traffic_type.upper())}",
                 )
             )
         if c7n_filter.get("destination-type"):
             destination_type = c7n_filter.get("destination-type")
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().LogDestinationType", f'{C7N_Rewriter.q(destination_type)}'
+                    "resource.flow_logs().LogDestinationType",
+                    f"{C7N_Rewriter.q(destination_type)}",
                 )
             )
         if c7n_filter.get("destination"):
             destination = c7n_filter.get("destination")
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().LogDestination", f'{C7N_Rewriter.q(destination)}'
+                    "resource.flow_logs().LogDestination",
+                    f"{C7N_Rewriter.q(destination)}",
                 )
             )
         if c7n_filter.get("status"):
             status = c7n_filter.get("status")
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().FlowLogStatus", f'{C7N_Rewriter.q(status)}'
+                    "resource.flow_logs().FlowLogStatus", f"{C7N_Rewriter.q(status)}"
                 )
             )
         if c7n_filter.get("deliver-status"):
             deliver_status = c7n_filter.get("deliver-status")
             clauses.append(
                 C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().DeliverLogsStatus", f'{C7N_Rewriter.q(deliver_status)}'
+                    "resource.flow_logs().DeliverLogsStatus",
+                    f"{C7N_Rewriter.q(deliver_status)}",
                 )
             )
 
@@ -1015,7 +1029,10 @@ class C7N_Rewriter:
             )
         elif "value" in c7n_filter:
             return C7N_Rewriter.value_to_cel(
-                attr, c7n_filter.get("op", "eq"), c7n_filter["value"], c7n_filter.get("value_type")
+                attr,
+                c7n_filter.get("op", "eq"),
+                c7n_filter["value"],
+                c7n_filter.get("value_type"),
             )
         else:
             raise ValueError(
@@ -1123,7 +1140,7 @@ class C7N_Rewriter:
         else:
             key = c7n_prefix
             return C7N_Rewriter.value_to_cel(
-                f'resource.{attr}.kms_key()[{C7N_Rewriter.q(key)}]',
+                f"resource.{attr}.kms_key()[{C7N_Rewriter.q(key)}]",
                 c7n_filter.get("op", "equal"),
                 c7n_filter["value"],
                 c7n_filter.get("value_type"),
@@ -1207,7 +1224,9 @@ class C7N_Rewriter:
             else list(range(7))
         )
         if c7n_filter.get("skip-days"):
-            skip_days = ", ".join(f'{C7N_Rewriter.q(d)}' for d in c7n_filter.get("skip-days", []))
+            skip_days = ", ".join(
+                f"{C7N_Rewriter.q(d)}" for d in c7n_filter.get("skip-days", [])
+            )
             prefix = (
                 f"! getDate(now) in [{skip_days}].map(d, getDate(timestamp(d))) && "
             )
@@ -1215,28 +1234,28 @@ class C7N_Rewriter:
             prefix = ""
 
         default = (
-            f'now.getDayOfWeek({C7N_Rewriter.q(default_tz)}) in {days} '
-            f'&& now.getHours({C7N_Rewriter.q(default_tz)}) == {hour}'
+            f"now.getDayOfWeek({C7N_Rewriter.q(default_tz)}) in {days} "
+            f"&& now.getHours({C7N_Rewriter.q(default_tz)}) == {hour}"
         )
         if opt_out:
             # ``true`` ... resources without the tag are acted on by the policy
             return (
-                f'{prefix}'
-                f'resource.Tags.exists(x, x.key=={C7N_Rewriter.q(tag_key)}) '
-                f'? false '
-                f': ({default})'
+                f"{prefix}"
+                f"resource.Tags.exists(x, x.key=={C7N_Rewriter.q(tag_key)}) "
+                f"? false "
+                f": ({default})"
             )
         else:
             # ``false`` ... resources must have the tag in order to be acted on by the policy
             return (
-                f'{prefix}'
-                f'resource.Tags.exists(x, x.key=={C7N_Rewriter.q(tag_key)}) '
-                f'? resource.Tags'
-                f'.key({C7N_Rewriter.q(tag_key)}).resource_schedule().{value_label}.exists(s, '
-                f'now.getDayOfWeek(s.tz) in s.days && now.getHours(s.tz) == s.hour'
-                f')'
-                f' || ({default}) '
-                f': false'
+                f"{prefix}"
+                f"resource.Tags.exists(x, x.key=={C7N_Rewriter.q(tag_key)}) "
+                f"? resource.Tags"
+                f".key({C7N_Rewriter.q(tag_key)}).resource_schedule().{value_label}.exists(s, "
+                f"now.getDayOfWeek(s.tz) in s.days && now.getHours(s.tz) == s.hour"
+                f")"
+                f" || ({default}) "
+                f": false"
             )
 
     @staticmethod
@@ -1287,7 +1306,8 @@ class C7N_Rewriter:
             ),
             "apigw": 'resource.get_resource_policy("policy")',  # See RestApiCrossAccount
             "lambda": (  # See LambdaCrossAccountAccessFilter
-                'resource["FunctionName"].get_resource_policy()["Policy"]'),
+                'resource["FunctionName"].get_resource_policy()["Policy"]'
+            ),
             "alarm": 'resource["Arn"].arn_split("account-id")',  # See CrossAccountFilter
             "log-group": (  # See LogCrossAccountFilter
                 "resource.get_accounts()"
@@ -1384,29 +1404,34 @@ class C7N_Rewriter:
         """
         resource_type_map = {
             "ami": ('resource["ImageId"] in all_images()'),
-            "asg": ('resource["LaunchConfigurationName"] in all_launch_configuration_names()'),
+            "asg": (
+                'resource["LaunchConfigurationName"] in all_launch_configuration_names()'
+            ),
             "ebs": ('resource["SnapshotId"] in all_snapshots()'),
             "iam-role": (
-                'all_service_roles()'
-                '.exists(role, role == resource["Arn"] || roles == resource["RoleName"])'),
+                "all_service_roles()"
+                '.exists(role, role == resource["Arn"] || roles == resource["RoleName"])'
+            ),
             "iam-policy": (
                 '(resource["AttachmentCount"] > 0 || '
-                'resource.get("PermissionsBoundaryUsageCount", 0) > 0)'),
+                'resource.get("PermissionsBoundaryUsageCount", 0) > 0)'
+            ),
             "iam-profile": (
-                'all_instance_profiles()'
+                "all_instance_profiles()"
                 '.exists(role, role == resource["Arn"] '
-                '|| roles == resource["InstanceProfileName"])'),
+                '|| roles == resource["InstanceProfileName"])'
+            ),
             "rds-subnet-group": (
-                'resource["DBSubnetGroupName"] in all_dbsubnet_groups()'),
-            "vpc": (
-                '(resource["GroupId"] in all_scan_groups() && has(resource.VpcId)'),
+                'resource["DBSubnetGroupName"] in all_dbsubnet_groups()'
+            ),
+            "vpc": ('(resource["GroupId"] in all_scan_groups() && has(resource.VpcId)'),
         }
         attr = resource_type_map[resource]
         if c7n_filter.get("value", True):
             prefix = ""
         else:
             prefix = "! "
-        return f'{prefix}{attr}'
+        return f"{prefix}{attr}"
 
     @staticmethod
     def unused_rewrite(resource: str, c7n_filter: Dict[str, Any]) -> str:
@@ -1423,10 +1448,7 @@ class C7N_Rewriter:
             (set(C7N.filter.asg_snapshots() + set(C7N.filter.ami_snapshots()))
 
         """
-        reversed_filter = {
-            "type": "used",
-            "value": not c7n_filter.get("value", True)
-        }
+        reversed_filter = {"type": "used", "value": not c7n_filter.get("value", True)}
         return C7N_Rewriter.used_rewrite(resource, reversed_filter)
 
     @staticmethod
@@ -1470,7 +1492,7 @@ class C7N_Rewriter:
             ! resource.get_access_log().exists(a, a["Enabled"])
         """
         positive = C7N_Rewriter.is_logging_rewrite(resource, c7n_filter)
-        return f'! {positive}'
+        return f"! {positive}"
 
     @staticmethod
     def health_event_rewrite(resource: str, c7n_filter: Dict[str, Any]) -> str:
@@ -1489,8 +1511,8 @@ class C7N_Rewriter:
             size(resource.get_health_events(["upcoming", "open"])) > 0
         """
         statuses = c7n_filter.get("statuses", ["upcoming", "open"])
-        quoted_statuses = ', '.join(f'"{s}"' for s in statuses)
-        return f'size(resource.get_health_events([{quoted_statuses}])) > 0'
+        quoted_statuses = ", ".join(f'"{s}"' for s in statuses)
+        return f"size(resource.get_health_events([{quoted_statuses}])) > 0"
 
     @staticmethod
     def shield_enabled_rewrite(resource: str, c7n_filter: Dict[str, Any]) -> str:
@@ -1512,9 +1534,9 @@ class C7N_Rewriter:
         state = c7n_filter.get("state", True)
         state_text = "" if state else "! "
         if resource == "account":
-            return f'{state_text}resource.shield_subscription()'
+            return f"{state_text}resource.shield_subscription()"
         else:
-            return f'{state_text}resource.shield_protection()'
+            return f"{state_text}resource.shield_protection()"
 
     @staticmethod
     def waf_enabled_rewrite(resource: str, c7n_filter: Dict[str, Any]) -> str:
@@ -1605,24 +1627,24 @@ class C7N_Rewriter:
         max_cardinality = c7n_filter.get("max-cardinality")
         if "security-group" in c7n_filter.get("compare", []):
             compare.append(
-                f'resource.SecurityGroupId.security_group().{compare_key} == resource.{compare_key}'
+                f"resource.SecurityGroupId.security_group().{compare_key} == resource.{compare_key}"
             )
             if max_cardinality:
                 max_card.append(
-                    f'size(resource.SecurityGroupId.security_group()) == {max_cardinality}'
+                    f"size(resource.SecurityGroupId.security_group()) == {max_cardinality}"
                 )
         if "subnet" in c7n_filter.get("compare", []):
             compare.append(
-                f'resource.SubnetId.subnet().{compare_key} == resource.{compare_key}'
+                f"resource.SubnetId.subnet().{compare_key} == resource.{compare_key}"
             )
             if max_cardinality:
                 max_card.append(
-                    f'size(resource.SubnetId.subnet()) == {max_cardinality}'
+                    f"size(resource.SubnetId.subnet()) == {max_cardinality}"
                 )
         clauses = [
-            (f'! ({" || ".join(ignore)})' if ignore else ''),
-            (f'({" && ".join(compare)})' if compare else ''),
-            (f'({" && ".join(max_card)})' if max_card else ''),
+            (f'! ({" || ".join(ignore)})' if ignore else ""),
+            (f'({" && ".join(compare)})' if compare else ""),
+            (f'({" && ".join(max_card)})' if max_card else ""),
         ]
         print(f"CLAUSES: {clauses!r}")
         return " && ".join(filter(None, clauses))
@@ -1675,7 +1697,9 @@ class C7N_Rewriter:
             )
 
     @staticmethod
-    def logical_connector(resource: str, c7n_filter: Dict[str, Any], level: int = 0) -> str:
+    def logical_connector(
+        resource: str, c7n_filter: Dict[str, Any], level: int = 0
+    ) -> str:
         """
         Handle `not`, `or`, and `and`. A simple list is an implicit "and".
 
@@ -1712,7 +1736,8 @@ class C7N_Rewriter:
         elif isinstance(c7n_filter, list):
             # And is implied by a list with no explicit connector
             details = " && ".join(
-                C7N_Rewriter.logical_connector(resource, f, level + 1) for f in c7n_filter
+                C7N_Rewriter.logical_connector(resource, f, level + 1)
+                for f in c7n_filter
             )
             return f"({details})" if level > 1 else details
         else:

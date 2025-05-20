@@ -185,14 +185,29 @@ For example, there may be the following sequence:
 ..  TODO: Permit an extension into the timezone lookup.
 
 """
+
 import datetime
 import logging
 import re
 from functools import reduce, wraps
 from math import fsum
-from typing import (Any, Callable, Dict, Iterable, List, Mapping, NoReturn,
-                    Optional, Sequence, Tuple, Type, TypeVar, Union, cast,
-                    overload)
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    NoReturn,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 
 import pendulum
 from pendulum import timezone
@@ -203,45 +218,51 @@ logger = logging.getLogger("celtypes")
 
 
 Value = Union[
-    'BoolType',
-    'BytesType',
-    'DoubleType',
-    'DurationType',
-    'IntType',
-    'ListType',
-    'MapType',
-    None,   # Used instead of NullType
-    'StringType',
-    'TimestampType',
-    'UintType',
+    "BoolType",
+    "BytesType",
+    "DoubleType",
+    "DurationType",
+    "IntType",
+    "ListType",
+    "MapType",
+    None,  # Used instead of NullType
+    "StringType",
+    "TimestampType",
+    "UintType",
 ]
 
 # The domain of types used to build Annotations.
 CELType = Union[
-    Type['BoolType'],
-    Type['BytesType'],
-    Type['DoubleType'],
-    Type['DurationType'],
-    Type['IntType'],
-    Type['ListType'],
-    Type['MapType'],
+    Type["BoolType"],
+    Type["BytesType"],
+    Type["DoubleType"],
+    Type["DurationType"],
+    Type["IntType"],
+    Type["ListType"],
+    Type["MapType"],
     Callable[..., None],  # Used instead of NullType
-    Type['StringType'],
-    Type['TimestampType'],
-    Type['TypeType'],  # Used to mark Protobuf Type values
-    Type['UintType'],
-    Type['PackageType'],
-    Type['MessageType'],
+    Type["StringType"],
+    Type["TimestampType"],
+    Type["TypeType"],  # Used to mark Protobuf Type values
+    Type["UintType"],
+    Type["PackageType"],
+    Type["MessageType"],
 ]
 
 
 def type_matched(method: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]:
     """Decorates a method to assure the "other" value has the same type."""
+
     @wraps(method)
     def type_matching_method(self: Any, other: Any) -> Any:
-        if not(issubclass(type(other), type(self)) or issubclass(type(self), type(other))):
-            raise TypeError(f"no such overload: {self!r} {type(self)} != {other!r} {type(other)}")
+        if not (
+            issubclass(type(other), type(self)) or issubclass(type(self), type(other))
+        ):
+            raise TypeError(
+                f"no such overload: {self!r} {type(self)} != {other!r} {type(other)}"
+            )
         return method(self, other)
+
     return type_matching_method
 
 
@@ -347,16 +368,14 @@ class BoolType(int):
 
     For CEL, We need to prevent -false from working.
     """
-    def __new__(cls: Type['BoolType'], source: Any) -> 'BoolType':
+
+    def __new__(cls: Type["BoolType"], source: Any) -> "BoolType":
         if source is None:
             return super().__new__(cls, 0)
         elif isinstance(source, BoolType):
             return source
         elif isinstance(source, MessageType):
-            return super().__new__(
-                cls,
-                cast(int, source.get(StringType("value")))
-            )
+            return super().__new__(cls, cast(int, source.get(StringType("value"))))
         else:
             return super().__new__(cls, source)
 
@@ -375,28 +394,26 @@ class BoolType(int):
 
 class BytesType(bytes):
     """Python's bytes semantics are close to CEL."""
+
     def __new__(
-            cls: Type['BytesType'],
-            source: Union[str, bytes, Iterable[int], 'BytesType', 'StringType'],
-            *args: Any,
-            **kwargs: Any
-    ) -> 'BytesType':
+        cls: Type["BytesType"],
+        source: Union[str, bytes, Iterable[int], "BytesType", "StringType"],
+        *args: Any,
+        **kwargs: Any,
+    ) -> "BytesType":
         if source is None:
-            return super().__new__(cls, b'')
+            return super().__new__(cls, b"")
         elif isinstance(source, (bytes, BytesType)):
             return super().__new__(cls, source)
         elif isinstance(source, (str, StringType)):
-            return super().__new__(cls, source.encode('utf-8'))
+            return super().__new__(cls, source.encode("utf-8"))
         elif isinstance(source, MessageType):
             return super().__new__(
                 cls,
-                cast(bytes, source.get(StringType("value")))  # type: ignore [attr-defined]
+                cast(bytes, source.get(StringType("value"))),  # type: ignore [attr-defined]
             )
         elif isinstance(source, Iterable):
-            return super().__new__(
-                cls,
-                cast(Iterable[int], source)
-            )
+            return super().__new__(cls, cast(Iterable[int], source))
         else:
             raise TypeError(f"Invalid initial value type: {type(source)}")
 
@@ -412,14 +429,12 @@ class DoubleType(float):
 
     TODO: Conversions from string? IntType? UintType? DoubleType?
     """
-    def __new__(cls: Type['DoubleType'], source: Any) -> 'DoubleType':
+
+    def __new__(cls: Type["DoubleType"], source: Any) -> "DoubleType":
         if source is None:
             return super().__new__(cls, 0)
         elif isinstance(source, MessageType):
-            return super().__new__(
-                cls,
-                cast(float, source.get(StringType("value")))
-            )
+            return super().__new__(cls, cast(float, source.get(StringType("value"))))
         else:
             return super().__new__(cls, source)
 
@@ -430,14 +445,15 @@ class DoubleType(float):
         text = str(float(self))
         return text
 
-    def __neg__(self) -> 'DoubleType':
+    def __neg__(self) -> "DoubleType":
         return DoubleType(super().__neg__())
 
     def __mod__(self, other: Any) -> NoReturn:
         raise TypeError(
-            f"found no matching overload for '_%_' applied to '(double, {type(other)})'")
+            f"found no matching overload for '_%_' applied to '(double, {type(other)})'"
+        )
 
-    def __truediv__(self, other: Any) -> 'DoubleType':
+    def __truediv__(self, other: Any) -> "DoubleType":
         if cast(float, other) == 0.0:
             return DoubleType("inf")
         else:
@@ -445,9 +461,10 @@ class DoubleType(float):
 
     def __rmod__(self, other: Any) -> NoReturn:
         raise TypeError(
-            f"found no matching overload for '_%_' applied to '({type(other)}, double)'")
+            f"found no matching overload for '_%_' applied to '({type(other)}, double)'"
+        )
 
-    def __rtruediv__(self, other: Any) -> 'DoubleType':
+    def __rtruediv__(self, other: Any) -> "DoubleType":
         if self == 0.0:
             return DoubleType("inf")
         else:
@@ -465,17 +482,19 @@ class DoubleType(float):
         return super().__hash__()
 
 
-IntOperator = TypeVar('IntOperator', bound=Callable[..., int])
+IntOperator = TypeVar("IntOperator", bound=Callable[..., int])
 
 
 def int64(operator: IntOperator) -> IntOperator:
     """Apply an operation, but assure the value is within the int64 range."""
+
     @wraps(operator)
     def clamped_operator(*args: Any, **kwargs: Any) -> int:
         result: int = operator(*args, **kwargs)
         if -(2**63) <= result < 2**63:
             return result
         raise ValueError("overflow")
+
     return cast(IntOperator, clamped_operator)
 
 
@@ -505,12 +524,10 @@ class IntType(int):
     >>> IntType(DoubleType(-123.456))
     IntType(-123)
     """
+
     def __new__(
-            cls: Type['IntType'],
-            source: Any,
-            *args: Any,
-            **kwargs: Any
-    ) -> 'IntType':
+        cls: Type["IntType"], source: Any, *args: Any, **kwargs: Any
+    ) -> "IntType":
         convert: Callable[..., int]
         if source is None:
             return super().__new__(cls, 0)
@@ -518,10 +535,7 @@ class IntType(int):
             return source
         elif isinstance(source, MessageType):
             # Used by protobuf.
-            return super().__new__(
-                cls,
-                cast(int, source.get(StringType("value")))
-            )
+            return super().__new__(cls, cast(int, source.get(StringType("value"))))
         elif isinstance(source, (float, DoubleType)):
             convert = int64(round)
         elif isinstance(source, TimestampType):
@@ -544,23 +558,23 @@ class IntType(int):
         return text
 
     @int64
-    def __neg__(self) -> 'IntType':
+    def __neg__(self) -> "IntType":
         return IntType(super().__neg__())
 
     @int64
-    def __add__(self, other: Any) -> 'IntType':
+    def __add__(self, other: Any) -> "IntType":
         return IntType(super().__add__(cast(IntType, other)))
 
     @int64
-    def __sub__(self, other: Any) -> 'IntType':
+    def __sub__(self, other: Any) -> "IntType":
         return IntType(super().__sub__(cast(IntType, other)))
 
     @int64
-    def __mul__(self, other: Any) -> 'IntType':
+    def __mul__(self, other: Any) -> "IntType":
         return IntType(super().__mul__(cast(IntType, other)))
 
     @int64
-    def __truediv__(self, other: Any) -> 'IntType':
+    def __truediv__(self, other: Any) -> "IntType":
         other = cast(IntType, other)
         self_sign = -1 if self < IntType(0) else +1
         other_sign = -1 if other < IntType(0) else +1
@@ -570,25 +584,25 @@ class IntType(int):
     __floordiv__ = __truediv__
 
     @int64
-    def __mod__(self, other: Any) -> 'IntType':
+    def __mod__(self, other: Any) -> "IntType":
         self_sign = -1 if self < IntType(0) else +1
         go_mod = self_sign * (abs(self) % abs(cast(IntType, other)))
         return IntType(go_mod)
 
     @int64
-    def __radd__(self, other: Any) -> 'IntType':
+    def __radd__(self, other: Any) -> "IntType":
         return IntType(super().__radd__(cast(IntType, other)))
 
     @int64
-    def __rsub__(self, other: Any) -> 'IntType':
+    def __rsub__(self, other: Any) -> "IntType":
         return IntType(super().__rsub__(cast(IntType, other)))
 
     @int64
-    def __rmul__(self, other: Any) -> 'IntType':
+    def __rmul__(self, other: Any) -> "IntType":
         return IntType(super().__rmul__(cast(IntType, other)))
 
     @int64
-    def __rtruediv__(self, other: Any) -> 'IntType':
+    def __rtruediv__(self, other: Any) -> "IntType":
         other = cast(IntType, other)
         self_sign = -1 if self < IntType(0) else +1
         other_sign = -1 if other < IntType(0) else +1
@@ -598,7 +612,7 @@ class IntType(int):
     __rfloordiv__ = __rtruediv__
 
     @int64
-    def __rmod__(self, other: Any) -> 'IntType':
+    def __rmod__(self, other: Any) -> "IntType":
         left_sign = -1 if other < IntType(0) else +1
         go_mod = left_sign * (abs(other) % abs(self))
         return IntType(go_mod)
@@ -633,12 +647,14 @@ class IntType(int):
 
 def uint64(operator: IntOperator) -> IntOperator:
     """Apply an operation, but assure the value is within the uint64 range."""
+
     @wraps(operator)
     def clamped_operator(*args: Any, **kwargs: Any) -> int:
         result = operator(*args, **kwargs)
         if 0 <= result < 2**64:
             return result
         raise ValueError("overflow")
+
     return cast(IntOperator, clamped_operator)
 
 
@@ -680,12 +696,10 @@ class UintType(int):
     ...
     TypeError: no such overload
     """
+
     def __new__(
-            cls: Type['UintType'],
-            source: Any,
-            *args: Any,
-            **kwargs: Any
-    ) -> 'UintType':
+        cls: Type["UintType"], source: Any, *args: Any, **kwargs: Any
+    ) -> "UintType":
         convert: Callable[..., int]
         if isinstance(source, UintType):
             return source
@@ -697,7 +711,9 @@ class UintType(int):
             convert = uint64(lambda src: int(src[2:], 16))
         elif isinstance(source, MessageType):
             # Used by protobuf.
-            convert = uint64(lambda src: src['value'] if src['value'] is not None else 0)
+            convert = uint64(
+                lambda src: src["value"] if src["value"] is not None else 0
+            )
         elif source is None:
             convert = uint64(lambda src: 0)
         else:
@@ -715,47 +731,47 @@ class UintType(int):
         raise TypeError("no such overload")
 
     @uint64
-    def __add__(self, other: Any) -> 'UintType':
+    def __add__(self, other: Any) -> "UintType":
         return UintType(super().__add__(cast(IntType, other)))
 
     @uint64
-    def __sub__(self, other: Any) -> 'UintType':
+    def __sub__(self, other: Any) -> "UintType":
         return UintType(super().__sub__(cast(IntType, other)))
 
     @uint64
-    def __mul__(self, other: Any) -> 'UintType':
+    def __mul__(self, other: Any) -> "UintType":
         return UintType(super().__mul__(cast(IntType, other)))
 
     @uint64
-    def __truediv__(self, other: Any) -> 'UintType':
+    def __truediv__(self, other: Any) -> "UintType":
         return UintType(super().__floordiv__(cast(IntType, other)))
 
     __floordiv__ = __truediv__
 
     @uint64
-    def __mod__(self, other: Any) -> 'UintType':
+    def __mod__(self, other: Any) -> "UintType":
         return UintType(super().__mod__(cast(IntType, other)))
 
     @uint64
-    def __radd__(self, other: Any) -> 'UintType':
+    def __radd__(self, other: Any) -> "UintType":
         return UintType(super().__radd__(cast(IntType, other)))
 
     @uint64
-    def __rsub__(self, other: Any) -> 'UintType':
+    def __rsub__(self, other: Any) -> "UintType":
         return UintType(super().__rsub__(cast(IntType, other)))
 
     @uint64
-    def __rmul__(self, other: Any) -> 'UintType':
+    def __rmul__(self, other: Any) -> "UintType":
         return UintType(super().__rmul__(cast(IntType, other)))
 
     @uint64
-    def __rtruediv__(self, other: Any) -> 'UintType':
+    def __rtruediv__(self, other: Any) -> "UintType":
         return UintType(super().__rfloordiv__(cast(IntType, other)))
 
     __rfloordiv__ = __rtruediv__
 
     @uint64
-    def __rmod__(self, other: Any) -> 'UintType':
+    def __rmod__(self, other: Any) -> "UintType":
         return UintType(super().__rmod__(cast(IntType, other)))
 
     @type_matched
@@ -783,6 +799,7 @@ class ListType(List[Value]):
 
     An implied logical And means a singleton behaves in a distinct way from a non-singleton list.
     """
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
 
@@ -808,13 +825,10 @@ class ListType(List[Value]):
             except TypeError as ex:
                 return cast(BoolType, ex)  # Instead of Union[BoolType, TypeError]
 
-        result = (
-            len(self) == len(other)
-            and reduce(  # noqa: W503
-                logical_and,  # type: ignore [arg-type]
-                (equal(item_s, item_o) for item_s, item_o in zip(self, other)),
-                BoolType(True)  # type: ignore [arg-type]
-            )
+        result = len(self) == len(other) and reduce(  # noqa: W503
+            logical_and,  # type: ignore [arg-type]
+            (equal(item_s, item_o) for item_s, item_o in zip(self, other)),
+            BoolType(True),  # type: ignore [arg-type]
         )
         if isinstance(result, TypeError):
             raise result
@@ -830,29 +844,20 @@ class ListType(List[Value]):
             except TypeError as ex:
                 return cast(BoolType, ex)  # Instead of Union[BoolType, TypeError]
 
-        result = (
-            len(self) != len(other)
-            or reduce(  # noqa: W503
-                logical_or,  # type: ignore [arg-type]
-                (not_equal(item_s, item_o) for item_s, item_o in zip(self, other)),
-                BoolType(False)  # type: ignore [arg-type]
-            )
+        result = len(self) != len(other) or reduce(  # noqa: W503
+            logical_or,  # type: ignore [arg-type]
+            (not_equal(item_s, item_o) for item_s, item_o in zip(self, other)),
+            BoolType(False),  # type: ignore [arg-type]
         )
         if isinstance(result, TypeError):
             raise result
         return bool(result)
 
 
-BaseMapTypes = Union[
-    Mapping[Any, Any],
-    Sequence[Tuple[Any, Any]],
-    None
-]
+BaseMapTypes = Union[Mapping[Any, Any], Sequence[Tuple[Any, Any]], None]
 
 
-MapKeyTypes = Union[
-    'IntType', 'UintType', 'BoolType', 'StringType', str
-]
+MapKeyTypes = Union["IntType", "UintType", "BoolType", "StringType", str]
 
 
 class MapType(Dict[Value, Value]):
@@ -869,9 +874,8 @@ class MapType(Dict[Value, Value]):
 
     An implied logical And means a singleton behaves in a distinct way from a non-singleton mapping.
     """
-    def __init__(
-            self,
-            items: BaseMapTypes = None) -> None:
+
+    def __init__(self, items: BaseMapTypes = None) -> None:
         super().__init__()
         if items is None:
             pass
@@ -904,13 +908,10 @@ class MapType(Dict[Value, Value]):
 
         keys_s = self.keys()
         keys_o = other.keys()
-        result = (
-            keys_s == keys_o
-            and reduce(  # noqa: W503
-                logical_and,  # type: ignore [arg-type]
-                (equal(self[k], other[k]) for k in keys_s),
-                BoolType(True)  # type: ignore [arg-type]
-            )
+        result = keys_s == keys_o and reduce(  # noqa: W503
+            logical_and,  # type: ignore [arg-type]
+            (equal(self[k], other[k]) for k in keys_s),
+            BoolType(True),  # type: ignore [arg-type]
         )
         if isinstance(result, TypeError):
             raise result
@@ -923,7 +924,9 @@ class MapType(Dict[Value, Value]):
         # Singleton special case, may return no-such overload.
         if len(self) == 1 and len(other) == 1 and self.keys() == other.keys():
             k = next(iter(self.keys()))
-            return cast(bool, self[k] != other[k])  # Instead of Union[BoolType, TypeError]
+            return cast(
+                bool, self[k] != other[k]
+            )  # Instead of Union[BoolType, TypeError]
 
         def not_equal(s: Any, o: Any) -> BoolType:
             try:
@@ -933,13 +936,10 @@ class MapType(Dict[Value, Value]):
 
         keys_s = self.keys()
         keys_o = other.keys()
-        result = (
-            keys_s != keys_o
-            or reduce(  # noqa: W503
-                logical_or,  # type: ignore [arg-type]
-                (not_equal(self[k], other[k]) for k in keys_s),
-                BoolType(False)  # type: ignore [arg-type]
-            )
+        result = keys_s != keys_o or reduce(  # noqa: W503
+            logical_or,  # type: ignore [arg-type]
+            (not_equal(self[k], other[k]) for k in keys_s),
+            BoolType(False),  # type: ignore [arg-type]
         )
         if isinstance(result, TypeError):
             raise result
@@ -952,8 +952,13 @@ class MapType(Dict[Value, Value]):
 
 
 class NullType:
-    """TBD. May not be needed. Python's None semantics appear to match CEL perfectly."""
-    pass
+    """Python's None semantics aren't quite right for CEL."""
+
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, NullType)
+
+    def __ne__(self, other: Any) -> bool:
+        return not isinstance(other, NullType)
 
 
 class StringType(str):
@@ -961,14 +966,15 @@ class StringType(str):
 
     We rely on the overlap between ``"/u270c"`` and ``"/U0001f431"`` in CEL and Python.
     """
+
     def __new__(
-            cls: Type['StringType'],
-            source: Union[str, bytes, 'BytesType', 'StringType'],
-            *args: Any,
-            **kwargs: Any
-    ) -> 'StringType':
+        cls: Type["StringType"],
+        source: Union[str, bytes, "BytesType", "StringType"],
+        *args: Any,
+        **kwargs: Any,
+    ) -> "StringType":
         if isinstance(source, (bytes, BytesType)):
-            return super().__new__(cls, source.decode('utf'))
+            return super().__new__(cls, source.decode("utf"))
         elif isinstance(source, (str, StringType)):
             # TODO: Consider returning the original StringType object.
             return super().__new__(cls, source)
@@ -978,11 +984,9 @@ class StringType(str):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
 
-    @type_matched
     def __eq__(self, other: Any) -> bool:
         return super().__eq__(other)
 
-    @type_matched
     def __ne__(self, other: Any) -> bool:
         return super().__ne__(other)
 
@@ -1048,11 +1052,11 @@ class TimestampType(datetime.datetime):
     TZ_ALIASES: Dict[str, str] = {}
 
     def __new__(
-            cls: Type['TimestampType'],
-            source: Union[int, str, datetime.datetime],
-            *args: Any,
-            **kwargs: Any) -> 'TimestampType':
-
+        cls: Type["TimestampType"],
+        source: Union[int, str, datetime.datetime],
+        *args: Any,
+        **kwargs: Any,
+    ) -> "TimestampType":
         if isinstance(source, datetime.datetime):
             # Wrap a datetime.datetime
             return super().__new__(
@@ -1064,14 +1068,12 @@ class TimestampType(datetime.datetime):
                 minute=source.minute,
                 second=source.second,
                 microsecond=source.microsecond,
-                tzinfo=source.tzinfo or datetime.timezone.utc
+                tzinfo=source.tzinfo or datetime.timezone.utc,
             )
 
         elif isinstance(source, int) and len(args) >= 2:
             # Wrap a sequence of integers that datetime.datetime might accept.
-            ts: TimestampType = super().__new__(
-                cls, source, *args, **kwargs
-            )
+            ts: TimestampType = super().__new__(cls, source, *args, **kwargs)
             if not ts.tzinfo:
                 ts = ts.replace(tzinfo=datetime.timezone.utc)
             return ts
@@ -1088,7 +1090,7 @@ class TimestampType(datetime.datetime):
                 minute=parsed_datetime.minute,
                 second=parsed_datetime.second,
                 microsecond=parsed_datetime.microsecond,
-                tzinfo=parsed_datetime.tzinfo
+                tzinfo=parsed_datetime.tzinfo,
             )
 
         else:
@@ -1103,14 +1105,14 @@ class TimestampType(datetime.datetime):
             return f"{text[:-5]}Z"
         return f"{text[:-2]}:{text[-2:]}"
 
-    def __add__(self, other: Any) -> 'TimestampType':
+    def __add__(self, other: Any) -> "TimestampType":
         """Timestamp + Duration -> Timestamp"""
         result = super().__add__(other)
         if result == NotImplemented:
             return NotImplemented
         return TimestampType(result)
 
-    def __radd__(self, other: Any) -> 'TimestampType':
+    def __radd__(self, other: Any) -> "TimestampType":
         """Duration + Timestamp -> Timestamp"""
         result = super().__radd__(other)
         if result == NotImplemented:
@@ -1121,17 +1123,14 @@ class TimestampType(datetime.datetime):
     # https://github.com/python/typeshed/blob/master/stdlib/2and3/datetime.pyi
 
     @overload  # type: ignore
-    def __sub__(self, other: 'TimestampType') -> 'DurationType':
-        ...  # pragma: no cover
+    def __sub__(self, other: "TimestampType") -> "DurationType": ...  # pragma: no cover
 
     @overload
-    def __sub__(self, other: 'DurationType') -> 'TimestampType':
-        ...  # pragma: no cover
+    def __sub__(self, other: "DurationType") -> "TimestampType": ...  # pragma: no cover
 
     def __sub__(
-            self,
-            other: Union['TimestampType', 'DurationType']
-    ) -> Union['TimestampType', 'DurationType']:
+        self, other: Union["TimestampType", "DurationType"]
+    ) -> Union["TimestampType", "DurationType"]:
         result = super().__sub__(other)
         if result == NotImplemented:
             return cast(DurationType, result)
@@ -1166,7 +1165,7 @@ class TimestampType(datetime.datetime):
         if not tz_match:
             raise ValueError(f"Unparsable timezone: {tz_name!r}")
         sign, hh, mm = tz_match.groups()
-        offset_min = (int(hh) * 60 + int(mm)) * (-1 if sign == '-' else +1)
+        offset_min = (int(hh) * 60 + int(mm)) * (-1 if sign == "-" else +1)
         offset = datetime.timedelta(seconds=offset_min * 60)
         tz = datetime.timezone(offset)
         return tz
@@ -1253,36 +1252,38 @@ class DurationType(datetime.timedelta):
         [-+]?([0-9]*(\\.[0-9]*)?[a-z]+)+
 
     """
+
     MaxSeconds = 315576000000
     MinSeconds = -315576000000
     NanosecondsPerSecond = 1000000000
 
     scale: Dict[str, float] = {
-        "ns": 1E-9,
-        "us": 1E-6,
-        "µs": 1E-6,
-        "ms": 1E-3,
-        "s": 1.,
-        "m": 60.,
-        "h": 60. * 60.,
-        "d": 24. * 60. * 60.,
+        "ns": 1e-9,
+        "us": 1e-6,
+        "µs": 1e-6,
+        "ms": 1e-3,
+        "s": 1.0,
+        "m": 60.0,
+        "h": 60.0 * 60.0,
+        "d": 24.0 * 60.0 * 60.0,
     }
 
     def __new__(
-            cls: Type['DurationType'],
-            seconds: Any,
-            nanos: int = 0,
-            **kwargs: Any) -> 'DurationType':
+        cls: Type["DurationType"], seconds: Any, nanos: int = 0, **kwargs: Any
+    ) -> "DurationType":
         if isinstance(seconds, datetime.timedelta):
             if not (cls.MinSeconds <= seconds.total_seconds() <= cls.MaxSeconds):
                 raise ValueError("range error: {seconds}")
             return super().__new__(
-                cls, days=seconds.days, seconds=seconds.seconds, microseconds=seconds.microseconds)
+                cls,
+                days=seconds.days,
+                seconds=seconds.seconds,
+                microseconds=seconds.microseconds,
+            )
         elif isinstance(seconds, int):
             if not (cls.MinSeconds <= seconds <= cls.MaxSeconds):
                 raise ValueError("range error: {seconds}")
-            return super().__new__(
-                cls, seconds=seconds, microseconds=nanos // 1000)
+            return super().__new__(cls, seconds=seconds, microseconds=nanos // 1000)
         elif isinstance(seconds, str):
             duration_pat = re.compile(r"^[-+]?([0-9]*(\.[0-9]*)?[a-z]+)+$")
 
@@ -1306,7 +1307,7 @@ class DurationType(datetime.timedelta):
                 seconds = sign * fsum(
                     map(
                         lambda n_u: float(n_u.group(1)) * cls.scale[n_u.group(3)],
-                        re.finditer(r"([0-9]*(\.[0-9]*)?)([a-z]+)", seconds)
+                        re.finditer(r"([0-9]*(\.[0-9]*)?)([a-z]+)", seconds),
                     )
                 )
             except KeyError:
@@ -1314,8 +1315,7 @@ class DurationType(datetime.timedelta):
 
             if not (cls.MinSeconds <= seconds <= cls.MaxSeconds):
                 raise ValueError("range error: {seconds}")
-            return super().__new__(
-                cls, seconds=seconds)
+            return super().__new__(cls, seconds=seconds)
         else:
             raise TypeError(f"Invalid initial value type: {type(seconds)}")
 
@@ -1325,7 +1325,7 @@ class DurationType(datetime.timedelta):
     def __str__(self) -> str:
         return "{0}s".format(int(self.total_seconds()))
 
-    def __add__(self, other: Any) -> 'DurationType':
+    def __add__(self, other: Any) -> "DurationType":
         """
         This doesn't need to handle the rich variety of TimestampType overloadds.
         This class only needs to handle results of duration + duration.
@@ -1340,7 +1340,7 @@ class DurationType(datetime.timedelta):
             return TimestampType(result)  # pragma: no cover
         return DurationType(result)
 
-    def __radd__(self, other: Any) -> 'DurationType':  # pragma: no cover
+    def __radd__(self, other: Any) -> "DurationType":  # pragma: no cover
         """
         This doesn't need to handle the rich variety of TimestampType overloadds.
 
@@ -1390,6 +1390,7 @@ class FunctionType:
 
     We *could* define this as three overloads to cover unary, binary, and tertiary cases.
     """
+
     def __call__(self, *args: Value, **kwargs: Value) -> Value:
         raise NotImplementedError
 
@@ -1400,6 +1401,7 @@ class PackageType(MapType):
 
     TODO: This may not be needed.
     """
+
     pass
 
 
@@ -1411,6 +1413,7 @@ class MessageType(MapType):
     message (30? levels), but the navigation to "payload" field seems to create a default
     value at the top level.
     """
+
     def __init__(self, *args: Value, **fields: Value) -> None:
         if args and len(args) == 1:
             super().__init__(cast(Mapping[Value, Value], args[0]))
@@ -1450,6 +1453,7 @@ class TypeType:
     Annotation used to mark protobuf type objects.
     We map these to CELTypes so that type name testing works.
     """
+
     type_name_mapping = {
         "google.protobuf.Duration": DurationType,
         "google.protobuf.Timestamp": TimestampType,
@@ -1483,9 +1487,7 @@ class TypeType:
         "DOUBLE": DoubleType,
     }
 
-    def __init__(
-            self,
-            value: Any = "") -> None:
+    def __init__(self, value: Any = "") -> None:
         if isinstance(value, str) and value in self.type_name_mapping:
             self.type_reference = self.type_name_mapping[value]
         elif isinstance(value, str):
@@ -1498,6 +1500,5 @@ class TypeType:
 
     def __eq__(self, other: Any) -> bool:
         return (
-            other == self.type_reference
-            or isinstance(other, self.type_reference)  # noqa: W503
+            other == self.type_reference or isinstance(other, self.type_reference)  # noqa: W503
         )
