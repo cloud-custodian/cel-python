@@ -272,6 +272,7 @@ The :func:`value_from` function relies on :func:`text_from` and :func:`parse_tex
 Changing either of these functions with an override won't modify the behavior
 of :func:`value_from`.
 """
+
 import csv
 import fnmatch
 import io
@@ -285,8 +286,7 @@ import zlib
 from contextlib import closing
 from packaging.version import Version
 from types import TracebackType
-from typing import (Any, Callable, Dict, Iterator, List, Optional, Type, Union,
-                    cast)
+from typing import Any, Callable, Dict, Iterator, List, Optional, Type, Union, cast
 
 # import dateutil
 from pendulum import parse as parse_date
@@ -367,8 +367,7 @@ def key(source: celtypes.ListType, target: celtypes.StringType) -> celtypes.Valu
     matches: Iterator[celtypes.Value] = (
         item
         for item in source
-        if cast(celtypes.StringType, cast(celtypes.MapType, item).get(key))
-        == target  # noqa: W503
+        if cast(celtypes.StringType, cast(celtypes.MapType, item).get(key)) == target  # noqa: W503
     )
     try:
         return cast(celtypes.MapType, next(matches)).get(value)
@@ -423,7 +422,6 @@ def unique_size(collection: celtypes.ListType) -> celtypes.IntType:
 
 
 class IPv4Network(ipaddress.IPv4Network):
-
     # Override for net 2 net containment comparison
     def __contains__(self, other):  # type: ignore[no-untyped-def]
         if other is None:
@@ -477,7 +475,9 @@ def parse_cidr(value: str) -> CIDR:
     return v
 
 
-def size_parse_cidr(value: celtypes.StringType,) -> Optional[celtypes.IntType]:
+def size_parse_cidr(
+    value: celtypes.StringType,
+) -> Optional[celtypes.IntType]:
     """CIDR prefixlen value"""
     cidr = parse_cidr(value)
     if cidr and isinstance(cidr, IPv4Network):
@@ -507,15 +507,21 @@ def version(
     return cast(celtypes.Value, ComparableVersion(value))
 
 
-def present(value: celtypes.StringType,) -> celtypes.Value:
+def present(
+    value: celtypes.StringType,
+) -> celtypes.Value:
     return cast(celtypes.Value, bool(value))
 
 
-def absent(value: celtypes.StringType,) -> celtypes.Value:
+def absent(
+    value: celtypes.StringType,
+) -> celtypes.Value:
     return cast(celtypes.Value, not bool(value))
 
 
-def text_from(url: celtypes.StringType,) -> celtypes.Value:
+def text_from(
+    url: celtypes.StringType,
+) -> celtypes.Value:
     """
     Read raw text from a URL. This can be expanded to accept S3 or other URL's.
     """
@@ -560,7 +566,8 @@ def parse_text(
 
 
 def value_from(
-    url: celtypes.StringType, format: Optional[celtypes.StringType] = None,
+    url: celtypes.StringType,
+    format: Optional[celtypes.StringType] = None,
 ) -> celtypes.Value:
     """
     Read values from a URL.
@@ -765,17 +772,22 @@ def get_metrics(
     namespace = C7N.filter.manager.resource_type
     # TODO: Varies by resource/policy type. Each policy's model may have different dimensions.
     dimensions = [{"Name": dimension, "Value": resource.get(dimension)}]
-    raw_metrics = get_raw_metrics(cast(celtypes.MapType, json_to_cel(
-        {
-            "Namespace": namespace,
-            "MetricName": request["MetricName"],
-            "Dimensions": dimensions,
-            "Statistics": [request["Statistic"]],
-            "StartTime": request["StartTime"],
-            "EndTime": request["EndTime"],
-            "Period": request["Period"],
-        }
-    )))
+    raw_metrics = get_raw_metrics(
+        cast(
+            celtypes.MapType,
+            json_to_cel(
+                {
+                    "Namespace": namespace,
+                    "MetricName": request["MetricName"],
+                    "Dimensions": dimensions,
+                    "Statistics": [request["Statistic"]],
+                    "StartTime": request["StartTime"],
+                    "EndTime": request["EndTime"],
+                    "Period": request["Period"],
+                }
+            ),
+        )
+    )
     return json_to_cel(
         [
             cast(Dict[str, celtypes.Value], item).get(request["Statistic"])
@@ -800,14 +812,14 @@ def get_raw_health_events(request: celtypes.MapType) -> celtypes.Value:
         })
     """
     client = C7N.filter.manager.session_factory().client(
-        'health', region_name='us-east-1')
-    data = client.describe_events(filter=request)['events']
+        "health", region_name="us-east-1"
+    )
+    data = client.describe_events(filter=request)["events"]
     return json_to_cel(data)
 
 
 def get_health_events(
-        resource: celtypes.MapType,
-        statuses: Optional[List[celtypes.Value]] = None
+    resource: celtypes.MapType, statuses: Optional[List[celtypes.Value]] = None
 ) -> celtypes.Value:
     """
     Reach into C7N and make a health-event request using the current C7N filter.
@@ -818,27 +830,34 @@ def get_health_events(
     ..  todo:: Handle optional list of event types.
     """
     if not statuses:
-        statuses = [celtypes.StringType('open'), celtypes.StringType('upcoming')]
+        statuses = [celtypes.StringType("open"), celtypes.StringType("upcoming")]
     phd_svc_name_map = {
-        'app-elb': 'ELASTICLOADBALANCING',
-        'ebs': 'EBS',
-        'efs': 'ELASTICFILESYSTEM',
-        'elb': 'ELASTICLOADBALANCING',
-        'emr': 'ELASTICMAPREDUCE'
+        "app-elb": "ELASTICLOADBALANCING",
+        "ebs": "EBS",
+        "efs": "ELASTICFILESYSTEM",
+        "elb": "ELASTICLOADBALANCING",
+        "emr": "ELASTICMAPREDUCE",
     }
     m = C7N.filter.manager
-    service = phd_svc_name_map.get(m.data['resource'], m.get_model().service.upper())
-    raw_events = get_raw_health_events(cast(celtypes.MapType, json_to_cel(
-        {
-            "services": [service],
-            "regions": [m.config.region, 'global'],
-            "eventStatusCodes": statuses,
-        }
-    )))
+    service = phd_svc_name_map.get(m.data["resource"], m.get_model().service.upper())
+    raw_events = get_raw_health_events(
+        cast(
+            celtypes.MapType,
+            json_to_cel(
+                {
+                    "services": [service],
+                    "regions": [m.config.region, "global"],
+                    "eventStatusCodes": statuses,
+                }
+            ),
+        )
+    )
     return raw_events
 
 
-def get_related_ids(resource: celtypes.MapType,) -> celtypes.Value:
+def get_related_ids(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_ids() request using the current C7N filter.
 
@@ -853,7 +872,9 @@ def get_related_ids(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(related_ids)
 
 
-def get_related_sgs(resource: celtypes.MapType,) -> celtypes.Value:
+def get_related_sgs(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_sgs() request using the current C7N filter.
     """
@@ -861,7 +882,9 @@ def get_related_sgs(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(security_groups)
 
 
-def get_related_subnets(resource: celtypes.MapType,) -> celtypes.Value:
+def get_related_subnets(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_subnets() request using the current C7N filter.
     """
@@ -869,7 +892,9 @@ def get_related_subnets(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(subnets)
 
 
-def get_related_nat_gateways(resource: celtypes.MapType,) -> celtypes.Value:
+def get_related_nat_gateways(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_nat_gateways() request using the current C7N filter.
     """
@@ -877,7 +902,9 @@ def get_related_nat_gateways(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(nat_gateways)
 
 
-def get_related_igws(resource: celtypes.MapType,) -> celtypes.Value:
+def get_related_igws(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_igws() request using the current C7N filter.
     """
@@ -885,7 +912,9 @@ def get_related_igws(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(igws)
 
 
-def get_related_security_configs(resource: celtypes.MapType,) -> celtypes.Value:
+def get_related_security_configs(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_security_configs() request using the current C7N filter.
     """
@@ -893,7 +922,9 @@ def get_related_security_configs(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(security_configs)
 
 
-def get_related_vpc(resource: celtypes.MapType,) -> celtypes.Value:
+def get_related_vpc(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_vpc() request using the current C7N filter.
     """
@@ -901,7 +932,9 @@ def get_related_vpc(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(vpc)
 
 
-def get_related_kms_keys(resource: celtypes.MapType,) -> celtypes.Value:
+def get_related_kms_keys(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N and make a get_related_kms_keys() request using the current C7N filter.
     """
@@ -909,7 +942,9 @@ def get_related_kms_keys(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(vpc)
 
 
-def security_group(security_group_id: celtypes.MapType,) -> celtypes.Value:
+def security_group(
+    security_group_id: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N and make a get_related() request using the current C7N filter to get
     the security group.
@@ -926,7 +961,9 @@ def security_group(security_group_id: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(security_groups)
 
 
-def subnet(subnet_id: celtypes.Value,) -> celtypes.Value:
+def subnet(
+    subnet_id: celtypes.Value,
+) -> celtypes.Value:
     """
     Reach into C7N and make a get_related() request using the current C7N filter to get
     the subnet.
@@ -942,7 +979,9 @@ def subnet(subnet_id: celtypes.Value,) -> celtypes.Value:
     return json_to_cel(subnets)
 
 
-def flow_logs(resource: celtypes.MapType,) -> celtypes.Value:
+def flow_logs(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N and locate the flow logs using the current C7N filter.
 
@@ -967,7 +1006,9 @@ def flow_logs(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel([])
 
 
-def vpc(vpc_id: celtypes.Value,) -> celtypes.Value:
+def vpc(
+    vpc_id: celtypes.Value,
+) -> celtypes.Value:
     """
     Reach into C7N and make a ``get_related()`` request using the current C7N filter to get
     the VPC details.
@@ -983,7 +1024,9 @@ def vpc(vpc_id: celtypes.Value,) -> celtypes.Value:
     return json_to_cel(vpc)
 
 
-def subst(jmes_path: celtypes.StringType,) -> celtypes.StringType:
+def subst(
+    jmes_path: celtypes.StringType,
+) -> celtypes.StringType:
     """
     Reach into C7N and build a set of substitutions to replace text in a JMES path.
 
@@ -1021,7 +1064,9 @@ def credentials(resource: celtypes.MapType) -> celtypes.Value:
     return json_to_cel(C7N.filter.get_credential_report(resource))
 
 
-def kms_alias(vpc_id: celtypes.Value,) -> celtypes.Value:
+def kms_alias(
+    vpc_id: celtypes.Value,
+) -> celtypes.Value:
     """
     Reach into C7N and make a get_matching_aliases() request using the current C7N filter to get
     the alias.
@@ -1038,7 +1083,9 @@ def kms_alias(vpc_id: celtypes.Value,) -> celtypes.Value:
     return json_to_cel(C7N.filter.get_matching_aliases())
 
 
-def kms_key(key_id: celtypes.Value,) -> celtypes.Value:
+def kms_key(
+    key_id: celtypes.Value,
+) -> celtypes.Value:
     """
     Reach into C7N and make a ``get_related()`` request using the current C7N filter to get
     the key. We're looking for the c7n.resources.kms.Key resource manager to get the related key.
@@ -1052,7 +1099,7 @@ def kms_key(key_id: celtypes.Value,) -> celtypes.Value:
 
 
 def resource_schedule(
-        tag_value: celtypes.Value,
+    tag_value: celtypes.Value,
 ) -> celtypes.Value:
     """
     Reach into C7N and use the the :py:class:`c7n.filters.offhours.ScheduleParser` class
@@ -1114,7 +1161,9 @@ def resource_schedule(
     return json_to_cel(cel_sched_doc)
 
 
-def get_accounts(resource: celtypes.MapType,) -> celtypes.Value:
+def get_accounts(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N filter and get accounts for a given resource.
     Used by resources like AMI's, log-groups, ebs-snapshot, etc.
@@ -1127,7 +1176,9 @@ def get_accounts(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(C7N.filter.get_accounts())
 
 
-def get_vpcs(resource: celtypes.MapType,) -> celtypes.Value:
+def get_vpcs(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N filter and get vpcs for a given resource.
     Used by resources like AMI's, log-groups, ebs-snapshot, etc.
@@ -1140,7 +1191,9 @@ def get_vpcs(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(C7N.filter.get_vpcs())
 
 
-def get_vpces(resource: celtypes.MapType,) -> celtypes.Value:
+def get_vpces(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N filter and get vpces for a given resource.
     Used by resources like AMI's, log-groups, ebs-snapshot, etc.
@@ -1154,7 +1207,9 @@ def get_vpces(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(C7N.filter.get_vpces())
 
 
-def get_orgids(resource: celtypes.MapType,) -> celtypes.Value:
+def get_orgids(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N filter and get orgids for a given resource.
     Used by resources like AMI's, log-groups, ebs-snapshot, etc.
@@ -1167,7 +1222,9 @@ def get_orgids(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(C7N.filter.get_orgids())
 
 
-def get_endpoints(resource: celtypes.MapType,) -> celtypes.Value:
+def get_endpoints(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """For sns resources
 
     ..  todo:: Refactor C7N
@@ -1178,7 +1235,9 @@ def get_endpoints(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(C7N.filter.get_endpoints())
 
 
-def get_protocols(resource: celtypes.MapType,) -> celtypes.Value:
+def get_protocols(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """For sns resources
 
     ..  todo:: Refactor C7N
@@ -1186,23 +1245,25 @@ def get_protocols(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(C7N.filter.get_protocols())
 
 
-def get_key_policy(resource: celtypes.MapType,) -> celtypes.Value:
+def get_key_policy(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """For kms resources
 
     ..  todo:: Refactor C7N
     """
     key_id = resource.get(
-        celtypes.StringType("TargetKeyId"),
-        resource.get(celtypes.StringType("KeyId")))
+        celtypes.StringType("TargetKeyId"), resource.get(celtypes.StringType("KeyId"))
+    )
     client = C7N.filter.manager.session_factory().client("kms")
     return json_to_cel(
-        client.get_key_policy(
-            KeyId=key_id,
-            PolicyName='default')['Policy']
+        client.get_key_policy(KeyId=key_id, PolicyName="default")["Policy"]
     )
 
 
-def get_resource_policy(resource: celtypes.MapType,) -> celtypes.Value:
+def get_resource_policy(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     Reach into C7N filter and get the resource policy for a given resource.
     Used by resources like AMI's, log-groups, ebs-snapshot, etc.
@@ -1212,7 +1273,9 @@ def get_resource_policy(resource: celtypes.MapType,) -> celtypes.Value:
     return json_to_cel(C7N.filter.get_resource_policy())
 
 
-def describe_subscription_filters(resource: celtypes.MapType,) -> celtypes.Value:
+def describe_subscription_filters(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     For log-groups resources.
 
@@ -1223,13 +1286,14 @@ def describe_subscription_filters(resource: celtypes.MapType,) -> celtypes.Value
     client = C7N.filter.manager.session_factory().client("logs")
     return json_to_cel(
         C7N.filter.manager.retry(
-            client.describe_subscription_filters,
-            logGroupName=resource['logGroupName']
-        ).get('subscriptionFilters', ())
+            client.describe_subscription_filters, logGroupName=resource["logGroupName"]
+        ).get("subscriptionFilters", ())
     )
 
 
-def describe_db_snapshot_attributes(resource: celtypes.MapType,) -> celtypes.Value:
+def describe_db_snapshot_attributes(
+    resource: celtypes.MapType,
+) -> celtypes.Value:
     """
     For rds-snapshot and ebs-snapshot resources
 
@@ -1241,8 +1305,8 @@ def describe_db_snapshot_attributes(resource: celtypes.MapType,) -> celtypes.Val
     return json_to_cel(
         C7N.filter.manager.retry(
             client.describe_snapshot_attribute,
-            SnapshotId=resource['SnapshotId'],
-            Attribute='createVolumePermission'
+            SnapshotId=resource["SnapshotId"],
+            Attribute="createVolumePermission",
         )
     )
 
@@ -1267,7 +1331,14 @@ def arn_split(arn: celtypes.StringType, field: celtypes.StringType) -> celtypes.
         len(names): names
         for names in [
             ("partition", "service", "region", "account-id", "resource-id"),
-            ("partition", "service", "region", "account-id", "resource-type", "resource-id"),
+            (
+                "partition",
+                "service",
+                "region",
+                "account-id",
+                "resource-type",
+                "resource-id",
+            ),
         ]
     }
     prefix, *fields = arn.split(":")
@@ -1284,9 +1355,7 @@ def all_images() -> celtypes.Value:
     See :py:class:`c7n.resources.ami.ImageUnusedFilter`
     """
     return json_to_cel(
-        list(
-            C7N.filter._pull_ec2_images() | C7N.filter._pull_asg_images()
-        )
+        list(C7N.filter._pull_ec2_images() | C7N.filter._pull_asg_images())
     )
 
 
@@ -1298,9 +1367,7 @@ def all_snapshots() -> celtypes.Value:
     See :py:class:`c7n.resources.ebs.SnapshotUnusedFilter`
     """
     return json_to_cel(
-        list(
-            C7N.filter._pull_asg_snapshots() | C7N.filter._pull_ami_snapshots()
-        )
+        list(C7N.filter._pull_asg_snapshots() | C7N.filter._pull_ami_snapshots())
     )
 
 
@@ -1310,10 +1377,14 @@ def all_launch_configuration_names() -> celtypes.Value:
 
     See :py:class:`c7n.resources.asg.UnusedLaunchConfig`
     """
-    asgs = C7N.filter.manager.get_resource_manager('asg').resources()
-    used = set([
-        a.get('LaunchConfigurationName', a['AutoScalingGroupName'])
-        for a in asgs if not a.get('LaunchTemplate')])
+    asgs = C7N.filter.manager.get_resource_manager("asg").resources()
+    used = set(
+        [
+            a.get("LaunchConfigurationName", a["AutoScalingGroupName"])
+            for a in asgs
+            if not a.get("LaunchTemplate")
+        ]
+    )
     return json_to_cel(list(used))
 
 
@@ -1341,10 +1412,8 @@ def all_dbsubenet_groups() -> celtypes.Value:
 
     See :py:class:`c7n.resources.rds.UnusedRDSSubnetGroup`
     """
-    rds = C7N.filter.manager.get_resource_manager('rds').resources()
-    used = set([
-        r.get('DBSubnetGroupName', r['DBInstanceIdentifier'])
-        for r in rds])
+    rds = C7N.filter.manager.get_resource_manager("rds").resources()
+    used = set([r.get("DBSubnetGroupName", r["DBInstanceIdentifier"]) for r in rds])
     return json_to_cel(list(used))
 
 
@@ -1364,10 +1433,11 @@ def get_access_log(resource: celtypes.MapType) -> celtypes.Value:
     See :py:class:`c7n.resources.elb.IsNotLoggingFilter` and
     :py:class:`c7n.resources.elb.IsLoggingFilter`.
     """
-    client = C7N.filter.manager.session_factory().client('elb')
+    client = C7N.filter.manager.session_factory().client("elb")
     results = client.describe_load_balancer_attributes(
-        LoadBalancerName=resource['LoadBalancerName'])
-    return json_to_cel(results['LoadBalancerAttributes'])
+        LoadBalancerName=resource["LoadBalancerName"]
+    )
+    return json_to_cel(results["LoadBalancerAttributes"])
 
 
 def get_load_balancer(resource: celtypes.MapType) -> celtypes.Value:
@@ -1377,24 +1447,26 @@ def get_load_balancer(resource: celtypes.MapType) -> celtypes.Value:
     See :py:class:`c7n.resources.appelb.IsNotLoggingFilter` and
     :py:class:`c7n.resources.appelb.IsLoggingFilter`.
     """
+
     def parse_attribute_value(v: str) -> Union[int, bool, str]:
         """Lightweight JSON atomic value convertion to native Python."""
         if v.isdigit():
             return int(v)
-        elif v == 'true':
+        elif v == "true":
             return True
-        elif v == 'false':
+        elif v == "false":
             return False
         return v
 
-    client = C7N.filter.manager.session_factory().client('elbv2')
+    client = C7N.filter.manager.session_factory().client("elbv2")
     results = client.describe_load_balancer_attributes(
-        LoadBalancerArn=resource['LoadBalancerArn'])
+        LoadBalancerArn=resource["LoadBalancerArn"]
+    )
     print(results)
     return json_to_cel(
         dict(
             (item["Key"], parse_attribute_value(item["Value"]))
-            for item in results['Attributes']
+            for item in results["Attributes"]
         )
     )
 
@@ -1406,9 +1478,13 @@ def shield_protection(resource: celtypes.MapType) -> celtypes.Value:
 
     Applies to most resource types.
     """
-    client = C7N.filter.manager.session_factory().client('shield', region_name='us-east-1')
-    protections = C7N.filter.get_type_protections(client, C7N.filter.manager.get_model())
-    protected_resources = [p['ResourceArn'] for p in protections]
+    client = C7N.filter.manager.session_factory().client(
+        "shield", region_name="us-east-1"
+    )
+    protections = C7N.filter.get_type_protections(
+        client, C7N.filter.manager.get_model()
+    )
+    protected_resources = [p["ResourceArn"] for p in protections]
     return json_to_cel(protected_resources)
 
 
@@ -1428,8 +1504,8 @@ def web_acls(resource: celtypes.MapType) -> celtypes.Value:
     Depends on :py:meth:`c7n.resources.cloudfront.IsWafEnabled.process` method.
     This needs to be refactored and renamed to avoid collisions with other ``process()`` variants.
     """
-    wafs = C7N.filter.manager.get_resource_manager('waf').resources()
-    waf_name_id_map = {w['Name']: w['WebACLId'] for w in wafs}
+    wafs = C7N.filter.manager.get_resource_manager("waf").resources()
+    waf_name_id_map = {w["Name"]: w["WebACLId"] for w in wafs}
     return json_to_cel(waf_name_id_map)
 
 
@@ -1498,7 +1574,8 @@ DECLARATIONS: Dict[str, Annotation] = {
 ExtFunction = Callable[..., celtypes.Value]
 
 FUNCTIONS: Dict[str, ExtFunction] = {
-    f.__name__: cast(ExtFunction, f) for f in [
+    f.__name__: cast(ExtFunction, f)
+    for f in [
         glob,
         difference,
         intersect,
@@ -1573,7 +1650,9 @@ class C7N_Interpreted_Runner(InterpretedRunner):
     ..  todo: Refactor to be a mixin to the Runner class hierarchy.
     """
 
-    def evaluate(self, context: Context, filter: Optional[Any] = None) -> celtypes.Value:
+    def evaluate(
+        self, context: Context, filter: Optional[Any] = None
+    ) -> celtypes.Value:
         e = Evaluator(
             ast=self.ast,
             activation=self.new_activation(context),
