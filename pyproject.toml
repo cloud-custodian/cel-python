@@ -15,7 +15,7 @@
 
 [tool.poetry]
 name = "cel-python"
-version = "0.2.0"
+version = "0.3.0"
 description = "Pure Python implementation of Google Common Expression Language"
 authors = ["S. Lott <slott56@gmail.com>"]
 readme = "README.rst"
