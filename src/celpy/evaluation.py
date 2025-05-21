@@ -1417,7 +1417,8 @@ class Evaluator(lark.visitors.Interpreter[Result]):
         expr           : conditionalor ["?" conditionalor ":" expr]
 
         The default implementation short-circuits
-        and can ignore an CELEvalError in a sub-expression.
+        and can ignore a CELEvalError in the two alternative sub-expressions.
+        The conditional sub-expression CELEvalError is propogated out as the result.
 
         See https://github.com/google/cel-spec/blob/master/doc/langdef.md#logical-operators
 
@@ -2030,7 +2031,15 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             Tuple[lark.Tree, lark.Token], tree.children[:2]
         )
 
-        if method_name_token.value in {"map", "filter", "all", "exists", "exists_one", "reduce", "min"}:
+        if method_name_token.value in {
+            "map",
+            "filter",
+            "all",
+            "exists",
+            "exists_one",
+            "reduce",
+            "min",
+        }:
             member_list = cast(celpy.celtypes.ListType, self.visit(member_tree))
 
             if isinstance(member_list, CELEvalError):
@@ -2038,7 +2047,9 @@ class Evaluator(lark.visitors.Interpreter[Result]):
 
             if method_name_token.value == "map":
                 sub_expr = self.build_macro_eval(tree)
-                mapping = cast(Iterable[celpy.celtypes.Value], map(sub_expr, member_list))
+                mapping = cast(
+                    Iterable[celpy.celtypes.Value], map(sub_expr, member_list)
+                )
                 result = celpy.celtypes.ListType(mapping)
                 return result
 
@@ -2052,9 +2063,12 @@ class Evaluator(lark.visitors.Interpreter[Result]):
                 and_oper = cast(
                     CELBoolFunction,
                     eval_error("no such overload", TypeError)(
-                        celpy.celtypes.logical_and)
+                        celpy.celtypes.logical_and
+                    ),
                 )
-                reduction = reduce(and_oper, map(sub_expr, member_list), celpy.celtypes.BoolType(True))
+                reduction = reduce(
+                    and_oper, map(sub_expr, member_list), celpy.celtypes.BoolType(True)
+                )
                 return reduction
 
             elif method_name_token.value == "exists":
@@ -2062,9 +2076,12 @@ class Evaluator(lark.visitors.Interpreter[Result]):
                 or_oper = cast(
                     CELBoolFunction,
                     eval_error("no such overload", TypeError)(
-                        celpy.celtypes.logical_or)
+                        celpy.celtypes.logical_or
+                    ),
                 )
-                reduction = reduce(or_oper, map(sub_expr, member_list), celpy.celtypes.BoolType(False))
+                reduction = reduce(
+                    or_oper, map(sub_expr, member_list), celpy.celtypes.BoolType(False)
+                )
                 return reduction
 
             elif method_name_token.value == "exists_one":

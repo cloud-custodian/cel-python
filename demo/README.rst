@@ -50,4 +50,4 @@ and examine the notebooks. We'll look at this from a Cloud Custodian (C7N) persp
 -   `demo/complex_policy.ipynb`_ shows a complex policy and how we can build -- and debug -- the policy
     filter expression.
 
-These should help youo build an understanding of
+These should help you build an understanding of how to develop complex filters.
