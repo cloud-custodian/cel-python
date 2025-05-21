@@ -6,6 +6,6 @@ celpy.adapter       141       34          3    9     89           6
 celpy.c7nlib       1663      351         14  149   1149           0
 celpy.celparser     388      199          3   22    164           0
 celpy.celtypes     1504      417         14  224    812          37
-celpy.evaluation   2595      872         38  177   1490          18
+celpy.evaluation   2578      862         38  177   1483          18
 xlate                 0        0          0    0      0           0
 xlate.c7n_to_cel   1755      385        103  146   1115           6
