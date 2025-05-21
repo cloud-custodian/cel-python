@@ -548,8 +548,24 @@ def test_eval_expr_3_bad_override(mock_left_expr_tree):
         activation,
         functions={"_?_:_": bad_condition}
     )
-    with raises(celpy.evaluation.CELEvalError):
+    with raises(celpy.evaluation.CELEvalError) as exc_info:
         evaluator.evaluate()
+    assert exc_info.value.args == ("found no matching overload for _?_:_ applied to '(<class 'celpy.celtypes.BoolType'>, <class 'celpy.celtypes.IntType'>, <class 'celpy.celtypes.BoolType'>)'", TypeError, ())
+
+def test_eval_expr_3_bad_cond_value(mock_left_expr_tree):
+    def bad_condition(a, b, c):
+        raise celpy.evaluation.CELEvalError("Baseline Error")
+    activation = Mock()
+    evaluator = Evaluator(
+        mock_left_expr_tree,
+        activation,
+        functions={"_?_:_": bad_condition}
+    )
+    with raises(celpy.evaluation.CELEvalError) as exc_info:
+        evaluator.evaluate()
+    print(repr(exc_info.value.args))
+    assert exc_info.value.args == ('Baseline Error',)
+
 
 @fixture
 def mock_right_expr_tree():

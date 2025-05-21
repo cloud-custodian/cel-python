@@ -1417,7 +1417,8 @@ class Evaluator(lark.visitors.Interpreter[Result]):
         expr           : conditionalor ["?" conditionalor ":" expr]
 
         The default implementation short-circuits
-        and can ignore an CELEvalError in a sub-expression.
+        and can ignore a CELEvalError in the two alternative sub-expressions.
+        The conditional sub-expression CELEvalError is propogated out as the result.
 
         See https://github.com/google/cel-spec/blob/master/doc/langdef.md#logical-operators
 
