@@ -32,7 +32,7 @@ visitor method directly.
 from unittest.mock import Mock, call, sentinel
 
 import lark
-from pytest import *
+import pytest
 
 import celpy.evaluation  # For monkeypatching
 from celpy import celparser, celtypes
@@ -41,14 +41,14 @@ from celpy.evaluation import _function_matches_re, _function_matches_re2
 
 
 def test_exception_syntax_error():
-    with raises(CELSyntaxError) as exc_info_1:
+    with pytest.raises(CELSyntaxError) as exc_info_1:
         raise CELSyntaxError(sentinel.syntax_message, sentinel.syntax_line, sentinel.syntax_col)
     assert exc_info_1.value.args == (sentinel.syntax_message,)
     assert exc_info_1.value.line == sentinel.syntax_line
     assert exc_info_1.value.column == sentinel.syntax_col
 
 def test_exception_unsupported_error():
-    with raises(CELUnsupportedError) as exc_info_2:
+    with pytest.raises(CELUnsupportedError) as exc_info_2:
         raise CELUnsupportedError(sentinel.unsup_message, sentinel.unsup_line, sentinel.unsup_col)
     assert exc_info_2.value.args == (sentinel.unsup_message,)
     assert exc_info_2.value.line == sentinel.unsup_line
@@ -63,7 +63,7 @@ def test_exception_eval_error():
         data=sentinel.data,
         children=[],
     )
-    with raises(CELEvalError) as exc_info_3:
+    with pytest.raises(CELEvalError) as exc_info_3:
         raise CELEvalError(sentinel.eval_message, tree=mock_tree)
     assert exc_info_3.value.args == (sentinel.eval_message,)
     assert exc_info_3.value.line == sentinel.src_line
@@ -74,7 +74,7 @@ def test_exception_eval_error():
         line=sentinel.src_line,
         column=sentinel.src_col,
     )
-    with raises(CELEvalError) as exc_info_4:
+    with pytest.raises(CELEvalError) as exc_info_4:
         raise CELEvalError(sentinel.eval_message, token=mock_token)
     assert exc_info_4.value.args == (sentinel.eval_message,)
     assert exc_info_4.value.line == sentinel.src_line
@@ -116,7 +116,7 @@ def test_eval_error_decorator():
     assert result_1.args == (sentinel.eval_message, TypeError, (sentinel.type_error_message,))
     assert result_1.__cause__.__class__ == TypeError
 
-    with raises(ValueError) as exc_info:
+    with pytest.raises(ValueError) as exc_info:
         result_2 = mock_operation(sentinel.OtherError, sentinel.b)
     assert exc_info.value.args == (sentinel.value_error_message,)
 
@@ -159,13 +159,16 @@ def test_operator_in():
     assert isinstance(operator_in(celtypes.IntType(-1), container_2), CELEvalError)
 
 
+@pytest.mark.skipif(not celpy.evaluation._USE_RE2, reason="Not using RE2")
 def test_function_matches_re2():
+    print(f"***{celpy.evaluation._USE_RE2!r}***")
     empty_string = celtypes.StringType("")
     # re2-specific patterns which behave differently than standard re
     assert _function_matches_re2(empty_string, "^\\z")
     assert isinstance(_function_matches_re2(empty_string, "^\\Z"), CELEvalError)
 
 
+@pytest.mark.skipif(celpy.evaluation._USE_RE2, reason="Using RE2")
 def test_function_matches_re():
     empty_string = celtypes.StringType("")
     # re2-specific patterns which behave differently than standard re
@@ -186,7 +189,7 @@ def test_function_size():
     ])
     assert function_size(container_1) == celtypes.IntType(3)
 
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         function_size(celtypes.DoubleType("3.14"))
 
     assert function_size(None) == 0
@@ -237,15 +240,15 @@ def test_name_container_init():
 def test_name_container_errors():
     nc = NameContainer("a", celtypes.MapType)
     assert nc["a"] == celtypes.MapType
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         nc.load_annotations({"123 456": celtypes.MapType})
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         nc.load_values({"123 456": celtypes.StringType("Invalid")})
 
 
 def test_activation_no_package_no_vars():
     a = Activation()
-    with raises(KeyError):
+    with pytest.raises(KeyError):
         a.resolve_variable("x")
     assert a.identifiers == {}
     a_n = a.nested_activation(
@@ -296,7 +299,7 @@ def test_activation_dot_names():
         }
     )
     assert a.resolve_variable(celtypes.StringType("y")) == celtypes.DoubleType(42.0)
-    with raises(KeyError):
+    with pytest.raises(KeyError):
         a.resolve_variable(celtypes.StringType("z"))
 
 
@@ -326,7 +329,7 @@ def test_activation_multi_package_name():
 
 
 def test_activation_bad_dot_name_syntax():
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         a = Activation(
             package='x',
             vars={
@@ -335,7 +338,7 @@ def test_activation_bad_dot_name_syntax():
         )
 
 
-@fixture
+@pytest.fixture
 def mock_tree():
     tree = Mock(
         name='mock_tree',
@@ -504,7 +507,7 @@ def test_eval_expr_1():
     )
     assert evaluator.evaluate() == celtypes.IntType(42)
 
-@fixture
+@pytest.fixture
 def mock_left_expr_tree():
     tree = lark.Tree(
         data='expr',
@@ -548,7 +551,7 @@ def test_eval_expr_3_bad_override(mock_left_expr_tree):
         activation,
         functions={"_?_:_": bad_condition}
     )
-    with raises(celpy.evaluation.CELEvalError) as exc_info:
+    with pytest.raises(celpy.evaluation.CELEvalError) as exc_info:
         evaluator.evaluate()
     assert exc_info.value.args == ("found no matching overload for _?_:_ applied to '(<class 'celpy.celtypes.BoolType'>, <class 'celpy.celtypes.IntType'>, <class 'celpy.celtypes.BoolType'>)'", TypeError, ())
 
@@ -561,13 +564,13 @@ def test_eval_expr_3_bad_cond_value(mock_left_expr_tree):
         activation,
         functions={"_?_:_": bad_condition}
     )
-    with raises(celpy.evaluation.CELEvalError) as exc_info:
+    with pytest.raises(celpy.evaluation.CELEvalError) as exc_info:
         evaluator.evaluate()
     print(repr(exc_info.value.args))
     assert exc_info.value.args == ('Baseline Error',)
 
 
-@fixture
+@pytest.fixture
 def mock_right_expr_tree():
     tree = lark.Tree(
         data='expr',
@@ -612,7 +615,7 @@ def test_eval_expr_0():
         tree,
         activation
     )
-    with raises(celpy.evaluation.CELSyntaxError):
+    with pytest.raises(celpy.evaluation.CELSyntaxError):
         evaluator.evaluate()
 
 
@@ -682,7 +685,7 @@ def test_eval_conditionalor_2_bad_override():
         activation,
         functions={"_||_": bad_logical_or}
     )
-    with raises(celpy.evaluation.CELEvalError):
+    with pytest.raises(celpy.evaluation.CELEvalError):
         evaluator.evaluate()
 
 def binop_broken_tree(data):
@@ -700,7 +703,7 @@ def test_eval_conditionalor_0():
         tree,
         activation
     )
-    with raises(celpy.evaluation.CELSyntaxError):
+    with pytest.raises(celpy.evaluation.CELSyntaxError):
         evaluator.evaluate()
 
 
@@ -734,7 +737,7 @@ def test_eval_conditionaland_2_bad_override():
         activation,
         functions={"_&&_": bad_logical_and}
     )
-    with raises(celpy.evaluation.CELEvalError):
+    with pytest.raises(celpy.evaluation.CELEvalError):
         evaluator.evaluate()
 
 def test_eval_conditionaland_0():
@@ -744,7 +747,7 @@ def test_eval_conditionaland_0():
         tree,
         activation
     )
-    with raises(celpy.evaluation.CELSyntaxError):
+    with pytest.raises(celpy.evaluation.CELSyntaxError):
         evaluator.evaluate()
 
 
@@ -770,7 +773,7 @@ binary_operator_params = [
     ("multiplication", "multiplication_div", "INT_LIT", "84", "0", CELEvalError, "_/_"),
 ]
 
-@fixture(params=binary_operator_params, ids=lambda f: f[6])
+@pytest.fixture(params=binary_operator_params, ids=lambda f: f[6])
 def binop_trees(request):
     """Creates three binary operator trees:
 
@@ -859,7 +862,7 @@ def test_binops(binop_trees):
         t_0,
         activation
     )
-    with raises(celpy.evaluation.CELSyntaxError):
+    with pytest.raises(celpy.evaluation.CELSyntaxError):
         evaluator_0.evaluate()
 
     evaluator_1 = Evaluator(
@@ -873,7 +876,7 @@ def test_binops(binop_trees):
         activation
     )
     if isinstance(expected, type):
-        with raises(expected):
+        with pytest.raises(expected):
             evaluator_2_g.evaluate()
     else:
         assert evaluator_2_g.evaluate() == expected
@@ -885,7 +888,7 @@ def test_binops(binop_trees):
         activation,
         functions={function: bad_function}
     )
-    with raises(celpy.evaluation.CELEvalError):
+    with pytest.raises(celpy.evaluation.CELEvalError):
         evaluator_2_b.evaluate()
 
 
@@ -897,7 +900,7 @@ unary_operator_params = [
     ("unary", "unary_neg", "INT_LIT", "-9223372036854775808", None, CELEvalError, "-_"),
 ]
 
-@fixture(params=unary_operator_params, ids=lambda f: f[6])
+@pytest.fixture(params=unary_operator_params, ids=lambda f: f[6])
 def unop_trees(request):
     """Creates three unary operator trees:
 
@@ -965,7 +968,7 @@ def test_unops(unop_trees):
         t_0,
         activation
     )
-    with raises(celpy.evaluation.CELSyntaxError):
+    with pytest.raises(celpy.evaluation.CELSyntaxError):
         evaluator_0.evaluate()
 
     evaluator_1 = Evaluator(
@@ -979,7 +982,7 @@ def test_unops(unop_trees):
         activation
     )
     if isinstance(expected, type):
-        with raises(expected):
+        with pytest.raises(expected):
             evaluator_2_g.evaluate()
     else:
         assert evaluator_2_g.evaluate() == expected
@@ -991,7 +994,7 @@ def test_unops(unop_trees):
         activation,
         functions={function: bad_function}
     )
-    with raises(celpy.evaluation.CELEvalError):
+    with pytest.raises(celpy.evaluation.CELEvalError):
         evaluator_2_b.evaluate()
 
 # The following use a patch to :py:meth:`Evaluator.visit_children` to produce useful answers.
@@ -1779,7 +1782,7 @@ index_operator_params = [
         celtypes.StringType("nope"), CELEvalError, "_[_]"),
 ]
 
-@fixture(params=index_operator_params, ids=lambda f: "{0}[{1!r}] == {2}".format(*f))
+@pytest.fixture(params=index_operator_params, ids=lambda f: "{0}[{1!r}] == {2}".format(*f))
 def index_trees(request, monkeypatch):
     container, index, expected, function = request.param
     visit_children = Mock(
@@ -1861,7 +1864,7 @@ def test_member_object_0():
         tree,
         activation=Mock()
     )
-    with raises(CELSyntaxError):
+    with pytest.raises(CELSyntaxError):
         evaluator_0.member_object(tree.children[0])
 
 
@@ -2047,7 +2050,7 @@ def test_primary_0():
         tree,
         activation=Mock()
     )
-    with raises(CELSyntaxError):
+    with pytest.raises(CELSyntaxError):
         evaluator_0.primary(tree)
 
 def test_primary_broken():
@@ -2072,7 +2075,7 @@ def test_primary_broken():
         tree,
         activation=Mock()
     )
-    with raises(CELSyntaxError):
+    with pytest.raises(CELSyntaxError):
         evaluator_0.primary(tree)
 
 
@@ -2407,7 +2410,7 @@ def test_primary_map_lit_empty():
     assert evaluator_0.primary(tree) == celpy.celtypes.MapType()
 
 
-@fixture
+@pytest.fixture
 def map_init_tree():
     tree = lark.Tree(
         data="primary",
@@ -2503,7 +2506,7 @@ def test_literal_broken():
         tree,
         activation=Mock()
     )
-    with raises(CELSyntaxError):
+    with pytest.raises(CELSyntaxError):
         evaluator_0.literal(tree)
 
 
@@ -2537,7 +2540,7 @@ literal_params = [
      ),
 ]
 
-@fixture(params=literal_params, ids=lambda f: f[0])
+@pytest.fixture(params=literal_params, ids=lambda f: f[0])
 def literals(request):
     token_type, token_value, expected = request.param
     tree = lark.Tree(
@@ -2556,7 +2559,7 @@ def test_literals(literals):
         activation=Mock()
     )
     if isinstance(expected, type):
-        with raises(expected):
+        with pytest.raises(expected):
             x = evaluator_0.literal(tree)
             print(repr(x))
     else:
@@ -2611,7 +2614,7 @@ def test_fieldinits_duplicate(monkeypatch):
         tree,
         activation=Mock()
     )
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         evaluator_0.fieldinits(tree)
 
 
@@ -2677,5 +2680,5 @@ def test_mapinits_bad():
         tree,
         activation=Mock()
     )
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         evaluator_0.mapinits(tree)

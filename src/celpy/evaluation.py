@@ -67,11 +67,14 @@ import lark.visitors
 import celpy.celtypes
 from celpy.celparser import tree_dump
 
-_USE_RE2 = True
+_USE_RE2 = False
 try:
     import re2
-except ImportError:  # pragma: no cover
-    _USE_RE2 = False
+    _USE_RE2 = True
+    print("***IMPORTED re2***", file=sys.stderr)
+except ImportError as ex:  # pragma: no cover
+    print(f"***DID NOT IMPORT re2***: {ex}", file=sys.stderr)
+    pass
 
 # A CEL type annotation. Used in an environment to describe objects as well as functions.
 # This is a list of types, plus Callable for conversion functions.

@@ -95,6 +95,8 @@ class CELParser:
                 g_regex_flags=re.M,
                 lexer_callbacks={"IDENT": self.ambiguous_literals},
                 propagate_positions=True,
+                maybe_placeholders=False,
+                priority="invert",
             )
 
     @staticmethod
