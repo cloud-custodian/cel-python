@@ -23,7 +23,15 @@ Pure Python implementation of Google Common Expression Language, https://opensou
     - Protocols: expressions are a useful data type and require interoperability across programming languages and platforms.
 
 This implementation has minimal dependencies, runs quickly, and can be embedded into Python-based applications.
-Specifically, the intent is to be part of Cloud Custodian, C7N, as part of the security policy filter.
+Specifically, one intent is to be part of Cloud Custodian (C7N) as part of the security policy filter.
+
+Interested in the API? There are three interesting topics:
+
+-   :ref:`integration`
+-   :ref:`api`
+-   :ref:`data_structures`
+
+The integration into another application isn't a trivial ``import``.
 
 .. toctree::
    :maxdepth: 2
@@ -31,10 +39,10 @@ Specifically, the intent is to be part of Cloud Custodian, C7N, as part of the s
 
    installation
    cli
-   integration
    configuration
-   structure
+   integration
    api
+   structure
    c7n_functions
 
 
