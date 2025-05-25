@@ -17,6 +17,12 @@
 CLI Bindings for Behave testing.
 
 These step definitions use ``subprocess.run()`` to run the ``celpy`` app as a separate process.
+
+The command-line parameters these step-bindings use.
+
+*   ``-D PYTHONPATH=p`` sets the ``PYTHONPATH`` environment variable for this run.
+*   ``-D env=name`` sets the virtual environment name, creates a .test/name directory for temporary files
+*   ``-D debug=True`` produces additional debugging output
 """
 import re
 import shlex

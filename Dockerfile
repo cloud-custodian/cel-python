@@ -1,7 +1,9 @@
-#Dockerfile to create an Ubuntu image with bash, curl, and uv
+#Dockerfile to create an Ubuntu image with curl, git, vim, and uv
 # docker build -t dev-ubuntu .
-# docker run --name working -it  dev-ubuntu
 # docker image prune
+# docker run --name working -it dev-ubuntu
+# From the interactive prompt, cd /home/cel-python, run commands normally.
+# docker container rm working
 
 FROM ubuntu:latest
 

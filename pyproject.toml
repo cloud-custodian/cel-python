@@ -74,4 +74,5 @@ dev = [
     "tox>=4.24",
     "tox-uv>=1.25.0",
     "types-pyyaml>=6.0.12.20250516",
+    "google-re2-stubs",
 ]
