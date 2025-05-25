@@ -296,7 +296,7 @@ from celpy import InterpretedRunner, celtypes
 from celpy.adapter import json_to_cel
 from celpy.evaluation import Annotation, Context, Evaluator
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(f"celpy.{__name__}")
 
 
 class C7NContext:
@@ -444,7 +444,7 @@ class IPv4Network(ipaddress.IPv4Network):
                 )
             except AttributeError:
                 raise TypeError(
-                    f"Unable to test subnet containment " f"between {a} and {b}"
+                    f"Unable to test subnet containment between {a} and {b}"
                 )
 
         def supernet_of(self, other):  # type: ignore[no-untyped-def]

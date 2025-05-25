@@ -140,7 +140,7 @@ class Runner:
         ast: lark.Tree,
         functions: Optional[Dict[str, CELFunction]] = None,
     ) -> None:
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = logging.getLogger(f"celpy.{self.__class__.__name__}")
         self.environment = environment
         self.ast = ast
         self.functions = functions
@@ -273,10 +273,10 @@ class Environment:
         :param runner_class: the class of Runner to use, either InterpretedRunner or CompiledRunner
         """
         sys.setrecursionlimit(2500)
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = logging.getLogger(f"celpy.{self.__class__.__name__}")
         self.package: Optional[str] = package
         self.annotations: Dict[str, Annotation] = annotations or {}
-        self.logger.info("Type Annotations %r", self.annotations)
+        self.logger.debug("Type Annotations %r", self.annotations)
         self.runner_class: Type[Runner] = runner_class or InterpretedRunner
         self.cel_parser = CELParser()
         self.runnable: Runner
@@ -295,7 +295,7 @@ class Environment:
         self, expr: lark.Tree, functions: Optional[Dict[str, CELFunction]] = None
     ) -> Runner:
         """Transforms the AST into an executable runner."""
-        self.logger.info("Package %r", self.package)
+        self.logger.debug("Package %r", self.package)
         runner_class = self.runner_class
         self.runnable = runner_class(self, expr, functions)
         return self.runnable

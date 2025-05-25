@@ -214,7 +214,7 @@ from pendulum import timezone
 import pendulum.tz.exceptions
 
 
-logger = logging.getLogger("celtypes")
+logger = logging.getLogger(f"celpy.{__name__}")
 
 
 Value = Union[

@@ -30,8 +30,3 @@ parser
 
 ..  automodule:: celpy.celparser
 
-tools.textproto_to_gherkin
-==========================
-
-
-..  automodule:: textproto_to_gherkin

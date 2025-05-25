@@ -29,8 +29,10 @@ Specifically, the intent is to be part of Cloud Custodian, C7N, as part of the s
    :maxdepth: 2
    :caption: Contents:
 
+   installation
    cli
    integration
+   configuration
    structure
    api
    c7n_functions
