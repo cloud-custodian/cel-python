@@ -70,9 +70,27 @@ from celpy.celparser import tree_dump
 _USE_RE2 = False
 try:
     import re2
+
     _USE_RE2 = True
+
+    def function_matches(text: str, pattern: str) -> "Result":
+        try:
+            m = re2.search(pattern, text)
+        except re2.error as ex:
+            return CELEvalError("match error", ex.__class__, ex.args)
+
+        return celpy.celtypes.BoolType(m is not None)
+
 except ImportError:  # pragma: no cover
-    pass
+
+    def function_matches(text: str, pattern: str) -> "Result":
+        try:
+            m = re.search(pattern, text)
+        except re.error as ex:
+            return CELEvalError("match error", ex.__class__, ex.args)
+
+        return celpy.celtypes.BoolType(m is not None)
+
 
 # A CEL type annotation. Used in an environment to describe objects as well as functions.
 # This is a list of types, plus Callable for conversion functions.
@@ -84,7 +102,7 @@ Annotation = Union[
     Type[celpy.celtypes.FunctionType],  # Concrete class for annotations
 ]
 
-logger = logging.getLogger("evaluation")
+logger = logging.getLogger(f"celpy.{__name__}")
 
 
 class CELSyntaxError(Exception):
@@ -333,27 +351,6 @@ def operator_in(item: Result, container: Result) -> Result:
             result = CELEvalError("no such overload", ex.__class__, ex.args)
     logger.debug("operator_in(%r, %r) = %r", item, container, result)
     return result
-
-
-def _function_matches_re(text: str, pattern: str) -> Result:
-    try:
-        m = re.search(pattern, text)
-    except re.error as ex:
-        return CELEvalError("match error", ex.__class__, ex.args)
-
-    return celpy.celtypes.BoolType(m is not None)
-
-
-def _function_matches_re2(text: str, pattern: str) -> Result:
-    try:
-        m = re2.search(pattern, text)
-    except re2.error as ex:
-        return CELEvalError("match error", ex.__class__, ex.args)
-
-    return celpy.celtypes.BoolType(m is not None)
-
-
-function_matches = _function_matches_re2 if _USE_RE2 else _function_matches_re
 
 
 def function_size(container: Result) -> Result:
@@ -669,7 +666,7 @@ class NameContainer(Dict[str, Referent]):
 
         member_dot(member_dot(primary(IDENT), IDENT), IDENT)
 
-    This makes the ``member_dot` processing left associative.
+    This makes the ``member_dot`` processing left associative.
 
     The ``primary(IDENT)`` resolves to a CEL object of some kind.
     Once the ``primary(IDENT)`` has been resolved, it establishes a context
@@ -706,7 +703,7 @@ class NameContainer(Dict[str, Referent]):
 
     ident_pat = re.compile(IDENT)
     extended_name_path = re.compile(f"^\\.?{IDENT}(?:\\.{IDENT})*$")
-    logger = logging.getLogger("NameContainer")
+    logger = logging.getLogger("celpy.NameContainer")
 
     def __init__(
         self,
@@ -738,7 +735,7 @@ class NameContainer(Dict[str, Referent]):
         :param names: A dictionary of {"name1.name1....": Referent, ...} items.
         """
         for name, refers_to in names.items():
-            self.logger.info("load_annotations %r : %r", name, refers_to)
+            self.logger.debug("load_annotations %r : %r", name, refers_to)
             if not self.extended_name_path.match(name):
                 raise ValueError(f"Invalid name {name}")
 
@@ -756,7 +753,7 @@ class NameContainer(Dict[str, Referent]):
     def load_values(self, values: Context) -> None:
         """Update annotations with actual values."""
         for name, refers_to in values.items():
-            self.logger.info("load_values %r : %r", name, refers_to)
+            self.logger.debug("load_values %r : %r", name, refers_to)
             if not self.extended_name_path.match(name):
                 raise ValueError(f"Invalid name {name}")
 
@@ -877,7 +874,7 @@ class NameContainer(Dict[str, Referent]):
         :return: Name resolution as a Rereferent, often a value, but maybe a package or an
             annotation.
         """
-        self.logger.info(
+        self.logger.debug(
             "resolve_name(%r.%r) in %s, parent=%s",
             package,
             name,
@@ -1008,8 +1005,8 @@ class Activation:
         :param vars: Variables and their values, loaded to update the NameContainer.
         :param parent: A parent activation in the case of macro evaluations.
         """
-        logger.info(
-            "Activation(annotations=%r, package=%r, vars=%r, " "parent=%s)",
+        logger.debug(
+            "Activation(annotations=%r, package=%r, vars=%r, parent=%s)",
             annotations,
             package,
             vars,
@@ -1190,7 +1187,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
 
     """
 
-    logger = logging.getLogger("Evaluator")
+    logger = logging.getLogger("celpy.Evaluator")
 
     def __init__(
         self,
@@ -1220,8 +1217,8 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             self.functions = base_functions
 
         self.level = 0
-        self.logger.info("activation: %r", self.activation)
-        self.logger.info("functions: %r", self.functions)
+        self.logger.debug("activation: %r", self.activation)
+        self.logger.debug("functions: %r", self.functions)
 
     def sub_evaluator(self, ast: lark.Tree) -> "Evaluator":
         """
@@ -1242,7 +1239,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
         """
         self.activation = self.base_activation.clone()
         self.activation.identifiers.load_values(values)
-        self.logger.info("Activation: %r", self.activation)
+        self.logger.debug("Activation: %r", self.activation)
         return self
 
     def ident_value(self, name: str, root_scope: bool = False) -> Result_Function:
@@ -1980,7 +1977,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
                 result = CELEvalError(err, KeyError, None, tree=tree)
         # TODO: Not sure this is needed...
         elif isinstance(member, celpy.celtypes.MessageType):
-            self.logger.info("member_dot(%r, %r)", member, property_name)
+            self.logger.debug("member_dot(%r, %r)", member, property_name)
             result = member.get(property_name)
         # TODO: Future Expansion, handle Protobuf message package...
         # elif isinstance(member, celpy.celtypes.PackageType):
@@ -2210,7 +2207,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             protobuf_class = cast(celpy.celtypes.FunctionType, member)
             # NOTE: protobuf MessageType conversions are the responsibility of the target type.
             # We can't -- easily -- generalize this.
-            self.logger.info("Creating %s(%r)", protobuf_class, fieldinits)
+            self.logger.debug("Creating %s(%r)", protobuf_class, fieldinits)
             try:
                 value = protobuf_class(cast(celpy.celtypes.Value, fieldinits))
             except (TypeError, ValueError) as ex:  # pragma: no cover

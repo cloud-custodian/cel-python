@@ -171,7 +171,7 @@ class C7N_Rewriter:
             value, seconds = divmod(seconds, u_sec)
             if value != 0:
                 duration.append(f"{value}{u_name}")
-        return f'{C7N_Rewriter.q("".join(duration))}'
+        return f"{C7N_Rewriter.q(''.join(duration))}"
 
     @staticmethod
     def value_to_cel(
@@ -511,9 +511,9 @@ class C7N_Rewriter:
         for this rare case, it seems better to provide a warning that the resulting
         CEL code *may* require manual adjustment.
         """
-        key = f'resource.image().{c7n_filter["key"]}'
+        key = f"resource.image().{c7n_filter['key']}"
         op = cast(str, c7n_filter["op"])
-        cel_value = f'{C7N_Rewriter.q(c7n_filter["value"])}'
+        cel_value = f"{C7N_Rewriter.q(c7n_filter['value'])}"
         if "(?!" in cel_value:
             logger.error("Image patterns like %r require a manual rewrite.", cel_value)
 
@@ -535,7 +535,7 @@ class C7N_Rewriter:
 
         This relies on ``event`` being a global, like the ``resource``.
         """
-        key = f'event.{c7n_filter["key"]}'
+        key = f"event.{c7n_filter['key']}"
         op = cast(str, c7n_filter["op"])
         cel_value = c7n_filter["value"]
 
@@ -1614,7 +1614,7 @@ class C7N_Rewriter:
                     key = f'Tags["{name}"]'
                 ignore_attributes[key].append(value)
         ignore: List[str] = [
-            f'[{", ".join(C7N_Rewriter.q(v) for v in value_list)}].contains(resource.{key})'
+            f"[{', '.join(C7N_Rewriter.q(v) for v in value_list)}].contains(resource.{key})"
             for key, value_list in ignore_attributes.items()
         ]
         # Build the compare and max-card condition(s)
@@ -1642,9 +1642,9 @@ class C7N_Rewriter:
                     f"size(resource.SubnetId.subnet()) == {max_cardinality}"
                 )
         clauses = [
-            (f'! ({" || ".join(ignore)})' if ignore else ""),
-            (f'({" && ".join(compare)})' if compare else ""),
-            (f'({" && ".join(max_card)})' if max_card else ""),
+            (f"! ({' || '.join(ignore)})" if ignore else ""),
+            (f"({' && '.join(compare)})" if compare else ""),
+            (f"({' && '.join(max_card)})" if max_card else ""),
         ]
         print(f"CLAUSES: {clauses!r}")
         return " && ".join(filter(None, clauses))

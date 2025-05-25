@@ -958,7 +958,7 @@ Resource Type Implementations for {function.name}:
 
     :example:
 
-    .. code-block:: yaml
+    .. code:: yaml
 
             policies:
               - name: ami-remove-launch-permissions
@@ -980,7 +980,7 @@ Resource Type Implementations for {function.name}:
 
     :Example:
 
-    .. code-block:: yaml
+    .. code:: yaml
 
         policies:
           - name: ec2-ancient-ami
@@ -3711,7 +3711,7 @@ tag value syntax.
         # up mon-fri from 6am-9pm; up sun from 10am-6pm; pacific time
         off=[(M-F,21),(U,18)];on=[(M-F,6),(U,10)];tz=pt
 
-The :py:`resource_schedule` function reaches into the :py:class:`c7n.filters.offhours.ScheduleParser` class
+The :py:func:`resource_schedule` function reaches into the :py:class:`c7n.filters.offhours.ScheduleParser` class
 to parse the schedule text and compare it against the current day and hour in the given ``Now`` value.
 
 An alternative is to eschew this special language and replace it with CEL.
@@ -4031,7 +4031,7 @@ Resource Type Implementations for {function.name}:
 
     :example:
 
-        .. code-block:
+        .. code-block:: yaml
 
             policies:
               - name: glacier-cross-account
@@ -4159,7 +4159,7 @@ Resource Type Implementations for {function.name}:
 
     :example:
 
-        .. code-block:
+        .. code-block:: yaml
 
             policies:
               - name: sns-cross-account
@@ -4239,9 +4239,9 @@ This, in turn, leads to a raft of special functions required to extract the info
 
 -   :py:func:`c7nlib.get_key_policy` which depends on :py:meth:`CELFilter.get_key_policy`
 
--   :py:func:`c7nlib.describe_subscription_filters` which depends on :py:attr:`CELFilter.manager
+-   :py:func:`c7nlib.describe_subscription_filters` which depends on :py:attr:`CELFilter.manager`
 
--   :py:func:`c7nlib.describe_db_snapshot_attributes` which depends on :py:attr:`CELFilter.manager
+-   :py:func:`c7nlib.describe_db_snapshot_attributes` which depends on :py:attr:`CELFilter.manager`
 
 -   :py:func:`c7nlib.arn_split`
 
@@ -4538,7 +4538,7 @@ on the resource type.
 is-not-logging
 --------------
 
-See `is_logging`_.
+See `is-logging`_.
 
 Schema
 
@@ -9772,15 +9772,16 @@ Resource Type Implementations for {function.name}:
     The policy will trigger on the following IAM policy (statement).
     For example:
 
-    .. code-block: json
-     {
-         'Version': '2012-10-17',
-         'Statement': [{
-             'Action': '*',
-             'Resource': '*',
-             'Effect': 'Allow'
-         }]
-     }
+    .. code-block:: json
+
+        {
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Action": "*",
+                "Resource": "*",
+                "Effect": "Allow"
+            }]
+        }
 
     Additionally, the policy checks if the statement has no 'Condition' or
     'NotAction'

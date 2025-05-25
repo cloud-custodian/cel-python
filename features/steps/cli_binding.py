@@ -39,16 +39,22 @@ def step_impl(context, json):
     context.data['json'].append(json)
 
 
+@given(u'OS environment sets {name} to {value}')
+def step_impl(context, name, value):
+    context.data['bindings'][name] = str(value)
+
+
 @when(u'echo document | celpy {arguments} is run')
 def step_impl(context, arguments):
     if "PYTHONPATH" in context.config.userdata:
         environment = {"PYTHONPATH": context.config.userdata["PYTHONPATH"]}
     else:
         environment = {}
-    if sys.version_info.minor <= 6:
-        extra = {}
-    else:
-        extra = {'text': True}
+    environment.update(context.data['bindings'])
+    # if sys.version_info.minor <= 6:
+    #     extra = {}
+    # else:
+    extra = {'text': True}
 
     context.data['arguments'] = shlex.split(arguments)
 
@@ -71,12 +77,12 @@ def step_impl(context, arguments):
     test_dir.rmdir()
 
     context.data['status'] = result.returncode
-    if sys.version_info.minor <= 6:
-        context.data['stdout'] = result.stdout.decode('utf-8')
-        context.data['stderr'] = result.stderr.decode('utf-8')
-    else:
-        context.data['stdout'] = result.stdout
-        context.data['stderr'] = result.stderr
+    # if sys.version_info.minor <= 6:
+    #     context.data['stdout'] = result.stdout.decode('utf-8')
+    #     context.data['stderr'] = result.stderr.decode('utf-8')
+    # else:
+    context.data['stdout'] = result.stdout
+    context.data['stderr'] = result.stderr
 
     if "debug" in context.config.userdata:
         for line in context.data['stdout'].splitlines():
@@ -95,10 +101,11 @@ def step_impl(context, arguments):
         environment = {"PYTHONPATH": context.config.userdata["PYTHONPATH"]}
     else:
         environment = {}
-    if sys.version_info.minor <= 6:
-        extra = {}
-    else:
-        extra = {'text': True}
+    environment.update(context.data['bindings'])
+    # if sys.version_info.minor <= 6:
+    #     extra = {}
+    # else:
+    extra = {'text': True}
 
     context.data['arguments'] = shlex.split(arguments)
 
@@ -111,18 +118,19 @@ def step_impl(context, arguments):
     )
 
     context.data['status'] = result.returncode
-    if sys.version_info.minor <= 6:
-        context.data['stdout'] = result.stdout.decode('utf-8')
-        context.data['stderr'] = result.stderr.decode('utf-8')
-    else:
-        context.data['stdout'] = result.stdout
-        context.data['stderr'] = result.stderr
+    # if sys.version_info.minor <= 6:
+    #     context.data['stdout'] = result.stdout.decode('utf-8')
+    #     context.data['stderr'] = result.stderr.decode('utf-8')
+    # else:
+    context.data['stdout'] = result.stdout
+    context.data['stderr'] = result.stderr
 
     if "debug" in context.config.userdata:
         for line in context.data['stdout'].splitlines():
             print(f"OUT: {line}", file=sys.stderr)
         for line in context.data['stderr'].splitlines():
             print(f"ERR: {line}", file=sys.stderr)
+
 
 
 @then(u'stdout matches \'{regex}\'')

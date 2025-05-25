@@ -87,10 +87,17 @@ import ast
 import cmd
 import json
 import logging
+import logging.config
 import os
+from pathlib import Path
 import re
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
+
+try:
+    import tomllib
+except ImportError:  # pragma: no cover
+    import tomli as tomllib  # type: ignore [no-redef]
 
 from celpy import Environment, Runner, celtypes
 from celpy.adapter import CELJSONDecoder, CELJSONEncoder
@@ -291,7 +298,7 @@ def get_options(argv: Optional[List[str]] = None) -> argparse.Namespace:
 class CEL_REPL(cmd.Cmd):
     prompt = "CEL> "
     intro = "Enter an expression to have it evaluated."
-    logger = logging.getLogger("REPL")
+    logger = logging.getLogger("celpy.repl")
 
     def cel_eval(self, text: str) -> celtypes.Value:
         try:
@@ -501,8 +508,31 @@ def main(argv: Optional[List[str]] = None) -> int:
     return summary
 
 
+CONFIG_PATHS = (dir_path / "celpy.toml" for dir_path in (Path.cwd(), Path.home()))
+
+DEFAULT_CONFIG_TOML = """
+[logging]
+  version = 1
+  formatters.minimal.format = "%(message)s"
+  formatters.console.format = "%(levelname)s:%(name)s:%(message)s"
+  formatters.details.format = "%(levelname)s:%(name)s:%(module)s:%(lineno)d:%(message)s"
+  root.level = "WARNING"
+  root.handlers = ["console"]
+
+[logging.handlers.console]
+    class = "logging.StreamHandler"
+    formatter = "console"
+"""
+
+
 if __name__ == "__main__":  # pragma: no cover
-    logging.basicConfig(level=logging.WARNING)
-    exit = main(sys.argv[1:])
+    config_paths = list(p for p in CONFIG_PATHS if p.exists())
+    config_toml = config_paths[0].read_text() if config_paths else DEFAULT_CONFIG_TOML
+    log_config = tomllib.loads(config_toml)
+    if "logging" in log_config:
+        logging.config.dictConfig(log_config["logging"])
+
+    exit_status = main(sys.argv[1:])
+
     logging.shutdown()
-    sys.exit(exit)
+    sys.exit(exit_status)

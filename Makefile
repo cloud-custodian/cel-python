@@ -17,8 +17,8 @@
 #        export PATH="/usr/local/go/bin:/usr/local/bin:$PATH"
 #        export GOPATH="~/go"
 
-install:
-	poetry install
+build:
+	uv build
 
 install-tools:
 	cd tools && export PATH="/usr/local/go/bin:/usr/local/bin:$PATH" && go mod init mkgherkin && go mod tidy
@@ -44,18 +44,9 @@ unit-test:
 	PYTHONPATH=src python -m doctest tools/*.py
 	PYTHONPATH=src python -m doctest features/steps/*.py
 
-sphinx:
+docs: $(wildcard docs/source/*.rst)
 	PYTHONPATH=src python -m doctest docs/source/*.rst
 	export PYTHONPATH=$(PWD)/src:$(PWD)/tools && cd docs && $(MAKE) html
-
-ghpages:
-	-git checkout gh-pages && \
-	mv docs/build/html new-docs && \
-	rm -rf docs && \
-	mv new-docs docs && \
-	git add -u && \
-	git add -A && \
-	git commit -m "Updated generated Sphinx documentation"
 
 lint:
 	tox -e lint

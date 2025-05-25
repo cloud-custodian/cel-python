@@ -37,7 +37,6 @@ import pytest
 import celpy.evaluation  # For monkeypatching
 from celpy import celparser, celtypes
 from celpy.evaluation import *
-from celpy.evaluation import _function_matches_re, _function_matches_re2
 
 
 def test_exception_syntax_error():
@@ -161,19 +160,18 @@ def test_operator_in():
 
 @pytest.mark.skipif(not celpy.evaluation._USE_RE2, reason="Not using RE2")
 def test_function_matches_re2():
-    print(f"***{celpy.evaluation._USE_RE2!r}***")
     empty_string = celtypes.StringType("")
-    # re2-specific patterns which behave differently than standard re
-    assert _function_matches_re2(empty_string, "^\\z")
-    assert isinstance(_function_matches_re2(empty_string, "^\\Z"), CELEvalError)
+    # re-specific patterns which behave differently than re2
+    assert function_matches(empty_string, "^\\z")
+    assert isinstance(function_matches(empty_string, "^\\Z"), CELEvalError)
 
 
 @pytest.mark.skipif(celpy.evaluation._USE_RE2, reason="Using RE2")
 def test_function_matches_re():
     empty_string = celtypes.StringType("")
     # re2-specific patterns which behave differently than standard re
-    assert isinstance(_function_matches_re(empty_string, "^\\z"), CELEvalError)
-    assert _function_matches_re(empty_string, "^\\Z")
+    assert isinstance(function_matches(empty_string, "^\\z"), CELEvalError)
+    assert function_matches(empty_string, "^\\Z")
 
 
 def test_function_matches():

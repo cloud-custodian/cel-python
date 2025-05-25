@@ -47,6 +47,14 @@ Then stdout matches '42'
 And stderr is ''
 And exit status is 0
 
+Scenario: Variables provided as environment variables
+Given OS environment sets x to 6
+And   OS environment sets y to 7
+When celpy -n --arg x:int --arg y:int 'x*y' is run
+Then stdout matches '42'
+And stderr is ''
+And exit status is 0
+
 Scenario: Formatting integer results in hexadecimal
 When celpy -n -f '#8x' '0xdeadbeef' is run
 Then stdout matches '0xdeadbeef'
