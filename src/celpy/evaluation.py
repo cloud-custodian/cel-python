@@ -67,11 +67,12 @@ import lark.visitors
 import celpy.celtypes
 from celpy.celparser import tree_dump
 
-_USE_RE2 = True
+_USE_RE2 = False
 try:
     import re2
+    _USE_RE2 = True
 except ImportError:  # pragma: no cover
-    _USE_RE2 = False
+    pass
 
 # A CEL type annotation. Used in an environment to describe objects as well as functions.
 # This is a list of types, plus Callable for conversion functions.
@@ -1968,12 +1969,12 @@ class Evaluator(lark.visitors.Interpreter[Result]):
         property_name = property_name_token.value
         result: Result
         if isinstance(member, CELEvalError):
-            result = member
+            result = cast(Result, member)
         elif isinstance(member, NameContainer):
             # Navigation through names provided as external run-time bindings.
             # The dict is the value of a Referent that was part of a namespace path.
             if property_name in member:
-                result = member[property_name].value
+                result = cast(Result, member[property_name].value)
             else:
                 err = f"No {property_name!r} in bindings {sorted(member.keys())}"
                 result = CELEvalError(err, KeyError, None, tree=tree)
@@ -2409,8 +2410,8 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             else:
                 raise CELUnsupportedError(
                     f"{tree.data} {tree.children}: type not implemented",
-                    line=value_token.line,
-                    column=value_token.column,
+                    line=value_token.line or tree.meta.line,
+                    column=value_token.column or tree.meta.column,
                 )
         except ValueError as ex:
             result = CELEvalError(ex.args[0], ex.__class__, ex.args, tree=tree)

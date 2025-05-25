@@ -13,53 +13,66 @@
 # limitations under the License.
 #
 
-[tool.poetry]
+[project]
 name = "cel-python"
-version = "0.3.0"
+version = "0.4.0"
 description = "Pure Python implementation of Google Common Expression Language"
-authors = ["S. Lott <slott56@gmail.com>"]
 readme = "README.rst"
-license = "LICENSE.txt"
+license-files = ["LICENSE"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python"
 ]
+authors = [
+    { name = "S.Lott", email = "slott56@gmail.com" }
+]
+requires-python = ">=3.9"
 packages = [{ include = "celpy", from = "src"}]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-lark = "^0.12"
+dependencies = [
+    "lark>=1.2.2",
+    "pendulum>=3.1.0",
+    "pyyaml>=6.0.2",
+    "jmespath>=1.0.1",
+]
 
-# specify as optional for pip install cel-python[c7n] or poetry install -e behavior
-jmespath = { version = "^1.0.1", optional = true }
+[project.scripts]
+cel-python = "cel_python:main"
 
-# specify as a non default group for building automatically in ci without -e
-pendulum = "^3.1.0"
-pyyaml = "^6.0.2"
-types-pyyaml = "^6.0.12.20250516"
-[tool.poetry.group.c7n.dependencies]
-jmespath = "^1.0.1"
-google-re2 = { version = "^1.0", optional = true }
-
-[tool.poetry.extras]
-re2 = ["google-re2"]
-
-[tool.poetry.group.dev.dependencies]
-behave = "^1.2.6"
-ruff = "^0.9.6"
-mypy = "^1.10.0"
-pytest = "^8.2.1"
-pytest-cov = "^5.0.0"
-sphinx = "^6.0"
-tox = "^4.15.0"
-pre-commit = "^3.5"
-google-re2-stubs = "^0.1.0"
+[project.optional-dependencies]
+re2 = [
+    "google-re2",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.pytest.ini_options]
-markers = [
-    "refactor: tests that need to be refactored to use celfilter_instance"
+#[build-system]
+#requires = ["uv_build>=0.7.7,<0.8.0"]
+#build-backend = "uv_build"
+
+#[build-system]
+#requires = ["flit"]
+#build-backend = "flit.api:main"
+
+#[build-system]
+#requires = ["pdm-backend"]
+#build-backend = "pdm.backend"
+
+#[build-system]
+#requires = ["setuptools", "setuptools-scm"]
+#build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "behave>=1.2.6",
+    "coverage>=7.8.1",
+    "mypy>=1.15.0",
+    "pytest>=8.3.5",
+    "ruff>=0.11.10",
+    "tox>=4.24",
+    "tox-uv>=1.25.0",
+    "types-pyyaml>=6.0.12.20250516",
+    "google-re2-stubs",
 ]

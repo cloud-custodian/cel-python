@@ -33,7 +33,7 @@ Installation
 
 ::
 
-    pip install cel-python
+    python -m pip install cel-python
 
 You now have the CEL run-time available to Python-based applications.
 
@@ -49,8 +49,15 @@ library ``re`` syntax by default. If a ``re2`` package is installed or the
 
 ::
 
-    pip install cel-python[re2]
+    python -m pip install cel-python[re2]
 
+.. warning:: Apple Silicon
+
+    See https://github.com/google/re2/issues/453,
+    https://github.com/google/re2/issues/346,
+    https://github.com/google/re2/issues/516
+
+    As of the 0.4.0 release, the google-re2 package does not build for Python 3.13 on the "darwin" platform with the "arm64" architecture.
 
 Command Line
 ============
