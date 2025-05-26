@@ -39,3 +39,12 @@ This paragraph can contain the parameters for logging configuration.
     [logging.handlers.console]
         class = "logging.StreamHandler"
         formatter = "console"
+
+To enable very detailed debugging, do the following:
+
+-   Set the ``CEL_TRACE`` environment variable to some non-empty value, like ``"true"``.
+    This enables a ``@trace`` decorator on some evaluation methods.
+
+-   In a ``[logging.loggers.celpy.Evaluator]`` paragraph, set ``level = "DEBUG"``.
+
+-   Set the ``[logging]`` paragraph, set ``root.level = "DEBUG"``.

@@ -63,6 +63,13 @@ This paragraph can contain the parameters for logging configuration.</p>
 <span class="w">    </span><span class="n">formatter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;console&quot;</span>
 </pre></div>
 </div>
+<p>To enable very detailed debugging, do the following:</p>
+<ul class="simple">
+<li><p>Set the <code class="docutils literal notranslate"><span class="pre">CEL_TRACE</span></code> environment variable to some non-empty value, like <code class="docutils literal notranslate"><span class="pre">&quot;true&quot;</span></code>.
+This enables a <code class="docutils literal notranslate"><span class="pre">&#64;trace</span></code> decorator on some evaluation methods.</p></li>
+<li><p>In a <code class="docutils literal notranslate"><span class="pre">[logging.loggers.celpy.Evaluator]</span></code> paragraph, set <code class="docutils literal notranslate"><span class="pre">level</span> <span class="pre">=</span> <span class="pre">&quot;DEBUG&quot;</span></code>.</p></li>
+<li><p>Set the <code class="docutils literal notranslate"><span class="pre">[logging]</span></code> paragraph, set <code class="docutils literal notranslate"><span class="pre">root.level</span> <span class="pre">=</span> <span class="pre">&quot;DEBUG&quot;</span></code>.</p></li>
+</ul>
 </section>
 
 

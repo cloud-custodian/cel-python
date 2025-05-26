@@ -183,7 +183,7 @@ class CompiledRunner(Runner):
     """
     Python compiled expression evaluator. Uses Python byte code and :py:func:`eval`.
 
-    Given an AST, this evauates the AST in the context of a specific activation.
+    Given an AST, this evaluates the AST in the context of a specific activation.
 
     Transform the AST into Python, uses :py:func:`compile` to create a code object.
     Uses :py:func:`eval` to evaluate.

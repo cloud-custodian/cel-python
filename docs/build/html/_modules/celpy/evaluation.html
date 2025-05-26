@@ -67,11 +67,18 @@
 <span class="sd">The :py:class:`Resut` type hint is a union of the various values that are encountered</span>
 <span class="sd">during evaluation. It&#39;s a union of the :py:class:`celpy.celtypes.CELTypes` type and the</span>
 <span class="sd">:exc:`CELEvalError` exception.</span>
+
+<span class="sd">..  important:: Debugging</span>
+
+<span class="sd">    If the os environment variable ``CEL_TRACE`` is set, then detailed tracing of methods is made available.</span>
+<span class="sd">    To see the trace, set the logging level for ``celpy.Evaluator`` to ``logging.DEBUG``.</span>
+
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">collections</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">operator</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">reduce</span><span class="p">,</span> <span class="n">wraps</span>
@@ -100,11 +107,11 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">celpy.celtypes</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">celpy.celparser</span><span class="w"> </span><span class="kn">import</span> <span class="n">tree_dump</span>
 
-<span class="n">_USE_RE2</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">_USE_RE2</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Used by the test suite.</span>
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">re2</span>
 
-    <span class="n">_USE_RE2</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">_USE_RE2</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Used by the test suite.</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">function_matches</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Result&quot;</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
@@ -128,8 +135,7 @@
 
 
 
-<span class="c1"># A CEL type annotation. Used in an environment to describe objects as well as functions.</span>
-<span class="c1"># This is a list of types, plus Callable for conversion functions.</span>
+<span class="c1"># This annotation describes a union of types, functions, and function types.</span>
 <span class="n">Annotation</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span>
     <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">CELType</span><span class="p">,</span>
     <span class="n">Callable</span><span class="p">[</span>
@@ -330,9 +336,9 @@
 
 
 
-<span class="c1"># The interim results extends celtypes to include itermediate CELEvalError exception objects.</span>
+<span class="c1"># The interim results extend ``celtypes`` to include itermediate ``CELEvalError`` exception objects.</span>
 <span class="c1"># These can be deferred as part of commutative logical_and and logical_or operations.</span>
-<span class="c1"># It includes the responses to type() queries, also.</span>
+<span class="c1"># It includes the responses to ``type()`` queries, also.</span>
 <span class="n">Result</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span>
     <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">,</span>
     <span class="n">CELEvalError</span><span class="p">,</span>
@@ -1310,18 +1316,22 @@
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="s2">&quot;Evaluator&quot;</span><span class="p">,</span> <span class="n">lark</span><span class="o">.</span><span class="n">Tree</span><span class="p">],</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Decorator to create consistent evaluation trace logging.</span>
-<span class="sd">    This only works for a class with a ``level`` attribute.</span>
-<span class="sd">    This is generally applied to the methods matching rule names.</span>
+<span class="sd">    This is generally applied to the methods matching parse rule names.</span>
+
+<span class="sd">    This only works for a class with a ``level`` attribute, like :py:class:`Evaluator`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="nd">@wraps</span><span class="p">(</span><span class="n">method</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">concrete_method</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="s2">&quot;Evaluator&quot;</span><span class="p">,</span> <span class="n">tree</span><span class="p">:</span> <span class="n">lark</span><span class="o">.</span><span class="n">Tree</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">level</span> <span class="o">*</span> <span class="s2">&quot;| &quot;</span><span class="p">,</span> <span class="n">tree</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">level</span> <span class="o">*</span> <span class="s2">&quot;| &quot;</span><span class="p">,</span> <span class="n">tree</span><span class="p">)</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tree</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2"> -&gt; </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">level</span> <span class="o">*</span> <span class="s2">&quot;| &quot;</span><span class="p">,</span> <span class="n">tree</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2"> -&gt; </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">level</span> <span class="o">*</span> <span class="s2">&quot;| &quot;</span><span class="p">,</span> <span class="n">tree</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">result</span>
 
-    <span class="k">return</span> <span class="n">concrete_method</span></div>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;CEL_TRACE&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">concrete_method</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">method</span></div>
 
 
 

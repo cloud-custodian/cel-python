@@ -34,11 +34,18 @@ are caught and transformed into :exc:`CELEvalError` objects.
 The :py:class:`Resut` type hint is a union of the various values that are encountered
 during evaluation. It's a union of the :py:class:`celpy.celtypes.CELTypes` type and the
 :exc:`CELEvalError` exception.
+
+..  important:: Debugging
+
+    If the os environment variable ``CEL_TRACE`` is set, then detailed tracing of methods is made available.
+    To see the trace, set the logging level for ``celpy.Evaluator`` to ``logging.DEBUG``.
+
 """
 
 import collections
 import logging
 import operator
+import os
 import re
 import sys
 from functools import reduce, wraps
@@ -67,11 +74,11 @@ import lark.visitors
 import celpy.celtypes
 from celpy.celparser import tree_dump
 
-_USE_RE2 = False
+_USE_RE2 = False  # Used by the test suite.
 try:
     import re2
 
-    _USE_RE2 = True
+    _USE_RE2 = True  # Used by the test suite.
 
     def function_matches(text: str, pattern: str) -> "Result":
         try:
@@ -92,8 +99,7 @@ except ImportError:  # pragma: no cover
         return celpy.celtypes.BoolType(m is not None)
 
 
-# A CEL type annotation. Used in an environment to describe objects as well as functions.
-# This is a list of types, plus Callable for conversion functions.
+# This annotation describes a union of types, functions, and function types.
 Annotation = Union[
     celpy.celtypes.CELType,
     Callable[
@@ -219,9 +225,9 @@ class CELEvalError(Exception):
         return self
 
 
-# The interim results extends celtypes to include itermediate CELEvalError exception objects.
+# The interim results extend ``celtypes`` to include itermediate ``CELEvalError`` exception objects.
 # These can be deferred as part of commutative logical_and and logical_or operations.
-# It includes the responses to type() queries, also.
+# It includes the responses to ``type()`` queries, also.
 Result = Union[
     celpy.celtypes.Value,
     CELEvalError,
@@ -1110,18 +1116,22 @@ def trace(
 ) -> Callable[["Evaluator", lark.Tree], Any]:
     """
     Decorator to create consistent evaluation trace logging.
-    This only works for a class with a ``level`` attribute.
-    This is generally applied to the methods matching rule names.
+    This is generally applied to the methods matching parse rule names.
+
+    This only works for a class with a ``level`` attribute, like :py:class:`Evaluator`.
     """
 
     @wraps(method)
     def concrete_method(self: "Evaluator", tree: lark.Tree) -> Any:
-        self.logger.info("%s%r", self.level * "| ", tree)
+        self.logger.debug("%s%r", self.level * "| ", tree)
         result = method(self, tree)
-        self.logger.info("%s%s -> %r", self.level * "| ", tree.data, result)
+        self.logger.debug("%s%s -> %r", self.level * "| ", tree.data, result)
         return result
 
-    return concrete_method
+    if os.environ.get("CEL_TRACE"):
+        return concrete_method
+    else:
+        return method
 
 
 class Evaluator(lark.visitors.Interpreter[Result]):
