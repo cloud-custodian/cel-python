@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Pure Python Google Common Expression Language (CEL) &#8212; CEL in Python  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="installation.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="pure-python-google-common-expression-language-cel">
+<h1>Pure Python Google Common Expression Language (CEL)<a class="headerlink" href="#pure-python-google-common-expression-language-cel" title="Link to this heading">¶</a></h1>
+<p>Pure Python implementation of Google Common Expression Language, <a class="reference external" href="https://opensource.google/projects/cel">https://opensource.google/projects/cel</a>.</p>
+<blockquote>
+<div><p>The Common Expression Language (CEL) implements common semantics for expression evaluation,
+enabling different applications to more easily interoperate.</p>
+<p>Key Applications</p>
+<ul class="simple">
+<li><p>Security policy: organization have complex infrastructure and need common tooling to reason about the system as a whole</p></li>
+<li><p>Protocols: expressions are a useful data type and require interoperability across programming languages and platforms.</p></li>
+</ul>
+</div></blockquote>
+<p>This implementation has minimal dependencies, runs quickly, and can be embedded into Python-based applications.
+Specifically, one intent is to be part of Cloud Custodian (C7N) as part of the security policy filter.</p>
+<p>Interested in the API? There are three interesting topics:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="integration.html#integration"><span class="std std-ref">Application Integration</span></a></p></li>
+<li><p><a class="reference internal" href="api.html#api"><span class="std std-ref">CEL-Py API</span></a></p></li>
+<li><p><a class="reference internal" href="structure.html#data-structures"><span class="std std-ref">Data Structures</span></a></p></li>
+</ul>
+<p>The integration into another application isn’t a trivial <code class="docutils literal notranslate"><span class="pre">import</span></code>.</p>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Use of CEL-Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integration.html">Application Integration</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="integration.html#the-essentials">The Essentials</a></li>
+<li class="toctree-l2"><a class="reference internal" href="integration.html#function-bindings">Function Bindings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="integration.html#examples-from-go-implementation">Examples from Go implementation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="integration.html#exceptions-and-errors">Exceptions and Errors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="integration.html#cloud-custodian">Cloud Custodian</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">CEL-Py API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api.html#example">Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#another-example">Another Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#celpy.__init__.Runner"><code class="docutils literal notranslate"><span class="pre">Runner</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#celpy.__init__.InterpretedRunner"><code class="docutils literal notranslate"><span class="pre">InterpretedRunner</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#celpy.__init__.CompiledRunner"><code class="docutils literal notranslate"><span class="pre">CompiledRunner</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#celpy.__init__.Int32Value"><code class="docutils literal notranslate"><span class="pre">Int32Value</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#celpy.__init__.Environment"><code class="docutils literal notranslate"><span class="pre">Environment</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-celpy.__main__"><code class="docutils literal notranslate"><span class="pre">__main__</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-celpy.celtypes">celtypes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-celpy.evaluation">evaluation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-celpy.celparser">parser</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="structure.html">Data Structures</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="structure.html#run-time">Run-Time</a></li>
+<li class="toctree-l2"><a class="reference internal" href="structure.html#cel-types">CEL Types</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="c7n_functions.html">C7N Functions Required</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="c7n_functions.html#design-principles">Design Principles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="c7n_functions.html#c7n-context-object">C7N Context Object</a></li>
+<li class="toctree-l2"><a class="reference internal" href="c7n_functions.html#celfilter-design">CELFilter Design</a></li>
+<li class="toctree-l2"><a class="reference internal" href="c7n_functions.html#c7n-cache">C7N Cache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="c7n_functions.html#common-c7n-constructs">Common C7N Constructs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="c7n_functions.html#common-non-bool-filters">Common/Non-Bool Filters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="c7n_functions.html#common-boolean-filters">Common/Boolean Filters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="c7n_functions.html#singleton-non-bool-filters">Singleton/Non-Bool Filters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="c7n_functions.html#singleton-boolean-filters">Singleton/Boolean Filters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="c7n_functions.html#summary">Summary</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">CEL in Python</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Use of CEL-Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integration.html">Application Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">CEL-Py API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="structure.html">Data Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="c7n_functions.html">C7N Functions Required</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+      <li>Next: <a href="installation.html" title="next chapter">Installation</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2020, CapitalOne.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

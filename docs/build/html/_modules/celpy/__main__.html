@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>celpy.__main__ &#8212; CEL in Python  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for celpy.__main__</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-Copyright: Copyright (c) Capital One Services, LLC</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="c1"># Copyright 2020 Capital One Services, LLC</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and limitations under the License.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Pure Python implementation of CEL.</span>
+
+<span class="sd">This provides a few jq-like, bc-like, and shell expr-like features.</span>
+
+<span class="sd">-   ``jq`` uses ``.`` to refer the current document. By setting a package</span>
+<span class="sd">    name of ``&quot;jq&quot;`` and placing the JSON object in the package, we achieve</span>
+<span class="sd">    similar syntax.</span>
+
+<span class="sd">-   ``bc`` offers complex function definitions and other programming support.</span>
+<span class="sd">    CEL can only evaluate a few bc-like expressions.</span>
+
+<span class="sd">-   This does everything ``expr`` does, but the syntax is slightly different.</span>
+<span class="sd">    The output of comparisons -- by default -- is boolean, where ``expr`` is an integer 1 or 0.</span>
+<span class="sd">    Use ``-f &#39;d&#39;`` to see decimal output instead of Boolean text values.</span>
+
+<span class="sd">-   This does some of what ``test`` does, without a lot of the sophisticated</span>
+<span class="sd">    file system data gathering.</span>
+<span class="sd">    Use ``-b`` to set the exit status code from a Boolean result.</span>
+
+<span class="sd">TODO: This can also have a REPL, as well as process CSV files.</span>
+
+<span class="sd">SYNOPSIS</span>
+<span class="sd">========</span>
+
+<span class="sd">::</span>
+
+<span class="sd">    python -m celpy [--arg name:type=value ...] [--null-input] expr</span>
+
+<span class="sd">Options:</span>
+
+<span class="sd">:--arg:</span>
+<span class="sd">    Provides argument names, types and optional values.</span>
+<span class="sd">    If the value is not provided, the name is expected to be an environment</span>
+<span class="sd">    variable, and the value of the environment variable is converted and used.</span>
+
+<span class="sd">:--null-input:</span>
+<span class="sd">    Normally, JSON documents are read from stdin in ndjson format. If no JSON documents are</span>
+<span class="sd">    provided, the ``--null-input`` option skips trying to read from stdin.</span>
+
+<span class="sd">:expr:</span>
+<span class="sd">    A CEL expression to evaluate.</span>
+
+<span class="sd">JSON documents are read from stdin in NDJSON format (http://jsonlines.org/, http://ndjson.org/).</span>
+<span class="sd">For each JSON document, the expression is evaluated with the document in a default</span>
+<span class="sd">package. This allows `.name` to pick items from the document.</span>
+
+<span class="sd">By default, the output is JSON serialized. This means strings will be JSON-ified and have quotes.</span>
+
+<span class="sd">If a ``--format`` option is provided, this is applied to the resulting object; this can be</span>
+<span class="sd">used to strip quotes, or limit precision on double objects, or convert numbers to hexadecimal.</span>
+
+<span class="sd">Arguments, Types, and Namespaces</span>
+<span class="sd">================================</span>
+
+<span class="sd">CEL objects rely on the celtypes definitions.</span>
+
+<span class="sd">Because of the close association between CEL and protobuf, some well-known protobuf types</span>
+<span class="sd">are also supported.</span>
+
+<span class="sd">..  todo:: CLI type environment</span>
+
+<span class="sd">    Permit name.name:type=value to create namespace bindings.</span>
+
+<span class="sd">Further, type providers can be bound to CEL. This means an extended CEL</span>
+<span class="sd">may have additional types beyond those defined by the :py:class:`Activation` class.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cmd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging.config</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">cast</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">tomllib</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">tomli</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">tomllib</span>  <span class="c1"># type: ignore [no-redef]</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">celpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Environment</span><span class="p">,</span> <span class="n">Runner</span><span class="p">,</span> <span class="n">celtypes</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">celpy.adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">CELJSONDecoder</span><span class="p">,</span> <span class="n">CELJSONEncoder</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">celpy.celparser</span><span class="w"> </span><span class="kn">import</span> <span class="n">CELParseError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">celpy.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">Annotation</span><span class="p">,</span> <span class="n">CELEvalError</span><span class="p">,</span> <span class="n">Result</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;celpy&quot;</span><span class="p">)</span>
+
+
+<span class="c1"># For argument parsing purposes.</span>
+<span class="c1"># Note the reliance on `ast.literal_eval` for ListType and MapType conversions.</span>
+<span class="c1"># Other types convert strings directly. These types need some help.</span>
+<span class="n">CLI_ARG_TYPES</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Annotation</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;int&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">,</span>
+    <span class="s2">&quot;uint&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">UintType</span><span class="p">,</span>
+    <span class="s2">&quot;double&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">DoubleType</span><span class="p">,</span>
+    <span class="s2">&quot;bool&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">,</span>
+    <span class="s2">&quot;string&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span>
+    <span class="s2">&quot;bytes&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BytesType</span><span class="p">,</span>
+    <span class="s2">&quot;list&quot;</span><span class="p">:</span> <span class="n">cast</span><span class="p">(</span>
+        <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">],</span>
+        <span class="k">lambda</span> <span class="n">arg</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">literal_eval</span><span class="p">(</span><span class="n">arg</span><span class="p">)),</span>
+    <span class="p">),</span>
+    <span class="s2">&quot;map&quot;</span><span class="p">:</span> <span class="n">cast</span><span class="p">(</span>
+        <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">],</span>
+        <span class="k">lambda</span> <span class="n">arg</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">literal_eval</span><span class="p">(</span><span class="n">arg</span><span class="p">)),</span>
+    <span class="p">),</span>
+    <span class="s2">&quot;null_type&quot;</span><span class="p">:</span> <span class="n">cast</span><span class="p">(</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">],</span> <span class="k">lambda</span> <span class="n">arg</span><span class="p">:</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="s2">&quot;single_duration&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">DurationType</span><span class="p">,</span>
+    <span class="s2">&quot;single_timestamp&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">TimestampType</span><span class="p">,</span>
+    <span class="s2">&quot;int64_value&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">,</span>
+    <span class="s2">&quot;uint64_value&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">UintType</span><span class="p">,</span>
+    <span class="s2">&quot;double_value&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">DoubleType</span><span class="p">,</span>
+    <span class="s2">&quot;bool_value&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">,</span>
+    <span class="s2">&quot;string_value&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span>
+    <span class="s2">&quot;bytes_value&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BytesType</span><span class="p">,</span>
+    <span class="s2">&quot;number_value&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">DoubleType</span><span class="p">,</span>  <span class="c1"># Ambiguous; can somtimes be integer.</span>
+    <span class="s2">&quot;null_value&quot;</span><span class="p">:</span> <span class="n">cast</span><span class="p">(</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">],</span> <span class="k">lambda</span> <span class="n">arg</span><span class="p">:</span> <span class="kc">None</span><span class="p">),</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="arg_type_value">
+<a class="viewcode-back" href="../../api.html#celpy.__main__.arg_type_value">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">arg_type_value</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Annotation</span><span class="p">,</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Decompose ``-a name:type=value`` argument into a useful triple.</span>
+
+<span class="sd">    Also accept ``-a name:type``. This will find ``name`` in the environment and convert to the</span>
+<span class="sd">    requested type.</span>
+
+<span class="sd">    Also accepts ``-a name``. This will find ``name`` in the environment and treat it as a string.</span>
+
+<span class="sd">    Currently, names do not reflect package naming. An environment can be a package,</span>
+<span class="sd">    and the activation can include variables that are also part of the package.</span>
+<span class="sd">    This is not supported via the CLI.</span>
+
+<span class="sd">    Types can be celtypes class names or TYPE_NAME or PROTOBUF_TYPE</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        TYPE_NAME : &quot;int64_value&quot; | &quot;null_value&quot; | &quot;uint64_value&quot; | &quot;double_value&quot;</span>
+<span class="sd">        | &quot;bool_value&quot; | &quot;string_value&quot; | &quot;bytes_value&quot; | &quot;number_value&quot;</span>
+
+<span class="sd">        PROTOBUF_TYPE : &quot;single_int64&quot; | &quot;single_int32&quot; | &quot;single_uint64&quot; | &quot;single_uint32&quot;</span>
+<span class="sd">        | &quot;single_sint64&quot; | &quot;single_sint32&quot; | &quot;single_fixed64&quot; | &quot;single_fixed32&quot;</span>
+<span class="sd">        | &quot;single_sfixed32&quot; | &quot;single_sfixed64&quot; | &quot;single_float&quot; | &quot;single_double&quot;</span>
+<span class="sd">        | &quot;single_bool&quot; | &quot;single_string&quot; | &quot;single_bytes&quot;</span>
+<span class="sd">        | &quot;single_duration&quot; | &quot;single_timestamp&quot;</span>
+
+<span class="sd">    ..  todo:: type names can include `.` to support namespacing for protobuf support.</span>
+
+<span class="sd">    :param text: Argument value</span>
+<span class="sd">    :return: Tuple with name, annotation, and resulting object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">arg_pattern</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+        <span class="sa">r</span><span class="s2">&quot;^([_a-zA-Z][_a-zA-Z0-9]*)(?::([_a-zA-Z][_a-zA-Z0-9]*))?(?:=(.*))?$&quot;</span>
+    <span class="p">)</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">arg_pattern</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">match</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentTypeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;arg </span><span class="si">{</span><span class="n">text</span><span class="si">}</span><span class="s2"> not &#39;var=string&#39;, &#39;var:type=value&#39;, or `var:type&quot;</span>
+        <span class="p">)</span>
+    <span class="n">name</span><span class="p">,</span> <span class="n">type_name</span><span class="p">,</span> <span class="n">value_text</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">value_text</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">value_text</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">type_definition</span><span class="p">:</span> <span class="n">Annotation</span>  <span class="c1"># CELType or a conversion function</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span>  <span class="c1"># Specific value.</span>
+    <span class="k">if</span> <span class="n">type_name</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">type_definition</span> <span class="o">=</span> <span class="n">CLI_ARG_TYPES</span><span class="p">[</span><span class="n">type_name</span><span class="p">]</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+                <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">,</span>
+                <span class="n">type_definition</span><span class="p">(</span><span class="n">value_text</span><span class="p">),</span>  <span class="c1"># type: ignore[arg-type, call-arg]</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentTypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;arg </span><span class="si">{</span><span class="n">text</span><span class="si">}</span><span class="s2"> type name not in </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">CLI_ARG_TYPES</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentTypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;arg </span><span class="si">{</span><span class="n">text</span><span class="si">}</span><span class="s2"> value invalid for the supplied type&quot;</span>
+            <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="n">value_text</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">type_definition</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span>
+    <span class="k">return</span> <span class="n">name</span><span class="p">,</span> <span class="n">type_definition</span><span class="p">,</span> <span class="n">value</span></div>
+
+
+
+<div class="viewcode-block" id="get_options">
+<a class="viewcode-back" href="../../api.html#celpy.__main__.get_options">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_options</span><span class="p">(</span><span class="n">argv</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parses command-line arguments.&quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s2">&quot;celpy&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Pure Python CEL&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-v&quot;</span><span class="p">,</span> <span class="s2">&quot;--verbose&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;count&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Inputs</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;-a&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--arg&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;append&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">arg_type_value</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Variables to set; -a name:type=value, or -a name=value for strings, &quot;</span>
+        <span class="s2">&quot;or -a name to read an environment variable&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;-n&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--null-input&quot;</span><span class="p">,</span>
+        <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;null_input&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Avoid reading Newline-Delimited JSON documents from stdin&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;-s&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--slurp&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Slurp a single, multiple JSON document from stdin&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;-i&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--interactive&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Interactive REPL&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># JSON handling</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--json-package&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-p&quot;</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">&quot;NAME&quot;</span><span class="p">,</span>
+        <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;package&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Each JSON input is a CEL package, allowing .name to work&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--json-document&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;-d&quot;</span><span class="p">,</span>
+        <span class="n">metavar</span><span class="o">=</span><span class="s2">&quot;NAME&quot;</span><span class="p">,</span>
+        <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;document&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Each JSON input is a variable, allowing name.map(x, x*2) to work&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Outputs and Status</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;-b&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--boolean&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;If the result is True, the exit status is 0, for False, it&#39;s 1, otherwise 2&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;-f&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;--format&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Use Python formating instead of JSON conversion of results; &quot;</span>
+            <span class="s2">&quot;Example &#39;.6f&#39; to format a DoubleType result&quot;</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="c1"># The expression</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;expr&quot;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;?&quot;</span><span class="p">)</span>
+
+    <span class="n">options</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">argv</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">package</span> <span class="ow">and</span> <span class="n">options</span><span class="o">.</span><span class="n">document</span><span class="p">:</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Either use --json-package or --json-document, not both&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">options</span><span class="o">.</span><span class="n">package</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">options</span><span class="o">.</span><span class="n">document</span><span class="p">:</span>
+        <span class="n">options</span><span class="o">.</span><span class="n">package</span> <span class="o">=</span> <span class="s2">&quot;jq&quot;</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">interactive</span> <span class="ow">and</span> <span class="n">options</span><span class="o">.</span><span class="n">expr</span><span class="p">:</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Interactive mode and an expression provided&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">options</span><span class="o">.</span><span class="n">interactive</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">options</span><span class="o">.</span><span class="n">expr</span><span class="p">:</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;No expression provided&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">options</span></div>
+
+
+
+<div class="viewcode-block" id="CEL_REPL">
+<a class="viewcode-back" href="../../api.html#celpy.__main__.CEL_REPL">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CEL_REPL</span><span class="p">(</span><span class="n">cmd</span><span class="o">.</span><span class="n">Cmd</span><span class="p">):</span>
+    <span class="n">prompt</span> <span class="o">=</span> <span class="s2">&quot;CEL&gt; &quot;</span>
+    <span class="n">intro</span> <span class="o">=</span> <span class="s2">&quot;Enter an expression to have it evaluated.&quot;</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;celpy.repl&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CEL_REPL.cel_eval">
+<a class="viewcode-back" href="../../api.html#celpy.__main__.CEL_REPL.cel_eval">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cel_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">expr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+            <span class="n">prgm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">program</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">CELParseError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">cel_parser</span><span class="o">.</span><span class="n">error_text</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ex</span><span class="o">.</span><span class="n">line</span><span class="p">,</span> <span class="n">ex</span><span class="o">.</span><span class="n">column</span><span class="p">),</span>
+                <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">raise</span></div>
+
+
+<div class="viewcode-block" id="CEL_REPL.preloop">
+<a class="viewcode-back" href="../../api.html#celpy.__main__.CEL_REPL.preloop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">preloop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">env</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span></div>
+
+
+<div class="viewcode-block" id="CEL_REPL.do_set">
+<a class="viewcode-back" href="../../api.html#celpy.__main__.CEL_REPL.do_set">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">do_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set variable expression</span>
+
+<span class="sd">        Evaluates the expression, saves the result as the given variable in the current activation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">name</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">value</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cel_eval</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="CEL_REPL.do_show">
+<a class="viewcode-back" href="../../api.html#celpy.__main__.CEL_REPL.do_show">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">do_show</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Shows all variables in the current activation.&quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="CEL_REPL.do_quit">
+<a class="viewcode-back" href="../../api.html#celpy.__main__.CEL_REPL.do_quit">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">do_quit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Quits from the REPL.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+    <span class="n">do_exit</span> <span class="o">=</span> <span class="n">do_quit</span>
+    <span class="n">do_bye</span> <span class="o">=</span> <span class="n">do_quit</span>
+
+<div class="viewcode-block" id="CEL_REPL.default">
+<a class="viewcode-back" href="../../api.html#celpy.__main__.CEL_REPL.default">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate an expression.&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cel_eval</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="process_json_doc">
+<a class="viewcode-back" href="../../api.html#celpy.__main__.process_json_doc">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">process_json_doc</span><span class="p">(</span>
+    <span class="n">display</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Result</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">prgm</span><span class="p">:</span> <span class="n">Runner</span><span class="p">,</span>
+    <span class="n">activation</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">document</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">boolean_to_status</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Process a single JSON document. Either one line of an NDJSON stream</span>
+<span class="sd">    or the only document in slurp mode. We assign it to the variable &quot;jq&quot;.</span>
+<span class="sd">    This variable can be the package name, allowing ``.name``) to work.</span>
+<span class="sd">    Or. It can be left as a variable, allowing ``jq`` and ``jq.map(x, x*2)`` to work.</span>
+
+<span class="sd">    Returns status code 0 for success, 3 for failure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">activation</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">document</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">CELJSONDecoder</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">activation</span><span class="p">)</span>
+        <span class="n">display</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">boolean_to_status</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">result</span> <span class="k">else</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">except</span> <span class="n">CELEvalError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+        <span class="c1"># ``jq`` KeyError problems result in ``None``.</span>
+        <span class="c1"># Other errors should, perhaps, be more visible.</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Encountered </span><span class="si">%s</span><span class="s2"> on document </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ex</span><span class="p">,</span> <span class="n">document</span><span class="p">)</span>
+        <span class="n">display</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">except</span> <span class="n">json</span><span class="o">.</span><span class="n">decoder</span><span class="o">.</span><span class="n">JSONDecodeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> on document </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ex</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">document</span><span class="p">)</span>
+        <span class="c1"># print(f&quot;{ex.args[0]} in {document!r}&quot;, file=sys.stderr)</span>
+        <span class="k">return</span> <span class="mi">3</span></div>
+
+
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../../api.html#celpy.__main__.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="n">argv</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given options from the command-line, execute the CEL expression.</span>
+
+<span class="sd">    With --null-input option, only --arg and expr matter.</span>
+
+<span class="sd">    Without --null-input, JSON documents are read from STDIN, following ndjson format.</span>
+
+<span class="sd">    With the --slurp option, it reads one JSON from stdin, spread over multiple lines.</span>
+
+<span class="sd">    If &quot;--json-package&quot; is used, each JSON document becomes a package, and</span>
+<span class="sd">        top-level dictionary keys become valid ``.name`` expressions.</span>
+<span class="sd">        Otherwise, &quot;--json-object&quot; is the default, and each JSON document</span>
+<span class="sd">        is assigned to a variable. The default name is &quot;jq&quot; to allow expressions</span>
+<span class="sd">        that are similar to ``jq`` but with a &quot;jq&quot; prefix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">options</span> <span class="o">=</span> <span class="n">get_options</span><span class="p">(</span><span class="n">argv</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">verbose</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">options</span><span class="o">.</span><span class="n">verbose</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">interactive</span><span class="p">:</span>
+        <span class="n">repl</span> <span class="o">=</span> <span class="n">CEL_REPL</span><span class="p">()</span>
+        <span class="n">repl</span><span class="o">.</span><span class="n">cmdloop</span><span class="p">()</span>
+        <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">format</span><span class="p">:</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">output_display</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">Result</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;{0:</span><span class="si">{format}</span><span class="s2">}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">options</span><span class="o">.</span><span class="n">format</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">output_display</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">Result</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">CELJSONEncoder</span><span class="p">))</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Expr: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">options</span><span class="o">.</span><span class="n">expr</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">arg</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Args: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">options</span><span class="o">.</span><span class="n">arg</span><span class="p">)</span>
+
+    <span class="n">annotations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Annotation</span><span class="p">]]</span>
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">arg</span><span class="p">:</span>
+        <span class="n">annotations</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="nb">type</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">arg</span><span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">annotations</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># If we&#39;re creating a named JSON document, we don&#39;t provide a default package.</span>
+    <span class="c1"># If we&#39;re usinga  JSON document to populate a package, we provide the given name.</span>
+    <span class="n">env</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">(</span>
+        <span class="n">package</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">null_input</span> <span class="k">else</span> <span class="n">options</span><span class="o">.</span><span class="n">package</span><span class="p">,</span>
+        <span class="n">annotations</span><span class="o">=</span><span class="n">annotations</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">expr</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">expr</span><span class="p">)</span>
+        <span class="n">prgm</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">program</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">CELParseError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="n">env</span><span class="o">.</span><span class="n">cel_parser</span><span class="o">.</span><span class="n">error_text</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ex</span><span class="o">.</span><span class="n">line</span><span class="p">,</span> <span class="n">ex</span><span class="o">.</span><span class="n">column</span><span class="p">),</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="mi">1</span>
+
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">arg</span><span class="p">:</span>
+        <span class="n">activation</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">value</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">arg</span><span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">activation</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">null_input</span><span class="p">:</span>
+        <span class="c1"># Don&#39;t read stdin, evaluate with only the activation context.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">activation</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">boolean</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)):</span>
+                    <span class="n">summary</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">result</span> <span class="k">else</span> <span class="mi">1</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="s2">&quot;Expected celtypes.BoolType, got </span><span class="si">%s</span><span class="s2"> = </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">result</span><span class="p">),</span> <span class="n">result</span>
+                    <span class="p">)</span>
+                    <span class="n">summary</span> <span class="o">=</span> <span class="mi">2</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">output_display</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+                <span class="n">summary</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">except</span> <span class="n">CELEvalError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="n">env</span><span class="o">.</span><span class="n">cel_parser</span><span class="o">.</span><span class="n">error_text</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ex</span><span class="o">.</span><span class="n">line</span><span class="p">,</span> <span class="n">ex</span><span class="o">.</span><span class="n">column</span><span class="p">),</span>
+                <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">summary</span> <span class="o">=</span> <span class="mi">2</span>
+
+    <span class="k">elif</span> <span class="n">options</span><span class="o">.</span><span class="n">slurp</span><span class="p">:</span>
+        <span class="c1"># If slurp, one big document, part of the &quot;jq&quot; package in the activation context.</span>
+        <span class="n">document</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdin</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">summary</span> <span class="o">=</span> <span class="n">process_json_doc</span><span class="p">(</span>
+            <span class="n">output_display</span><span class="p">,</span>
+            <span class="n">prgm</span><span class="p">,</span>
+            <span class="n">activation</span><span class="p">,</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">document</span> <span class="ow">or</span> <span class="n">options</span><span class="o">.</span><span class="n">package</span><span class="p">,</span>
+            <span class="n">document</span><span class="p">,</span>
+            <span class="n">options</span><span class="o">.</span><span class="n">boolean</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># NDJSON format: each line is a JSON doc. We repackage the doc into celtypes objects.</span>
+        <span class="c1"># Each document is in the &quot;jq&quot; package in the activation context.</span>
+        <span class="n">summary</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">document</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdin</span><span class="p">:</span>
+            <span class="n">summary</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span>
+                <span class="n">summary</span><span class="p">,</span>
+                <span class="n">process_json_doc</span><span class="p">(</span>
+                    <span class="n">output_display</span><span class="p">,</span>
+                    <span class="n">prgm</span><span class="p">,</span>
+                    <span class="n">activation</span><span class="p">,</span>
+                    <span class="n">options</span><span class="o">.</span><span class="n">document</span> <span class="ow">or</span> <span class="n">options</span><span class="o">.</span><span class="n">package</span><span class="p">,</span>
+                    <span class="n">document</span><span class="p">,</span>
+                    <span class="n">options</span><span class="o">.</span><span class="n">boolean</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">summary</span></div>
+
+
+
+<span class="n">CONFIG_PATHS</span> <span class="o">=</span> <span class="p">(</span><span class="n">dir_path</span> <span class="o">/</span> <span class="s2">&quot;celpy.toml&quot;</span> <span class="k">for</span> <span class="n">dir_path</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">(),</span> <span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()))</span>
+
+<span class="n">DEFAULT_CONFIG_TOML</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">[logging]</span>
+<span class="s2">  version = 1</span>
+<span class="s2">  formatters.minimal.format = &quot;</span><span class="si">%(message)s</span><span class="s2">&quot;</span>
+<span class="s2">  formatters.console.format = &quot;</span><span class="si">%(levelname)s</span><span class="s2">:</span><span class="si">%(name)s</span><span class="s2">:</span><span class="si">%(message)s</span><span class="s2">&quot;</span>
+<span class="s2">  formatters.details.format = &quot;</span><span class="si">%(levelname)s</span><span class="s2">:</span><span class="si">%(name)s</span><span class="s2">:</span><span class="si">%(module)s</span><span class="s2">:</span><span class="si">%(lineno)d</span><span class="s2">:</span><span class="si">%(message)s</span><span class="s2">&quot;</span>
+<span class="s2">  root.level = &quot;WARNING&quot;</span>
+<span class="s2">  root.handlers = [&quot;console&quot;]</span>
+
+<span class="s2">[logging.handlers.console]</span>
+<span class="s2">    class = &quot;logging.StreamHandler&quot;</span>
+<span class="s2">    formatter = &quot;console&quot;</span>
+<span class="s2">&quot;&quot;&quot;</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+    <span class="n">config_paths</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">CONFIG_PATHS</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">exists</span><span class="p">())</span>
+    <span class="n">config_toml</span> <span class="o">=</span> <span class="n">config_paths</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span> <span class="k">if</span> <span class="n">config_paths</span> <span class="k">else</span> <span class="n">DEFAULT_CONFIG_TOML</span>
+    <span class="n">log_config</span> <span class="o">=</span> <span class="n">tomllib</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">config_toml</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;logging&quot;</span> <span class="ow">in</span> <span class="n">log_config</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">dictConfig</span><span class="p">(</span><span class="n">log_config</span><span class="p">[</span><span class="s2">&quot;logging&quot;</span><span class="p">])</span>
+
+    <span class="n">exit_status</span> <span class="o">=</span> <span class="n">main</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+
+    <span class="n">logging</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="n">exit_status</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">CEL in Python</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Use of CEL-Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../integration.html">Application Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">CEL-Py API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../structure.html">Data Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../c7n_functions.html">C7N Functions Required</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2020, CapitalOne.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
