@@ -59,3 +59,4 @@ clean:
 
 benchmarks:
 	PYTHONPATH=src python benches/large_resource_set.py TagAssetBenchmark
+	PYTHONPATH=src python benches/complex_expression.py

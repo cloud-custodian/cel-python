@@ -30,11 +30,16 @@ visitor method directly.
 
 """
 from unittest.mock import Mock, call, sentinel
+import os
 
 import lark
 import pytest
 
-import celpy.evaluation  # For monkeypatching
+# IMPORTANT: Enables the `@trace` decorator.
+# Must be set prior to import.
+os.environ["CEL_TRACE"] = "true"
+
+import celpy.evaluation  # Expose the name for monkeypatching
 from celpy import celparser, celtypes
 from celpy.evaluation import *
 
@@ -366,7 +371,7 @@ def test_trace_decorator(mock_tree):
     result = e.method(mock_tree)
     assert result == sentinel.result
 
-    assert e.logger.info.mock_calls == [
+    assert e.logger.debug.mock_calls == [
         call('%s%r', '| ', mock_tree),
         call('%s%s -> %r', '| ', 'ident', sentinel.result)
     ]
