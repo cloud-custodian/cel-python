@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>celpy.__init__ &#8212; CEL in Python  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for celpy.__init__</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-Copyright: Copyright (c) Capital One Services, LLC</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="c1"># Copyright 2020 Capital One Services, LLC</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and limitations under the License.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Pure Python implementation of CEL.</span>
+
+<span class="sd">..  todo:: Consolidate __init__ and parser into one module?</span>
+
+<span class="sd">Visible interface to CEL. This exposes the :py:class:`Environment`,</span>
+<span class="sd">the :py:class:`Evaluator` run-time, and the :py:mod:`celtypes` module</span>
+<span class="sd">with Python types wrapped to be CEL compatible.</span>
+
+<span class="sd">Example</span>
+<span class="sd">=======</span>
+
+<span class="sd">Here&#39;s an example with some details::</span>
+
+<span class="sd">    &gt;&gt;&gt; import celpy</span>
+
+<span class="sd">    # A list of type names and class bindings used to create an environment.</span>
+<span class="sd">    &gt;&gt;&gt; types = []</span>
+<span class="sd">    &gt;&gt;&gt; env = celpy.Environment(types)</span>
+
+<span class="sd">    # Parse the code to create the CEL AST.</span>
+<span class="sd">    &gt;&gt;&gt; ast = env.compile(&quot;355. / 113.&quot;)</span>
+
+<span class="sd">    # Use the AST and any overriding functions to create an executable program.</span>
+<span class="sd">    &gt;&gt;&gt; functions = {}</span>
+<span class="sd">    &gt;&gt;&gt; prgm = env.program(ast, functions)</span>
+
+<span class="sd">    # Variable bindings.</span>
+<span class="sd">    &gt;&gt;&gt; activation = {}</span>
+
+<span class="sd">    # Final evaluation.</span>
+<span class="sd">    &gt;&gt;&gt; try:</span>
+<span class="sd">    ...    result = prgm.evaluate(activation)</span>
+<span class="sd">    ...    error = None</span>
+<span class="sd">    ... except CELEvalError as ex:</span>
+<span class="sd">    ...    result = None</span>
+<span class="sd">    ...    error = ex.args[0]</span>
+
+<span class="sd">    &gt;&gt;&gt; result  # doctest: +ELLIPSIS</span>
+<span class="sd">    DoubleType(3.14159...)</span>
+
+<span class="sd">Another Example</span>
+<span class="sd">===============</span>
+
+<span class="sd">See https://github.com/google/cel-go/blob/master/examples/simple_test.go</span>
+
+<span class="sd">The model Go we&#39;re sticking close to::</span>
+
+<span class="sd">    d := cel.Declarations(decls.NewVar(&quot;name&quot;, decls.String))</span>
+<span class="sd">    env, err := cel.NewEnv(d)</span>
+<span class="sd">    if err != nil {</span>
+<span class="sd">        log.Fatalf(&quot;environment creation error: %v\\n&quot;, err)</span>
+<span class="sd">    }</span>
+<span class="sd">    ast, iss := env.Compile(`&quot;Hello world! I&#39;m &quot; + name + &quot;.&quot;`)</span>
+<span class="sd">    // Check iss for compilation errors.</span>
+<span class="sd">    if iss.Err() != nil {</span>
+<span class="sd">        log.Fatalln(iss.Err())</span>
+<span class="sd">    }</span>
+<span class="sd">    prg, err := env.Program(ast)</span>
+<span class="sd">    if err != nil {</span>
+<span class="sd">        log.Fatalln(err)</span>
+<span class="sd">    }</span>
+<span class="sd">    out, _, err := prg.Eval(map[string]interface{}{</span>
+<span class="sd">        &quot;name&quot;: &quot;CEL&quot;,</span>
+<span class="sd">    })</span>
+<span class="sd">    if err != nil {</span>
+<span class="sd">        log.Fatalln(err)</span>
+<span class="sd">    }</span>
+<span class="sd">    fmt.Println(out)</span>
+<span class="sd">    // Output:Hello world! I&#39;m CEL.</span>
+
+<span class="sd">Here&#39;s the Pythonic approach, using concept patterned after the Go implementation::</span>
+
+<span class="sd">    &gt;&gt;&gt; from celpy import *</span>
+<span class="sd">    &gt;&gt;&gt; decls = {&quot;name&quot;: celtypes.StringType}</span>
+<span class="sd">    &gt;&gt;&gt; env = Environment(annotations=decls)</span>
+<span class="sd">    &gt;&gt;&gt; ast = env.compile(&#39;&quot;Hello world! I\\&#39;m &quot; + name + &quot;.&quot;&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; out = env.program(ast).evaluate({&quot;name&quot;: &quot;CEL&quot;})</span>
+<span class="sd">    &gt;&gt;&gt; print(out)</span>
+<span class="sd">    Hello world! I&#39;m CEL.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>  <span class="c1"># noqa: F401</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">cast</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">lark</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">celpy.celtypes</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">celpy.adapter</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>  <span class="c1"># noqa: F401</span>
+    <span class="n">CELJSONDecoder</span><span class="p">,</span>
+    <span class="n">CELJSONEncoder</span><span class="p">,</span>
+    <span class="n">json_to_cel</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">celpy.celparser</span><span class="w"> </span><span class="kn">import</span> <span class="n">CELParseError</span><span class="p">,</span> <span class="n">CELParser</span>  <span class="c1"># noqa: F401</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">celpy.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>  <span class="c1"># noqa: F401</span>
+    <span class="n">Activation</span><span class="p">,</span>
+    <span class="n">Annotation</span><span class="p">,</span>
+    <span class="n">CELEvalError</span><span class="p">,</span>
+    <span class="n">CELFunction</span><span class="p">,</span>
+    <span class="n">Context</span><span class="p">,</span>
+    <span class="n">Evaluator</span><span class="p">,</span>
+    <span class="n">Result</span><span class="p">,</span>
+    <span class="n">base_functions</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># A parsed AST.</span>
+<span class="n">Expression</span> <span class="o">=</span> <span class="n">lark</span><span class="o">.</span><span class="n">Tree</span>
+
+
+<div class="viewcode-block" id="Runner">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.Runner">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Runner</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract runner.</span>
+
+<span class="sd">    Given an AST, this can evaluate the AST in the context of a specific activation</span>
+<span class="sd">    with any override function definitions.</span>
+
+<span class="sd">    ..  todo:: add type adapter and type provider registries.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Runner.__init__">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.Runner.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">environment</span><span class="p">:</span> <span class="s2">&quot;Environment&quot;</span><span class="p">,</span>
+        <span class="n">ast</span><span class="p">:</span> <span class="n">lark</span><span class="o">.</span><span class="n">Tree</span><span class="p">,</span>
+        <span class="n">functions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">CELFunction</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;celpy.</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="n">environment</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ast</span> <span class="o">=</span> <span class="n">ast</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">functions</span> <span class="o">=</span> <span class="n">functions</span></div>
+
+
+<div class="viewcode-block" id="Runner.new_activation">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.Runner.new_activation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">new_activation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">Context</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Activation</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Builds the working activation from the environmental defaults.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="o">.</span><span class="n">activation</span><span class="p">()</span><span class="o">.</span><span class="n">nested_activation</span><span class="p">(</span><span class="nb">vars</span><span class="o">=</span><span class="n">context</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Runner.evaluate">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.Runner.evaluate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">activation</span><span class="p">:</span> <span class="n">Context</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="InterpretedRunner">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.InterpretedRunner">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">InterpretedRunner</span><span class="p">(</span><span class="n">Runner</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Pure AST expression evaluator. Uses :py:class:`evaluation.Evaluator` class.</span>
+
+<span class="sd">    Given an AST, this evauates the AST in the context of a specific activation.</span>
+
+<span class="sd">    The returned value will be a celtypes type.</span>
+
+<span class="sd">    Generally, this should raise an :exc:`CELEvalError` for most kinds of ordinary problems.</span>
+<span class="sd">    It may raise an :exc:`CELUnsupportedError` for future features.</span>
+
+<span class="sd">    ..  todo:: Refractor the Evaluator constructor from evaluation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="InterpretedRunner.evaluate">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.InterpretedRunner.evaluate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">Context</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">Evaluator</span><span class="p">(</span>
+            <span class="n">ast</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ast</span><span class="p">,</span>
+            <span class="n">activation</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">new_activation</span><span class="p">(</span><span class="n">context</span><span class="p">),</span>
+            <span class="n">functions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">functions</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">evaluate</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">value</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="CompiledRunner">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.CompiledRunner">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CompiledRunner</span><span class="p">(</span><span class="n">Runner</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Python compiled expression evaluator. Uses Python byte code and :py:func:`eval`.</span>
+
+<span class="sd">    Given an AST, this evauates the AST in the context of a specific activation.</span>
+
+<span class="sd">    Transform the AST into Python, uses :py:func:`compile` to create a code object.</span>
+<span class="sd">    Uses :py:func:`eval` to evaluate.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="CompiledRunner.__init__">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.CompiledRunner.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">environment</span><span class="p">:</span> <span class="s2">&quot;Environment&quot;</span><span class="p">,</span>
+        <span class="n">ast</span><span class="p">:</span> <span class="n">lark</span><span class="o">.</span><span class="n">Tree</span><span class="p">,</span>
+        <span class="n">functions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">CELFunction</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="n">ast</span><span class="p">,</span> <span class="n">functions</span><span class="p">)</span></div>
+
+        <span class="c1"># Transform AST to Python.</span>
+        <span class="c1"># compile()</span>
+        <span class="c1"># cache executable code object.</span>
+
+<div class="viewcode-block" id="CompiledRunner.evaluate">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.CompiledRunner.evaluate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">activation</span><span class="p">:</span> <span class="n">Context</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+        <span class="c1"># eval() code object with activation as locals, and built-ins as gobals.</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">activation</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="c1"># TODO: Refactor classes into a separate &quot;cel_protobuf&quot; module.</span>
+<span class="c1"># TODO: Becomes cel_protobuf.Int32Value</span>
+<div class="viewcode-block" id="Int32Value">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.Int32Value">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Int32Value</span><span class="p">(</span><span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">):</span>
+<div class="viewcode-block" id="Int32Value.__new__">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.Int32Value.__new__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="s2">&quot;Int32Value&quot;</span><span class="p">],</span>
+        <span class="n">value</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Int32Value&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;TODO: Check range. This seems to matter for protobuf.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Int32Value</span><span class="p">,</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+        <span class="c1"># TODO: elif other type conversions...</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">convert</span> <span class="o">=</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Int32Value</span><span class="p">,</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">convert</span><span class="p">(</span><span class="n">value</span><span class="p">)))</span></div>
+</div>
+
+
+
+<span class="c1"># The &quot;well-known&quot; types in a google.protobuf package.</span>
+<span class="c1"># We map these to CEl types instead of defining additional Protobuf Types.</span>
+<span class="c1"># This approach bypasses some of the range constraints that are part of these types.</span>
+<span class="c1"># It may also cause values to compare as equal when they were originally distinct types.</span>
+<span class="n">googleapis</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;google.protobuf.Int32Value&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">,</span>
+    <span class="s2">&quot;google.protobuf.UInt32Value&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">UintType</span><span class="p">,</span>
+    <span class="s2">&quot;google.protobuf.Int64Value&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">,</span>
+    <span class="s2">&quot;google.protobuf.UInt64Value&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">UintType</span><span class="p">,</span>
+    <span class="s2">&quot;google.protobuf.FloatValue&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">DoubleType</span><span class="p">,</span>
+    <span class="s2">&quot;google.protobuf.DoubleValue&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">DoubleType</span><span class="p">,</span>
+    <span class="s2">&quot;google.protobuf.BoolValue&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">,</span>
+    <span class="s2">&quot;google.protobuf.BytesValue&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">BytesType</span><span class="p">,</span>
+    <span class="s2">&quot;google.protobuf.StringValue&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span>
+    <span class="s2">&quot;google.protobuf.ListValue&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">,</span>
+    <span class="s2">&quot;google.protobuf.Struct&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">MessageType</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="Environment">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.Environment">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Environment</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compiles CEL text to create an Expression object.</span>
+
+<span class="sd">    From the Go implementation, there are things to work with the type annotations:</span>
+
+<span class="sd">    -   type adapters registry make other native types available for CEL.</span>
+
+<span class="sd">    -   type providers registry make ProtoBuf types available for CEL.</span>
+
+<span class="sd">    ..  todo:: Add adapter and provider registries to the Environment.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Environment.__init__">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.Environment.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">package</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">annotations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Annotation</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">runner_class</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">Runner</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a new environment.</span>
+
+<span class="sd">        This also increases the default recursion limit to handle the defined minimums for CEL.</span>
+
+<span class="sd">        :param package: An optional package name used to resolve names in an Activation</span>
+<span class="sd">        :param annotations: Names with type annotations.</span>
+<span class="sd">            There are two flavors of names provided here.</span>
+
+<span class="sd">            - Variable names based on :py:mod:``celtypes``</span>
+
+<span class="sd">            - Function names, using ``typing.Callable``.</span>
+<span class="sd">        :param runner_class: the class of Runner to use, either InterpretedRunner or CompiledRunner</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">setrecursionlimit</span><span class="p">(</span><span class="mi">2500</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;celpy.</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">package</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">package</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">annotations</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Annotation</span><span class="p">]</span> <span class="o">=</span> <span class="n">annotations</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Type Annotations </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotations</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">runner_class</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">Runner</span><span class="p">]</span> <span class="o">=</span> <span class="n">runner_class</span> <span class="ow">or</span> <span class="n">InterpretedRunner</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cel_parser</span> <span class="o">=</span> <span class="n">CELParser</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">runnable</span><span class="p">:</span> <span class="n">Runner</span>
+
+        <span class="c1"># Fold in standard annotations. These (generally) define well-known protobuf types.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">annotations</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">googleapis</span><span class="p">)</span></div>
+
+        <span class="c1"># We&#39;d like to add &#39;type.googleapis.com/google&#39; directly, but it seems to be an alias</span>
+        <span class="c1"># for &#39;google&#39;, the path after the &#39;/&#39; in the uri.</span>
+
+<div class="viewcode-block" id="Environment.compile">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.Environment.compile">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expression</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compile the CEL source. This can raise syntax error exceptions.&quot;&quot;&quot;</span>
+        <span class="n">ast</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cel_parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ast</span></div>
+
+
+<div class="viewcode-block" id="Environment.program">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.Environment.program">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">program</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">:</span> <span class="n">lark</span><span class="o">.</span><span class="n">Tree</span><span class="p">,</span> <span class="n">functions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">CELFunction</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Runner</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transforms the AST into an executable runner.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Package </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">package</span><span class="p">)</span>
+        <span class="n">runner_class</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">runner_class</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">runnable</span> <span class="o">=</span> <span class="n">runner_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">,</span> <span class="n">functions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">runnable</span></div>
+
+
+<div class="viewcode-block" id="Environment.activation">
+<a class="viewcode-back" href="../../api.html#celpy.__init__.Environment.activation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">activation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Activation</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a base activation&quot;&quot;&quot;</span>
+        <span class="n">activation</span> <span class="o">=</span> <span class="n">Activation</span><span class="p">(</span><span class="n">package</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">package</span><span class="p">,</span> <span class="n">annotations</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">annotations</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">activation</span></div>
+</div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">CEL in Python</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Use of CEL-Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../integration.html">Application Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">CEL-Py API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../structure.html">Data Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../c7n_functions.html">C7N Functions Required</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2020, CapitalOne.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
