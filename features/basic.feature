@@ -230,7 +230,8 @@ Scenario: self_eval_ascii_escape_seq
 Scenario: self_eval_bound_lookup
 
    #     type:{primitive:INT64}
-   Given type_env parameter "x" is TypeType(value='INT64')
+   # Given type_env parameter "x" is TypeType(value='INT64')
+   Given type_env parameter "x" is INT64
 
    #     int64_value:123
    Given bindings parameter "x" is IntType(source=123)
@@ -284,7 +285,8 @@ Scenario: unbound_is_runtime_error
 Scenario: false
 
    #     type:{primitive:BOOL}
-   Given type_env parameter "false" is TypeType(value='BOOL')
+   # Given type_env parameter "false" is TypeType(value='BOOL')
+   Given type_env parameter "false" is BOOL
 
    #     bool_value:true
    Given bindings parameter "false" is BoolType(source=True)
@@ -297,7 +299,8 @@ Scenario: false
 Scenario: true
 
    #     type:{primitive:BOOL}
-   Given type_env parameter "true" is TypeType(value='BOOL')
+   # Given type_env parameter "true" is TypeType(value='BOOL')
+   Given type_env parameter "true" is BOOL
 
    #     bool_value:false
    Given bindings parameter "true" is BoolType(source=False)
@@ -310,7 +313,8 @@ Scenario: true
 Scenario: null
 
    #     type:{primitive:BOOL}
-   Given type_env parameter "null" is TypeType(value='BOOL')
+   # Given type_env parameter "null" is TypeType(value='BOOL')
+   Given type_env parameter "null" is BOOL
 
    #     bool_value:true
    Given bindings parameter "null" is BoolType(source=True)

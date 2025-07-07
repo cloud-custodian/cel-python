@@ -14,7 +14,7 @@
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="CEL-Py API" href="api.html" />
+    <link rel="next" title="Architecture and Design" href="structure.html" />
     <link rel="prev" title="Configuration" href="configuration.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
@@ -35,24 +35,20 @@
             
   <section id="application-integration">
 <span id="integration"></span><h1>Application Integration<a class="headerlink" href="#application-integration" title="Link to this heading">¶</a></h1>
-<p>We’ll look at the essential base case for integration:
-evaluate a function given some variable bindings.</p>
-<p>Then we’ll look at providing custom function bindings to extend
-the environment.</p>
-<p>We’ll also look at additional examples from the Go implementation.
-This will lead us to providing custom type providers
-and custom type adapters.</p>
-<p>There are a few exception and error-handling cases that are helpful
-for writing CEL that tolerates certain kinds of data problems.</p>
-<p>Finally, we’ll look at how CEL can be integrated into Cloud Custodian.</p>
-<section id="the-essentials">
-<h2>The Essentials<a class="headerlink" href="#the-essentials" title="Link to this heading">¶</a></h2>
-<p>Here are two examples of variable bindings</p>
-<section id="readme">
-<h3>README<a class="headerlink" href="#readme" title="Link to this heading">¶</a></h3>
-<p>Here’s the example taken from the README.</p>
-<p>The baseline implementation works like this:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">celpy</span>
+<p>We’ll look at integration of CEL into another application from four perspectives:</p>
+<ol class="arabic simple">
+<li><p>We’ll look at the essential base case for integration into another application.
+This will use an <code class="docutils literal notranslate"><span class="pre">Activation</span></code> to provide values for variables.</p></li>
+<li><p>A more sophisticated integration involves extending the environment with custom functions.
+This can provide a well-defined interface between CEL expressions and application functionality.</p></li>
+<li><p>Some additional examples from the Go implementation show how extend the environment using new types.</p></li>
+<li><p>There are a few exception and error-handling cases that are part of working with Python types.</p></li>
+<li><p>Finally, we’ll look at how CEL can be integrated into Cloud Custodian (C7N).</p></li>
+</ol>
+<section id="integration-essentials">
+<h2>Integration Essentials<a class="headerlink" href="#integration-essentials" title="Link to this heading">¶</a></h2>
+<p>Here’s an example of variable bindings taken from a <code class="docutils literal notranslate"><span class="pre">README</span></code> example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">celpy</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">cel_source</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
 <span class="gp">... </span><span class="s2">account.balance &gt;= transaction.withdrawal</span>
 <span class="gp">... </span><span class="s2">|| (account.overdraftProtection</span>
@@ -63,30 +59,39 @@ for writing CEL that tolerates certain kinds of data problems.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">ast</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">cel_source</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">prgm</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">program</span><span class="p">(</span><span class="n">ast</span><span class="p">)</span>
 
-<span class="gp">&gt;&gt;&gt; </span><span class="n">activation</span> <span class="o">=</span> <span class="p">{</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
 <span class="gp">... </span>    <span class="s2">&quot;account&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">json_to_cel</span><span class="p">({</span><span class="s2">&quot;balance&quot;</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span> <span class="s2">&quot;overdraftProtection&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}),</span>
 <span class="gp">... </span>    <span class="s2">&quot;transaction&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">json_to_cel</span><span class="p">({</span><span class="s2">&quot;withdrawal&quot;</span><span class="p">:</span> <span class="mi">600</span><span class="p">})</span>
 <span class="gp">... </span><span class="p">}</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">activation</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">result</span>
 <span class="go">BoolType(False)</span>
 </pre></div>
 </div>
-<p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Environment</span></code> can include type adapters and type providers. It’s not clear
-how these should be implemented in Python or if they’re even necessary.</p>
-<p>The compile step creates a syntax tree, which is used to create a final program to evaluate.
-Currently, there’s a two-step process because we might want to optimize or transform the AST prior
-to evaluation.</p>
-<p>The activation provides specific variable values used to evaluate the program.</p>
-<p>To an extent, the Python classes are loosely based on the object model in <a class="reference external" href="https://github.com/google/cel-go">https://github.com/google/cel-go</a>.
+<p>The <code class="docutils literal notranslate"><span class="pre">cel_source</span></code> is an expression to be evaluated.
+This references variables with names like <code class="docutils literal notranslate"><span class="pre">account</span></code>, and <code class="docutils literal notranslate"><span class="pre">transaction</span></code>.</p>
+<p>All CEL evaluation uses an <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Environment</span></code> object.
+The <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Environment</span></code> is used to provide type annotations for variables.
+It can provide a few other properties, including an overall package name, sometimes needed when working with protobuf types.</p>
+<p>The <code class="xref py py-meth docutils literal notranslate"><span class="pre">Environment.compile()</span></code> method creates a abstract syntax tree from the CEL source.
+This will be used to create a final program to evaluate.
+This method can raise the <code class="xref py py-exc docutils literal notranslate"><span class="pre">CELSyntaxError</span></code> exception.</p>
+<p>The <code class="xref py py-meth docutils literal notranslate"><span class="pre">Environment.program()</span></code> method creates a runner out of an abstract syntax tree.</p>
+<p>Compiling and building a program is a two-step process to permit optimization or some other transformation the AST prior to evaluation.
+The Lark parser (<a class="reference external" href="https://lark-parser.readthedocs.io/en/latest/classes.html">https://lark-parser.readthedocs.io/en/latest/classes.html</a>) is used, and transformers are a first-class feature of this parser.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">context</span></code> mapping defines variables and provides their values.
+This is used to evaluate the resulting program object.
+The program will produce a value defined in the <a class="reference internal" href="api.html#module-celpy.celtypes" title="celpy.celtypes"><code class="xref py py-mod docutils literal notranslate"><span class="pre">celpy.celtypes</span></code></a> module.
+In this example, it’s a <a class="reference internal" href="api.html#celpy.celtypes.BoolType" title="celpy.celtypes.BoolType"><code class="xref py py-mod docutils literal notranslate"><span class="pre">celpy.celtypes.BoolType</span></code></a> value.</p>
+<p>The CEL types are all specializations of the obvious Python base types.
+To an extent, these Python classes are partially based on the object model in <a class="reference external" href="https://github.com/google/cel-go">https://github.com/google/cel-go</a>.
 We don’t need all the Go formalisms, however, and rely on Pythonic variants.</p>
-</section>
-<section id="simple-example-using-builtin-operators">
-<h3>Simple example using builtin operators<a class="headerlink" href="#simple-example-using-builtin-operators" title="Link to this heading">¶</a></h3>
+<section id="simple-example-using-builtin-types">
+<h3>Simple example using builtin types<a class="headerlink" href="#simple-example-using-builtin-types" title="Link to this heading">¶</a></h3>
 <p>Here’s an example taken from
-<a class="reference external" href="https://github.com/google/cel-go/blob/master/examples/README.md">https://github.com/google/cel-go/blob/master/examples/README.md</a></p>
-<p>Evaluate expression <code class="docutils literal notranslate"><span class="pre">&quot;Hello</span> <span class="pre">world!</span> <span class="pre">I'm</span> <span class="pre">&quot;</span> <span class="pre">+</span> <span class="pre">name</span> <span class="pre">+</span> <span class="pre">&quot;.&quot;</span></code> with <code class="docutils literal notranslate"><span class="pre">CEL</span></code> passed as
-the <code class="docutils literal notranslate"><span class="pre">name</span></code> variable.</p>
+<a class="reference external" href="https://github.com/google/cel-go/blob/master/examples/README.md">https://github.com/google/cel-go/blob/master/examples/README.md</a>.
+This will evaluate the CEL expression <code class="docutils literal notranslate"><span class="pre">&quot;Hello</span> <span class="pre">world!</span> <span class="pre">I'm</span> <span class="pre">&quot;</span> <span class="pre">+</span> <span class="pre">name</span> <span class="pre">+</span> <span class="pre">&quot;.&quot;</span></code> with <code class="docutils literal notranslate"><span class="pre">&quot;CEL&quot;</span></code> passed as the <code class="docutils literal notranslate"><span class="pre">name</span></code> variable.</p>
+<p>This is the original Go code:</p>
 <div class="highlight-go notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
 <span class="w">    </span><span class="s">&quot;github.com/google/cel-go/cel&quot;</span>
 <span class="w">    </span><span class="s">&quot;github.com/google/cel-go/checker/decls&quot;</span>
@@ -108,8 +113,8 @@ the <code class="docutils literal notranslate"><span class="pre">name</span></co
 <span class="c1">// Output:Hello world! I&#39;m CEL.</span>
 </pre></div>
 </div>
-<p>Here’s the Python version:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">celpy</span>
+<p>Here’s the Python version, following a similar outline:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">celpy</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">cel_source</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
 <span class="gp">... </span><span class="s2">&quot;Hello world! I&#39;m &quot; + name + &quot;.&quot;</span>
 <span class="gp">... </span><span class="s2">&quot;&quot;&quot;</span>
@@ -119,60 +124,58 @@ the <code class="docutils literal notranslate"><span class="pre">name</span></co
 <span class="gp">&gt;&gt;&gt; </span><span class="n">ast</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">cel_source</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">prgm</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">program</span><span class="p">(</span><span class="n">ast</span><span class="p">)</span>
 
-<span class="gp">&gt;&gt;&gt; </span><span class="n">activation</span> <span class="o">=</span> <span class="p">{</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
 <span class="gp">... </span>    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;CEL&quot;</span>
 <span class="gp">... </span><span class="p">}</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">activation</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">result</span>
 <span class="go">&quot;Hello world! I&#39;m CEL.&quot;</span>
 </pre></div>
 </div>
-<p>There’s a big open concern here: there’s no formal type adapter implementation.
-Nothing converts from the input value in the activation to the proper underlying
-type. This relies on Python’s built-in type conversions.</p>
+<p>The steps include:</p>
+<ol class="arabic simple">
+<li><p>Create a <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Environment</span></code> with annotations for any variables.
+These kinds of type definitions are atypical for Python, but are part of the definition of the CEL language.</p></li>
+<li><p>Use <code class="xref py py-meth docutils literal notranslate"><span class="pre">celpy.Environment.compile()</span></code> to create an AST.</p></li>
+<li><p>Use <code class="xref py py-meth docutils literal notranslate"><span class="pre">celpy.Environment.program()</span></code> to build a <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Runner</span></code> object that will do the final evaluation. This includes the environment and the AST.</p></li>
+<li><p>Use <code class="xref py py-meth docutils literal notranslate"><span class="pre">celpy.Runner.evaluate()</span></code> to evaluate the program with specific values for the defined variables.</p></li>
+</ol>
+<p>In the Go world, there’s a formal type adapter to convert input values to the objects used by CEL.
+For numerous types, a default adapter handles this.</p>
+<p>In Python, on the other hand, we define the type conversions as features of the Python versions of the CEL types.
+This approach fits better with native Python programming.</p>
 </section>
 </section>
 <section id="function-bindings">
 <h2>Function Bindings<a class="headerlink" href="#function-bindings" title="Link to this heading">¶</a></h2>
-<p>Here are two more examples of binding, taken from
-<a class="reference external" href="https://github.com/google/cel-go/blob/master/examples/README.md">https://github.com/google/cel-go/blob/master/examples/README.md</a></p>
-<p>Note the complication here comes from the way the Go implementation resolves overloaded functions.
-Each CEL overload of a function is described by a <code class="docutils literal notranslate"><span class="pre">(&quot;name&quot;,</span> <span class="pre">[args],</span> <span class="pre">result)</span></code> structure.
+<p>There are two function binding examples in
+<a class="reference external" href="https://github.com/google/cel-go/blob/master/examples/README.md">https://github.com/google/cel-go/blob/master/examples/README.md</a>.</p>
+<p>There is a complication here that based on the way the Go resolves overloaded functions.
+In Go, each overload of a function is described by a <code class="docutils literal notranslate"><span class="pre">(&quot;name&quot;,</span> <span class="pre">[args],</span> <span class="pre">result)</span></code> data structure.
+The key of <code class="docutils literal notranslate"><span class="pre">(&quot;name&quot;,</span> <span class="pre">[args],</span> <span class="pre">result)</span></code> maps to a specific <code class="docutils literal notranslate"><span class="pre">arg_name_arg()</span></code> or <code class="docutils literal notranslate"><span class="pre">name_arg()</span></code> overloaded implementation for specific argument types.
 This allows for multiple type-specific overload versions of a generic function.</p>
-<p>The key of <code class="docutils literal notranslate"><span class="pre">(&quot;name&quot;,</span> <span class="pre">[args],</span> <span class="pre">result)</span></code> maps to a specific <code class="docutils literal notranslate"><span class="pre">arg_name_arg()</span></code> or <code class="docutils literal notranslate"><span class="pre">name_arg()</span></code>
-overloaded implementation for specific argument types.</p>
-<p>For example, <code class="docutils literal notranslate"><span class="pre">(&quot;greet&quot;,</span> <span class="pre">[StringType,</span> <span class="pre">StringType],</span> <span class="pre">StringType)</span></code> maps to <code class="docutils literal notranslate"><span class="pre">string_greet_string()</span></code>.</p>
-<p>This is emphatically not how Python generally works. A more Pythonic approach is to provide
-a single, generic, function which examines the arguments and decides what to do. Python doesn’t
-generally do overloaded name resolution.</p>
-<p>There are two choices:</p>
-<ol class="arabic simple">
-<li><p>Build a mapping from <code class="docutils literal notranslate"><span class="pre">(&quot;name&quot;,</span> <span class="pre">[args],</span> <span class="pre">result)</span></code> to a specific overloaded implementation.
-This pulls argument and result type coercion outside the Python function.
-It matches the Go implementation, but can be confusing for Python implementers.
-This requires exposing a great deal of machinery already available in a Python function
-definition.</p></li>
-<li><p>Ignore the complex type exposture techniques that Go requiees and dispatch to a Python function.
-The Python function will sort out type variants and handle argument value coercion on its own.
-This simplifies implementation down to name resolution.
-Indeed, the type mapping rules can introspect Python’s type annotations on the function
-definition.</p></li>
-</ol>
-<p>We follow the 2nd alternative. The Python function binding relies – exclusively – on introspection
-of the function provided.</p>
-<section id="custom-function-on-string-type">
-<h3>Custom function on string type<a class="headerlink" href="#custom-function-on-string-type" title="Link to this heading">¶</a></h3>
-<p>Evaluate expression <code class="docutils literal notranslate"><span class="pre">i.greet(you)</span></code> with:</p>
+<p>For example, a <code class="docutils literal notranslate"><span class="pre">(&quot;greet&quot;,</span> <span class="pre">[StringType,</span> <span class="pre">StringType],</span> <span class="pre">StringType)</span></code> structure is expected to map to a function <code class="docutils literal notranslate"><span class="pre">string_greet_string()</span></code> that has the expected signature.</p>
+<p>This is emphatically not how Python generally works.
+We follow a more Pythonic approach is to provide a single, generic, function which examines the arguments and decides what to do.
+Outside type-checking, Python doesn’t depend on overloaded name resolution.</p>
+<p>This means a Python function must then sort out type variants and handle argument value coercion on its own.
+For most cases, the <code class="docutils literal notranslate"><span class="pre">match/case</span></code> statement is helpful for this.
+The <code class="xref py py-func docutils literal notranslate"><span class="pre">functools.singledispatch()</span></code> decorator can also be helpful for this.</p>
+<p>The two examples have slightly different approaches to the CEL expression.
+These are important in Go, but less important in Python.</p>
+<section id="custom-function-in-go">
+<h3>Custom function in Go<a class="headerlink" href="#custom-function-in-go" title="Link to this heading">¶</a></h3>
+<p>We want to evaluate the CEL expression <code class="docutils literal notranslate"><span class="pre">i.greet(you)</span></code> with:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">i</span>       <span class="o">-&gt;</span> <span class="n">CEL</span>
 <span class="n">you</span>     <span class="o">-&gt;</span> <span class="n">world</span>
 <span class="n">greet</span>   <span class="o">-&gt;</span> <span class="s2">&quot;Hello </span><span class="si">%s</span><span class="s2">! Nice to meet you, I&#39;m </span><span class="si">%s</span><span class="s2">.&quot;</span>
 </pre></div>
 </div>
-<p>First we need to declare two string variables and <cite>greet</cite> function.
-<cite>NewInstanceOverload</cite> must be used if we want to declare function which will
-operate on a type. First element of slice passed as <cite>argTypes</cite> into
-<cite>NewInstanceOverload</cite> is declaration of instance type. Next elements are
-parameters of function.</p>
+<p>The idea here is the new <code class="docutils literal notranslate"><span class="pre">greet()</span></code> behaves like a method of a String.
+The actual implementation, however, is not a method; it’s a function of two arguments.</p>
+<p>First we need to declare two string variables and a <code class="docutils literal notranslate"><span class="pre">greet()</span></code> function.
+In Go, a <code class="docutils literal notranslate"><span class="pre">NewInstanceOverload</span></code> must be used to provide annotations for variables and the function.
+Here’s the Go implementation:</p>
 <div class="highlight-go notranslate"><div class="highlight"><pre><span></span><span class="nx">decls</span><span class="p">.</span><span class="nx">NewVar</span><span class="p">(</span><span class="s">&quot;i&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">decls</span><span class="p">.</span><span class="nx">String</span><span class="p">),</span>
 <span class="nx">decls</span><span class="p">.</span><span class="nx">NewVar</span><span class="p">(</span><span class="s">&quot;you&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">decls</span><span class="p">.</span><span class="nx">String</span><span class="p">),</span>
 <span class="nx">decls</span><span class="p">.</span><span class="nx">NewFunction</span><span class="p">(</span><span class="s">&quot;greet&quot;</span><span class="p">,</span>
@@ -182,9 +185,12 @@ parameters of function.</p>
 <span class="o">...</span><span class="w"> </span><span class="c1">// Create env and compile</span>
 </pre></div>
 </div>
-<p>Let’s implement <cite>greet</cite> function and pass it to <cite>program</cite>. We will be using
-<cite>Binary</cite>, because <cite>greet</cite> function uses 2 parameters (1st instance, 2nd
-function parameter).</p>
+<p>We’ve omitted the Go details of creating an environment and compiling the CEL expression.
+These aren’t different from the previous examples.</p>
+<p>Separately, a <code class="docutils literal notranslate"><span class="pre">greetFunc()</span></code> function must be defined.
+In Go, this function is then bound to the <code class="docutils literal notranslate"><span class="pre">&quot;string_greet_string&quot;</span></code> overload,
+ready for evaluation.
+Here’s the Go implementation:</p>
 <div class="highlight-go notranslate"><div class="highlight"><pre><span></span><span class="nx">greetFunc</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">functions</span><span class="p">.</span><span class="nx">Overload</span><span class="p">{</span>
 <span class="w">    </span><span class="nx">Operator</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;string_greet_string&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nx">Binary</span><span class="p">:</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">lhs</span><span class="w"> </span><span class="nx">ref</span><span class="p">.</span><span class="nx">Val</span><span class="p">,</span><span class="w"> </span><span class="nx">rhs</span><span class="w"> </span><span class="nx">ref</span><span class="p">.</span><span class="nx">Val</span><span class="p">)</span><span class="w"> </span><span class="nx">ref</span><span class="p">.</span><span class="nx">Val</span><span class="w"> </span><span class="p">{</span>
@@ -201,8 +207,19 @@ function parameter).</p>
 <span class="c1">// Output:Hello world! Nice to meet you, I&#39;m CEL.</span>
 </pre></div>
 </div>
-<p>Here’s the Python version:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">celpy</span>
+<p>What’s essential is defining some type information, then defining variables and functions that fit those types.</p>
+<p>The Python version has the same outline:</p>
+<ol class="arabic simple">
+<li><p>An <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Environment</span></code> with type annotations for the two variables and the function.</p></li>
+<li><p>Compile the source.</p></li>
+</ol>
+<p>3.  Define the <code class="docutils literal notranslate"><span class="pre">greet()</span></code> function. While the CEL syntax  of <code class="docutils literal notranslate"><span class="pre">i.greet(you)</span></code> looks like a method
+of the <code class="docutils literal notranslate"><span class="pre">i</span></code> variable’s class, the function is simply has two positional parameters.</p>
+<ol class="arabic simple" start="4">
+<li><p>Provide function implementation when creating the final <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Runner</span></code> instance.</p></li>
+<li><p>Evaluate the program with specific values for the two variables.</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">celpy</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">cel_source</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
 <span class="gp">... </span><span class="s2">i.greet(you)</span>
 <span class="gp">... </span><span class="s2">&quot;&quot;&quot;</span>
@@ -216,50 +233,31 @@ function parameter).</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">def</span><span class="w"> </span><span class="nf">greet</span><span class="p">(</span><span class="n">lhs</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span> <span class="n">rhs</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">:</span>
 <span class="gp">... </span>    <span class="k">return</span> <span class="s2">&quot;Hello </span><span class="si">{1:s}</span><span class="s2">! Nice to meet you, I&#39;m </span><span class="si">{0:s}</span><span class="s2">.</span><span class="se">\\</span><span class="s2">n&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">prgm</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">program</span><span class="p">(</span><span class="n">ast</span><span class="p">,</span> <span class="n">functions</span><span class="o">=</span><span class="p">[</span><span class="n">greet</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">activation</span> <span class="o">=</span> <span class="p">{</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
 <span class="gp">... </span>    <span class="s2">&quot;i&quot;</span><span class="p">:</span> <span class="s2">&quot;CEL&quot;</span><span class="p">,</span> <span class="s2">&quot;you&quot;</span><span class="p">:</span> <span class="s2">&quot;world&quot;</span>
 <span class="gp">... </span><span class="p">}</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">activation</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">result</span>
 <span class="go">&quot;Hello world! Nice to meet you, I&#39;m CEL.\\n&quot;</span>
 </pre></div>
 </div>
+<p>The key concept here is to distinguish between three distinct attributes:</p>
+<ol class="arabic simple">
+<li><p>Type annotations associated with variables or functions.</p></li>
+<li><p>The function implementations used to build the <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Runner</span></code>.
+The method-like syntax of <code class="docutils literal notranslate"><span class="pre">i.greet(you)</span></code> is evaluated as <code class="docutils literal notranslate"><span class="pre">greet(i,</span> <span class="pre">you)</span></code>.</p></li>
+<li><p>The variable values, which provide a context in which the runner evaluates the CEL expression.</p></li>
+</ol>
+<p>This reflects the idea that one CEL expression may be used to process data over and over again.</p>
 </section>
 <section id="define-custom-global-function">
 <h3>Define custom global function<a class="headerlink" href="#define-custom-global-function" title="Link to this heading">¶</a></h3>
-<p>Evaluate expression <code class="docutils literal notranslate"><span class="pre">shake_hands(i,you)</span></code> with:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">i</span>           <span class="o">-&gt;</span> <span class="n">CEL</span>
-<span class="n">you</span>         <span class="o">-&gt;</span> <span class="n">world</span>
-<span class="n">shake_hands</span> <span class="o">-&gt;</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> and </span><span class="si">%s</span><span class="s2"> are shaking hands.&quot;</span>
-</pre></div>
-</div>
-<p>In order to declare global function we need to use <cite>NewOverload</cite>:</p>
-<div class="highlight-go notranslate"><div class="highlight"><pre><span></span><span class="nx">decls</span><span class="p">.</span><span class="nx">NewVar</span><span class="p">(</span><span class="s">&quot;i&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">decls</span><span class="p">.</span><span class="nx">String</span><span class="p">),</span>
-<span class="nx">decls</span><span class="p">.</span><span class="nx">NewVar</span><span class="p">(</span><span class="s">&quot;you&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">decls</span><span class="p">.</span><span class="nx">String</span><span class="p">),</span>
-<span class="nx">decls</span><span class="p">.</span><span class="nx">NewFunction</span><span class="p">(</span><span class="s">&quot;shake_hands&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">decls</span><span class="p">.</span><span class="nx">NewOverload</span><span class="p">(</span><span class="s">&quot;shake_hands_string_string&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="p">[]</span><span class="o">*</span><span class="nx">exprpb</span><span class="p">.</span><span class="nx">Type</span><span class="p">{</span><span class="nx">decls</span><span class="p">.</span><span class="nx">String</span><span class="p">,</span><span class="w"> </span><span class="nx">decls</span><span class="p">.</span><span class="nx">String</span><span class="p">},</span>
-<span class="w">        </span><span class="nx">decls</span><span class="p">.</span><span class="nx">String</span><span class="p">))</span>
-<span class="o">...</span><span class="w"> </span><span class="c1">// Create env and compile.</span>
-
-<span class="nx">shakeFunc</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">functions</span><span class="p">.</span><span class="nx">Overload</span><span class="p">{</span>
-<span class="w">    </span><span class="nx">Operator</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;shake_hands_string_string&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">Binary</span><span class="p">:</span><span class="w"> </span><span class="kd">func</span><span class="p">(</span><span class="nx">lhs</span><span class="w"> </span><span class="nx">ref</span><span class="p">.</span><span class="nx">Val</span><span class="p">,</span><span class="w"> </span><span class="nx">rhs</span><span class="w"> </span><span class="nx">ref</span><span class="p">.</span><span class="nx">Val</span><span class="p">)</span><span class="w"> </span><span class="nx">ref</span><span class="p">.</span><span class="nx">Val</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">types</span><span class="p">.</span><span class="nx">String</span><span class="p">(</span>
-<span class="w">            </span><span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;%s and %s are shaking hands.\n&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">lhs</span><span class="p">,</span><span class="w"> </span><span class="nx">rhs</span><span class="p">))</span>
-<span class="w">        </span><span class="p">}}</span>
-<span class="nx">prg</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">env</span><span class="p">.</span><span class="nx">Program</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span><span class="w"> </span><span class="nx">cel</span><span class="p">.</span><span class="nx">Functions</span><span class="p">(</span><span class="nx">shakeFunc</span><span class="p">))</span>
-
-<span class="nx">out</span><span class="p">,</span><span class="w"> </span><span class="nx">_</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">prg</span><span class="p">.</span><span class="nx">Eval</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kd">interface</span><span class="p">{}{</span>
-<span class="w">    </span><span class="s">&quot;i&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;CEL&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="s">&quot;you&quot;</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;world&quot;</span><span class="p">,</span>
-<span class="p">})</span>
-<span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">out</span><span class="p">)</span>
-<span class="c1">// Output:CEL and world are shaking hands.</span>
-</pre></div>
-</div>
+<p>In Go, this is a small, but important different.ce
+We want to evaluate the expression <code class="docutils literal notranslate"><span class="pre">shake_hands(i,you)</span></code>.
+This uses a global function syntax instead of method syntax.</p>
+<p>While Go has slight differences in how the function is defined, in Python, there is no change.</p>
 <p>Here’s the Python version:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">celpy</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">celpy</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">cel_source</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
 <span class="gp">... </span><span class="s2">shake_hands(i,you)</span>
 <span class="gp">... </span><span class="s2">&quot;&quot;&quot;</span>
@@ -273,21 +271,22 @@ function parameter).</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">def</span><span class="w"> </span><span class="nf">shake_hands</span><span class="p">(</span><span class="n">lhs</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span> <span class="n">rhs</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">:</span>
 <span class="gp">... </span>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">lhs</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">rhs</span><span class="si">}</span><span class="s2"> are shaking hands.</span><span class="se">\\</span><span class="s2">n&quot;</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">prgm</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">program</span><span class="p">(</span><span class="n">ast</span><span class="p">,</span> <span class="n">functions</span><span class="o">=</span><span class="p">[</span><span class="n">shake_hands</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">activation</span> <span class="o">=</span> <span class="p">{</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
 <span class="gp">... </span>    <span class="s2">&quot;i&quot;</span><span class="p">:</span> <span class="s2">&quot;CEL&quot;</span><span class="p">,</span> <span class="s2">&quot;you&quot;</span><span class="p">:</span> <span class="s2">&quot;world&quot;</span>
 <span class="gp">... </span><span class="p">}</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">activation</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">result</span>
 <span class="go">&#39;CEL and world are shaking hands.\\n&#39;</span>
 </pre></div>
 </div>
-<p>For more examples of how to use CEL, see
+<p>The <code class="docutils literal notranslate"><span class="pre">shake_hands()</span></code> function is essentially the same as the <code class="docutils literal notranslate"><span class="pre">greet()</span></code> function in the previous example.</p>
+<p>For more examples of how to use CEL from Go, see
 <a class="reference external" href="https://github.com/google/cel-go/tree/master/cel/cel_test.go">https://github.com/google/cel-go/tree/master/cel/cel_test.go</a></p>
 </section>
 </section>
-<section id="examples-from-go-implementation">
-<h2>Examples from Go implementation<a class="headerlink" href="#examples-from-go-implementation" title="Link to this heading">¶</a></h2>
-<p>See <a class="reference external" href="https://github.com/google/cel-go/blob/master/README.md">https://github.com/google/cel-go/blob/master/README.md</a></p>
+<section id="more-examples-from-go-implementation">
+<h2>More Examples from Go implementation<a class="headerlink" href="#more-examples-from-go-implementation" title="Link to this heading">¶</a></h2>
+<p>See <a class="reference external" href="https://github.com/google/cel-go/blob/master/README.md">https://github.com/google/cel-go/blob/master/README.md</a> for five more examples.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">//</span> <span class="n">Check</span> <span class="n">whether</span> <span class="n">a</span> <span class="n">resource</span> <span class="n">name</span> <span class="n">starts</span> <span class="k">with</span> <span class="n">a</span> <span class="n">group</span> <span class="n">name</span><span class="o">.</span>
 <span class="n">resource</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">startsWith</span><span class="p">(</span><span class="s2">&quot;/groups/&quot;</span> <span class="o">+</span> <span class="n">auth</span><span class="o">.</span><span class="n">claims</span><span class="o">.</span><span class="n">group</span><span class="p">)</span>
 
@@ -305,7 +304,8 @@ function parameter).</p>
 <span class="n">has</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">field</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Following one of the more complete examples through the README</p>
+<p>Here’s the first example, <code class="docutils literal notranslate"><span class="pre">resource.name.startsWith(&quot;/groups/&quot;</span> <span class="pre">+</span> <span class="pre">auth.claims.group)</span></code>.
+The Go code is as follows:</p>
 <div class="highlight-go notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="p">(</span>
 <span class="w">    </span><span class="s">&quot;github.com/google/cel-go/cel&quot;</span>
 <span class="w">    </span><span class="s">&quot;github.com/google/cel-go/checker/decls&quot;</span>
@@ -335,8 +335,9 @@ function parameter).</p>
 <span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">out</span><span class="p">)</span><span class="w"> </span><span class="c1">// &#39;true&#39;</span>
 </pre></div>
 </div>
-<p>This has the following Python implementation:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">celpy</span>
+<p>This has a Python implementation which is substantially similar.
+Here’s the Python code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">celpy</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">decls</span> <span class="o">=</span> <span class="p">{</span>
 <span class="gp">... </span>    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span>
 <span class="gp">... </span>    <span class="s2">&quot;group&quot;</span><span class="p">:</span> <span class="n">celpy</span><span class="o">.</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span>
@@ -344,51 +345,44 @@ function parameter).</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">env</span> <span class="o">=</span> <span class="n">celpy</span><span class="o">.</span><span class="n">Environment</span><span class="p">(</span><span class="n">annotations</span><span class="o">=</span><span class="n">decls</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">ast</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s1">&#39;name.startsWith(&quot;/groups/&quot; + group)&#39;</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">prgm</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">program</span><span class="p">(</span><span class="n">ast</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">activation</span> <span class="o">=</span> <span class="p">{</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
 <span class="gp">... </span>    <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;/groups/acme.co/documents/secret-stuff&quot;</span><span class="p">,</span>
 <span class="gp">... </span>    <span class="s2">&quot;group&quot;</span><span class="p">:</span> <span class="s2">&quot;acme.co&quot;</span><span class="p">,</span>
 <span class="gp">... </span><span class="p">}</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">activation</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">result</span>
 <span class="go">BoolType(True)</span>
 </pre></div>
 </div>
+<p>The general outline of compile, create a <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Runner</span></code>, and use <code class="xref py py-meth docutils literal notranslate"><span class="pre">celpy.Runner.evaluate()</span></code> to evaluate the CEL expression in a specific context is the central point here.</p>
 </section>
 <section id="exceptions-and-errors">
 <h2>Exceptions and Errors<a class="headerlink" href="#exceptions-and-errors" title="Link to this heading">¶</a></h2>
-<p>Exceptions raised in Python world will (eventually) crash the CEL evluation.
-This gives the author of an extension function the complete traceback to help
-fix the Python code.
+<p>Exceptions raised in Python world will (eventually) crash the CEL evaluation.
+This gives the author of an extension function the complete traceback to help fix the Python code.
 No masking or rewriting of Python exceptions ever occurs in extension functions.</p>
-<p>A special <code class="xref py py-exc docutils literal notranslate"><span class="pre">celpy.EvalError</span></code> exception can be used in an extension function
-to permit CEL’s short-circuit logic processing to silence this exception.  See the
-<a class="reference external" href="https://github.com/google/cel-go/blob/master/README.md#partial-state">https://github.com/google/cel-go/blob/master/README.md#partial-state</a> for more examples
-of how the short-circuit (partial state) operations work.</p>
-<p>An extension function must <strong>return</strong> a <code class="xref py py-exc docutils literal notranslate"><span class="pre">celpy.EvalError</span></code> object
-to allow processing to continue in spite of an uncomputable value.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">celpy</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<p>A special <code class="xref py py-exc docutils literal notranslate"><span class="pre">celpy.CELEvalError</span></code> exception can be used in an extension function to permit CEL’s short-circuit logic processing to check and ignore an exception.
+See the <a class="reference external" href="https://github.com/google/cel-go/blob/master/README.md#partial-state">https://github.com/google/cel-go/blob/master/README.md#partial-state</a> for more examples of how the short-circuit (partial state) operations work.</p>
+<p>An extension function can <strong>return</strong> a <code class="xref py py-exc docutils literal notranslate"><span class="pre">celpy.CELEvalError</span></code> object instead of raising it.
+This can allow processing to continue in spite of an uncomputable value.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">celpy</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">my_extension</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Value</span><span class="p">:</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">UintType</span><span class="p">(</span><span class="mi">64</span> <span class="o">//</span> <span class="n">a</span><span class="p">)</span>
     <span class="k">except</span> <span class="n">DivideByZeroError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">EvalError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;my_extnsion(</span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2">) error&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">CELEvalError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;my_extension(</span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2">) error&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>The returned exception object allows short-circuit processing. For example,</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">false</span> <span class="o">&amp;&amp;</span> <span class="n">my_extension</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>This evaluates to <code class="docutils literal notranslate"><span class="pre">false</span></code>.  If computed, any <code class="xref py py-exc docutils literal notranslate"><span class="pre">celpy.EvalError</span></code> object will be silently ignored.</p>
-<p>On the other hand,</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">true</span> <span class="o">&amp;&amp;</span> <span class="n">my_extension</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>This will result in a visible <code class="xref py py-exc docutils literal notranslate"><span class="pre">celpy.EvalError</span></code> result from the extension function.
+<p>The returned exception object allows short-circuit processing.
+For example, the CEL expression <code class="docutils literal notranslate"><span class="pre">false</span> <span class="pre">&amp;&amp;</span> <span class="pre">my_extension(0)</span></code> evaluates to <code class="docutils literal notranslate"><span class="pre">false</span></code>.
+If computed, any <code class="xref py py-exc docutils literal notranslate"><span class="pre">celpy.CELEvalError</span></code> objects will be silently ignored because the short-circuit result is known from the presence of a <code class="docutils literal notranslate"><span class="pre">false</span></code> value.</p>
+<p>On the other hand, the CEL expression <code class="docutils literal notranslate"><span class="pre">true</span> <span class="pre">&amp;&amp;</span> <span class="pre">my_extension(0)</span></code> results in the <code class="xref py py-exc docutils literal notranslate"><span class="pre">celpy.CELEvalError</span></code> result from the extension function.
 This will eventually be raised as an exception, so the framework using <code class="docutils literal notranslate"><span class="pre">celpy</span></code> can track this run-time error.</p>
 </section>
-<section id="cloud-custodian">
-<h2>Cloud Custodian<a class="headerlink" href="#cloud-custodian" title="Link to this heading">¶</a></h2>
-<p>Custodian Filters can be evaluated by CEL.</p>
+<section id="cloud-custodian-c7n-integration">
+<h2>Cloud Custodian (C7N) Integration<a class="headerlink" href="#cloud-custodian-c7n-integration" title="Link to this heading">¶</a></h2>
+<p>Custodian Filters can be evaluated by CEL.
+The idea is to extend the YAML-based DSL for policy documents to introduce easier-to-read expressions.</p>
 <p>As noted in <a class="reference external" href="https://github.com/cloud-custodian/cloud-custodian/issues/5759">https://github.com/cloud-custodian/cloud-custodian/issues/5759</a>, a filter might look like the
 following:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">filters</span><span class="p">:</span>
@@ -402,13 +396,11 @@ following:</p>
 </pre></div>
 </div>
 <p>This replaces a complex sequence of nested <code class="docutils literal notranslate"><span class="pre">-</span>&#160; <span class="pre">and:</span></code> and <code class="docutils literal notranslate"><span class="pre">-</span>&#160; <span class="pre">or:</span></code> sub-documents with a CEL expression.</p>
-<p>C7N processes resources by gathering resources, creating an instance of a subclass of the <code class="docutils literal notranslate"><span class="pre">Filter</span></code>
-class, and evaluating an expression like <code class="docutils literal notranslate"><span class="pre">take_action</span> <span class="pre">=</span> <span class="pre">list(filter(filter_instance,</span> <span class="pre">resource_list))</span></code>.</p>
-<p>The C7N filter expression in a given policy document is componsed of one or more atomic filter clauses,
-combined by <code class="docutils literal notranslate"><span class="pre">and</span></code>, <code class="docutils literal notranslate"><span class="pre">or</span></code>, and <code class="docutils literal notranslate"><span class="pre">not</span></code> operators.
+<p>C7N processioning works by gathering resources, creating an instance of a subclass of the <code class="docutils literal notranslate"><span class="pre">Filter</span></code> class, and evaluating an expression like <code class="docutils literal notranslate"><span class="pre">take_action</span> <span class="pre">=</span> <span class="pre">list(filter(filter_instance,</span> <span class="pre">resource_list))</span></code>.</p>
+<p>The C7N filter expression in a given policy document is composed of one or more atomic filter clauses, combined by <code class="docutils literal notranslate"><span class="pre">and</span></code>, <code class="docutils literal notranslate"><span class="pre">or</span></code>, and <code class="docutils literal notranslate"><span class="pre">not</span></code> operators.
 The filter as a whole is handled by the <code class="docutils literal notranslate"><span class="pre">__call__()</span></code> methods of subclasses of the <code class="docutils literal notranslate"><span class="pre">BooleanGroupFilter</span></code> class.</p>
 <p>Central to making this work is making the CEL expression into a function that can be applied to the <code class="docutils literal notranslate"><span class="pre">resource</span></code> object.
-It appears that all CEL operations will need to have a number of values in their activations:</p>
+All CEL versions of a filter will need to have a the following two values in their activations:</p>
 <dl class="field-list simple">
 <dt class="field-odd">resource<span class="colon">:</span></dt>
 <dd class="field-odd"><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">celtypes.MapType</span></code> document with the resource details.</p>
@@ -417,12 +409,11 @@ It appears that all CEL operations will need to have a number of values in their
 <dd class="field-even"><p>A <code class="xref py py-class docutils literal notranslate"><span class="pre">celtypes.TimestampType</span></code> object with the current time.</p>
 </dd>
 </dl>
-<p>Additional “global” objects may also be helpful.</p>
 <section id="baseline-c7n-example">
 <h3>Baseline C7N Example<a class="headerlink" href="#baseline-c7n-example" title="Link to this heading">¶</a></h3>
-<p>The essence of the integration is to provide a resource to a function and receive a boolean result.</p>
+<p>The essence of the integration is to provide a resource description to a function defined as a CEL expression, and receive a boolean result.</p>
 <p>Here’s a base example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">celpy</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">celpy</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">env</span> <span class="o">=</span> <span class="n">celpy</span><span class="o">.</span><span class="n">Environment</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">CEL</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
 <span class="gp">... </span><span class="s2">resource.creationTimestamp &lt; timestamp(&quot;2018-08-03T16:00:00-07:00&quot;) &amp;&amp;</span>
@@ -450,6 +441,8 @@ It appears that all CEL operations will need to have a number of values in their
 <span class="go">BoolType(True)</span>
 </pre></div>
 </div>
+<p>In this case, the context contained only one variable, <code class="docutils literal notranslate"><span class="pre">resource</span></code>.
+It didn’t require a definition of <code class="docutils literal notranslate"><span class="pre">now</span></code>.</p>
 </section>
 <section id="bulk-filter-example">
 <h3>Bulk Filter Example<a class="headerlink" href="#bulk-filter-example" title="Link to this heading">¶</a></h3>
@@ -458,8 +451,9 @@ It appears that all CEL operations will need to have a number of values in their
 <span class="nb">map</span><span class="p">(</span><span class="n">action</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="n">cel_program</span><span class="p">,</span> <span class="n">resources</span><span class="p">)))</span>
 </pre></div>
 </div>
-<p>An action is applied to those resources that pass some filter test. The filter looks for items not compliant
-with policies.</p>
+<p>An action is applied to those resources that pass some filter test.
+Often, the action disables a resource to prevent data compromise.
+The filter looks for items not compliant with policies so they can be deleted or disabled.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">cel_program</span></code> in the above example is an executable CEL program wrapped into a C7N <code class="docutils literal notranslate"><span class="pre">Filter</span></code> subclass.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">celpy</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
@@ -498,21 +492,23 @@ with policies.</p>
 <span class="go">[{&#39;name&#39;: &#39;bad1&#39;, &#39;tags&#39;: {&#39;not-owner&#39;: &#39;oops&#39;}}, {&#39;name&#39;: &#39;bad2&#39;, &#39;tags&#39;: {&#39;owner&#39;: None}}]</span>
 </pre></div>
 </div>
+<p>For each resource, the <code class="docutils literal notranslate"><span class="pre">tag_policy_filter</span></code> object applied an internal <code class="docutils literal notranslate"><span class="pre">self.prgm</span></code> to the resource.
+The internal <code class="docutils literal notranslate"><span class="pre">self.prgm</span></code> was built from the policy expression, stated in CEL.</p>
 </section>
 <section id="c7n-filter-and-resource-types">
 <h3>C7N Filter and Resource Types<a class="headerlink" href="#c7n-filter-and-resource-types" title="Link to this heading">¶</a></h3>
-<p>There are several parts to handling the various kinds of C7N filters in use.</p>
+<p>The <a class="reference internal" href="api.html#module-celpy.c7nlib" title="celpy.c7nlib"><code class="xref py py-mod docutils literal notranslate"><span class="pre">celpy.c7nlib</span></code></a> module provides filter subclasses that include CEL processing.
+There are two kinds of C7N filters in use.</p>
 <ol class="arabic simple">
-<li><p>The <code class="xref py py-mod docutils literal notranslate"><span class="pre">c7n.filters</span></code> package defines about 23 generic filter classes, all of which need to
-provide the <code class="docutils literal notranslate"><span class="pre">resource</span></code> object in the activation, and possibly provide a library of generic
-CEL functions used for evaluation.
-The general cases are of this is handled by the resource definition classes creating  values in a JSON document.
+<li><p>The <code class="xref py py-mod docutils literal notranslate"><span class="pre">c7n.filters</span></code> package defines about 23 generic filter classes.
+These apply to a <code class="docutils literal notranslate"><span class="pre">resource</span></code> object.
+Additionally, there’s a library of generic functions used for evaluation.
+Generally, the resource definition classes create values in a JSON document.
 These values reflect the state of the resource and any closely-related resources.</p></li>
 <li><p>The <code class="xref py py-mod docutils literal notranslate"><span class="pre">c7n.resources</span></code> package defines a number of additional resource-specific filters.
-All of these, similarly, need to provide CEL values as part of the resource object.
-These classes can also provide additional resource-specific CEL functions used for evaluation.</p></li>
+These classes can also provide additional resource-specific processing.</p></li>
 </ol>
-<p>The atomic filter clauses have two general forms:</p>
+<p>The atomic filter clauses within a policy document have two general forms:</p>
 <ul class="simple">
 <li><p>Those with “op”. These expose a resource attribute value,
 a filter comparison value, and an operator.
@@ -523,16 +519,13 @@ value computed from one or more resource attribute values.</p></li>
 </ul>
 <p>The breakdown of <code class="docutils literal notranslate"><span class="pre">filter</span></code> rules in the C7N policy schema has the following counts.</p>
 <table class="docutils align-default">
-<tbody>
-<tr class="row-odd"><td><dl class="field-list simple">
-<dt class="field-odd">header<span class="colon">:</span></dt>
-<dd class="field-odd"><p>category</p>
-</dd>
-</dl>
-</td>
-<td><p>count</p></td>
-<td><p>notes</p></td>
+<thead>
+<tr class="row-odd"><th class="head"><p>category</p></th>
+<th class="head"><p>count</p></th>
+<th class="head"><p>notes</p></th>
 </tr>
+</thead>
+<tbody>
 <tr class="row-even"><td><p>(‘Common’, ‘Op’)</p></td>
 <td><p>21</p></td>
 <td><p>Used for more than one resource type, exposes resource details to CEL</p></td>
@@ -582,21 +575,22 @@ value computed from one or more resource attribute values.</p></li>
     </div>
 </search>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Documentation Content:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Use of CEL-Python</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Application Integration</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#the-essentials">The Essentials</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#integration-essentials">Integration Essentials</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#function-bindings">Function Bindings</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#examples-from-go-implementation">Examples from Go implementation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#more-examples-from-go-implementation">More Examples from Go implementation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#exceptions-and-errors">Exceptions and Errors</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#cloud-custodian">Cloud Custodian</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cloud-custodian-c7n-integration">Cloud Custodian (C7N) Integration</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="api.html">CEL-Py API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="structure.html">Data Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="structure.html">Architecture and Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="c7n_functions.html">C7N Functions Required</a></li>
 </ul>
 
@@ -605,7 +599,7 @@ value computed from one or more resource attribute values.</p></li>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
       <li>Previous: <a href="configuration.html" title="previous chapter">Configuration</a></li>
-      <li>Next: <a href="api.html" title="next chapter">CEL-Py API</a></li>
+      <li>Next: <a href="structure.html" title="next chapter">Architecture and Design</a></li>
   </ul></li>
 </ul>
 </div>

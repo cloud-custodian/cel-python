@@ -26,9 +26,9 @@ The functions rely on implementation details in the ``CELFilter`` class.
 The API
 =======
 
-C7N uses CEL and the :py:mod:`c7nlib` module as follows::
+A C7N implementation can use CEL expressions and the :py:mod:`c7nlib` module as follows::
 
-    class CELFilter(c7n.filters.core.Filter):  # See below for the long list of mixins.
+    class CELFilter(c7n.filters.core.Filter):
         decls = {
             "resource": celpy.celtypes.MapType,
             "now": celpy.celtypes.TimestampType,
@@ -58,17 +58,19 @@ C7N uses CEL and the :py:mod:`c7nlib` module as follows::
                     if self.pgm.evaluate(cel_activation):
                         yield resource
 
-This isn't the whole story, this is the starting point.
+The :py:mod:`celpy.c7nlib` library of functions is bound into the CEL :py:class:`celpy.__init__.Runner` object  that's built from the AST.
 
-This library of functions is bound into the program that's built from the AST.
+Several variables will be required in the :py:class:`celpy.evaluation.Activation` for use by most CEL expressions
+that implement C7N filters:
 
-Several objects are required in activation for use by the CEL expression
+:resource:
+    A JSON document describing a cloud resource.
 
--   ``resource``. The JSON document describing the cloud resource.
+:now:
+    The current timestamp.
 
--   ``now.`` The current timestamp.
-
--   Optionally, ``event`` may have an AWS CloudWatch Event.
+:event:
+    May be needed; it should  be a JSON document describing an AWS CloudWatch event.
 
 
 The type: value Features
@@ -249,11 +251,12 @@ of the resource being filtered. There are two alternative ways to handle this de
     This would be provided in the activation context for CEL.
 
 To keep the library functions looking simple, the module global ``C7N`` is used.
-This avoids introducing a non-CEL parameter to the c7nlib functions.
+This avoids introducing a non-CEL parameter to the :py:mod:`celpy.c7nlib` functions.
 
 The ``C7N`` context object contains the following attributes:
 
--   ``filter``. The original C7N ``Filter`` object. This provides access to the
+:filter:
+    The original C7N ``Filter`` object. This provides access to the
     resource manager. It can be used to manage supplemental
     queries using C7N caches and other resource management.
 
@@ -288,7 +291,6 @@ from packaging.version import Version
 from types import TracebackType
 from typing import Any, Callable, Dict, Iterator, List, Optional, Type, Union, cast
 
-# import dateutil
 from pendulum import parse as parse_date
 import jmespath  # type: ignore [import-untyped]
 
@@ -367,7 +369,7 @@ def key(source: celtypes.ListType, target: celtypes.StringType) -> celtypes.Valu
     matches: Iterator[celtypes.Value] = (
         item
         for item in source
-        if cast(celtypes.StringType, cast(celtypes.MapType, item).get(key)) == target  # noqa: W503
+        if cast(celtypes.StringType, cast(celtypes.MapType, item).get(key)) == target
     )
     try:
         return cast(celtypes.MapType, next(matches)).get(value)
@@ -430,6 +432,8 @@ class IPv4Network(ipaddress.IPv4Network):
             return self.supernet_of(other)  # type: ignore[no-untyped-call]
         return super(IPv4Network, self).__contains__(other)
 
+    contains = __contains__
+
     if sys.version_info.major == 3 and sys.version_info.minor <= 6:  # pragma: no cover
 
         @staticmethod
@@ -440,7 +444,7 @@ class IPv4Network(ipaddress.IPv4Network):
                     raise TypeError(f"{a} and {b} are not of the same version")
                 return (
                     b.network_address <= a.network_address
-                    and b.broadcast_address >= a.broadcast_address  # noqa: W503
+                    and b.broadcast_address >= a.broadcast_address
                 )
             except AttributeError:
                 raise TypeError(
@@ -684,10 +688,7 @@ def image(resource: celtypes.MapType) -> celtypes.Value:
         creation_date = "2000-01-01T01:01:01.000Z"
         image_name = ""
 
-    return json_to_cel(
-        # {"CreationDate": dateutil.parser.isoparse(creation_date), "Name": image_name}
-        {"CreationDate": parse_date(creation_date), "Name": image_name}
-    )
+    return json_to_cel({"CreationDate": parse_date(creation_date), "Name": image_name})
 
 
 def get_raw_metrics(request: celtypes.MapType) -> celtypes.Value:
@@ -1462,7 +1463,7 @@ def get_load_balancer(resource: celtypes.MapType) -> celtypes.Value:
     results = client.describe_load_balancer_attributes(
         LoadBalancerArn=resource["LoadBalancerArn"]
     )
-    print(results)
+    # print(results)
     return json_to_cel(
         dict(
             (item["Key"], parse_attribute_value(item["Value"]))
@@ -1641,7 +1642,7 @@ FUNCTIONS: Dict[str, ExtFunction] = {
 
 class C7N_Interpreted_Runner(InterpretedRunner):
     """
-    Extends the Evaluation to introduce the C7N CELFilter instance into the exvaluation.
+    Extends the Evaluation to introduce the C7N CELFilter instance into the evaluation.
 
     The variable is global to allow the functions to have the simple-looking argument
     values that CEL expects. This allows a function in this module to reach outside CEL for
@@ -1655,9 +1656,8 @@ class C7N_Interpreted_Runner(InterpretedRunner):
     ) -> celtypes.Value:
         e = Evaluator(
             ast=self.ast,
-            activation=self.new_activation(context),
-            functions=self.functions,
+            activation=self.new_activation(),
         )
         with C7NContext(filter=filter):
-            value = e.evaluate()
+            value = e.evaluate(context)
         return value

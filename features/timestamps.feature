@@ -22,7 +22,8 @@ Scenario: toType_timestamp
 
     When CEL expression "type(timestamp('2009-02-13T23:31:30Z'))" is evaluated
     #    type_value:"google.protobuf.Timestamp"
-    Then value is TypeType(value='google.protobuf.Timestamp')
+    # Then value is TypeType(value='google.protobuf.Timestamp')
+    Then value is TimestampType
 
 
 
@@ -39,7 +40,8 @@ Scenario: toType_duration
 
     When CEL expression "type(duration('1000000s'))" is evaluated
     #    type_value:"google.protobuf.Duration"
-    Then value is TypeType(value='google.protobuf.Duration')
+    # Then value is TypeType(value='google.protobuf.Duration')
+    Then value is DurationType
 
 
 
@@ -409,7 +411,8 @@ Scenario: get_hours
 Scenario: get_milliseconds
           Need to import a variable to get milliseconds.
    #     type:{message_type:"google.protobuf.Duration"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.Duration')
+   # Given type_env parameter "x" is TypeType(value='google.protobuf.Duration')
+   Given type_env parameter "x" is google.protobuf.Duration
 
    #     object_value:{[type.googleapis.com/google.protobuf.Duration]:{seconds:123 nanos:123456789}}
    Given bindings parameter "x" is DurationType(seconds=123, nanos=123456789)

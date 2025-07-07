@@ -21,35 +21,30 @@ build:
 	uv build
 
 install-tools:
-	cd tools && export PATH="/usr/local/go/bin:/usr/local/bin:$PATH" && go mod init mkgherkin && go mod tidy
+	cd tools && docker pull golang && docker build -t mkgherkin .
 
 test:
 	cd features && $(MAKE) all
-	tox -e py312
+	tox run -e py312
 
 test-all:
 	cd features && $(MAKE) all
-	tox
+	tox run
 
 test-wip:
 	cd features && $(MAKE) all
-	tox -e wip
+	tox run -e wip
 
 test-tools:
-	tox -e tools
+	tox run -e tools
 	cd features && $(MAKE) scan
-
-unit-test:
-	PYTHONPATH=src python -m pytest -vv --cov=src --cov-report=term-missing ${test}
-	PYTHONPATH=src python -m doctest tools/*.py
-	PYTHONPATH=src python -m doctest features/steps/*.py
 
 docs: $(wildcard docs/source/*.rst)
 	PYTHONPATH=src python -m doctest docs/source/*.rst
 	export PYTHONPATH=$(PWD)/src:$(PWD)/tools && cd docs && $(MAKE) html
 
 lint:
-	tox -e lint
+	tox run -e lint
 
 coverage:
 	coverage report -m

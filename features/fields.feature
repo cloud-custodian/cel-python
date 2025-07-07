@@ -42,7 +42,8 @@ Scenario: map_key_mix_type
 Scenario: map_field_access
 
    #     type:{map_type:{key_type:{primitive:STRING} value_type:{primitive:INT64}}}
-   Given type_env parameter "x" is TypeType(value='map_type')
+   # Given type_env parameter "x" is TypeType(value='map_type')
+   Given type_env parameter "x" is map_type
 
    #     map_value:{entries:{key:{string_value:"name"} value:{int64_value:1024}}}
    Given bindings parameter "x" is MapType({StringType(source='name'): IntType(source=1024)})
@@ -62,7 +63,8 @@ Scenario: map_no_such_key
 Scenario: map_field_select_no_such_key
 
    #     type:{map_type:{key_type:{primitive:STRING} value_type:{primitive:STRING}}}
-   Given type_env parameter "x" is TypeType(value='map_type')
+   # Given type_env parameter "x" is TypeType(value='map_type')
+   Given type_env parameter "x" is map_type
 
    #     map_value:{entries:{key:{string_value:"holiday"} value:{string_value:"field"}}}
    Given bindings parameter "x" is MapType({StringType(source='holiday'): StringType(source='field')})
@@ -172,7 +174,8 @@ Scenario: has_empty
 Scenario: qualified_ident
 
    #     type:{primitive:STRING}
-   Given type_env parameter "a.b.c" is TypeType(value='STRING')
+   # Given type_env parameter "a.b.c" is TypeType(value='STRING')
+   Given type_env parameter "a.b.c" is STRING
 
    #     string_value:"yeah"
    Given bindings parameter "a.b.c" is StringType(source='yeah')
@@ -185,7 +188,8 @@ Scenario: qualified_ident
 Scenario: map_field_select
 
    #     type:{map_type:{key_type:{primitive:STRING} value_type:{primitive:STRING}}}
-   Given type_env parameter "a.b" is TypeType(value='map_type')
+   # Given type_env parameter "a.b" is TypeType(value='map_type')
+   Given type_env parameter "a.b" is map_type
 
    #     map_value:{entries:{key:{string_value:"c"} value:{string_value:"yeah"}}}
    Given bindings parameter "a.b" is MapType({StringType(source='c'): StringType(source='yeah')})
@@ -198,10 +202,12 @@ Scenario: map_field_select
 Scenario: qualified_identifier_resolution_unchecked
           namespace resolution should try to find the longest prefix for the evaluator.
    #     type:{primitive:STRING}
-   Given type_env parameter "a.b.c" is TypeType(value='STRING')
+   # Given type_env parameter "a.b.c" is TypeType(value='STRING')
+   Given type_env parameter "a.b.c" is STRING
 
    #     type:{map_type:{key_type:{primitive:STRING} value_type:{primitive:STRING}}}
-   Given type_env parameter "a.b" is TypeType(value='map_type')
+   # Given type_env parameter "a.b" is TypeType(value='map_type')
+   Given type_env parameter "a.b" is map_type
 
    #     map_value:{entries:{key:{string_value:"c"} value:{string_value:"oops"}}}
    Given bindings parameter "a.b" is MapType({StringType(source='c'): StringType(source='oops')})
@@ -217,7 +223,8 @@ Scenario: qualified_identifier_resolution_unchecked
 Scenario: list_field_select_unsupported
 
    #     type:{list_type:{elem_type:{primitive:STRING}}}
-   Given type_env parameter "a.b" is TypeType(value='list_type')
+   # Given type_env parameter "a.b" is TypeType(value='list_type')
+   Given type_env parameter "a.b" is list_type
 
    #     list_value:{values:{string_value:"pancakes"}}
    Given bindings parameter "a.b" is [StringType(source='pancakes')]
@@ -230,7 +237,8 @@ Scenario: list_field_select_unsupported
 Scenario: int64_field_select_unsupported
 
    #     type:{primitive:INT64}
-   Given type_env parameter "a" is TypeType(value='INT64')
+   # Given type_env parameter "a" is TypeType(value='INT64')
+   Given type_env parameter "a" is INT64
 
    #     int64_value:15
    Given bindings parameter "a" is IntType(source=15)
@@ -243,10 +251,12 @@ Scenario: int64_field_select_unsupported
 Scenario: ident_with_longest_prefix_check
           namespace resolution should try to find the longest prefix for the checker.
    #     type:{primitive:STRING}
-   Given type_env parameter "a.b.c" is TypeType(value='STRING')
+   # Given type_env parameter "a.b.c" is TypeType(value='STRING')
+   Given type_env parameter "a.b.c" is STRING
 
    #     type:{map_type:{key_type:{primitive:STRING} value_type:{primitive:STRING}}}
-   Given type_env parameter "a.b" is TypeType(value='map_type')
+   # Given type_env parameter "a.b" is TypeType(value='map_type')
+   Given type_env parameter "a.b" is map_type
 
    #     map_value:{entries:{key:{string_value:"c"} value:{string_value:"oops"}}}
    Given bindings parameter "a.b" is MapType({StringType(source='c'): StringType(source='oops')})

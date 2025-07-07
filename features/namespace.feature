@@ -7,7 +7,8 @@ Feature: namespace
 Scenario: self_eval_qualified_lookup
 
    #     type:{primitive:BOOL}
-   Given type_env parameter "x.y" is TypeType(value='BOOL')
+   # Given type_env parameter "x.y" is TypeType(value='BOOL')
+   Given type_env parameter "x.y" is BOOL
 
    #     bool_value:true
    Given bindings parameter "x.y" is BoolType(source=True)
@@ -23,10 +24,12 @@ Scenario: self_eval_qualified_lookup
 Scenario: self_eval_container_lookup
 
    #     type:{primitive:BOOL}
-   Given type_env parameter "x.y" is TypeType(value='BOOL')
+   # Given type_env parameter "x.y" is TypeType(value='BOOL')
+   Given type_env parameter "x.y" is BOOL
 
    #     type:{primitive:STRING}
-   Given type_env parameter "y" is TypeType(value='STRING')
+   # Given type_env parameter "y" is TypeType(value='STRING')
+   Given type_env parameter "y" is STRING
 
    #     bool_value:true
    Given bindings parameter "x.y" is BoolType(source=True)
@@ -44,10 +47,12 @@ Scenario: self_eval_container_lookup
 Scenario: self_eval_container_lookup_unchecked
 
    #     type:{primitive:BOOL}
-   Given type_env parameter "x.y" is TypeType(value='BOOL')
+   # Given type_env parameter "x.y" is TypeType(value='BOOL')
+   Given type_env parameter "x.y" is BOOL
 
    #     type:{primitive:BOOL}
-   Given type_env parameter "y" is TypeType(value='BOOL')
+   # Given type_env parameter "y" is TypeType(value='BOOL')
+   Given type_env parameter "y" is BOOL
 
    #     bool_value:true
    Given bindings parameter "x.y" is BoolType(source=True)

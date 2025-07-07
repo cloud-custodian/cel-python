@@ -14,7 +14,7 @@
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="Data Structures" href="structure.html" />
+    <link rel="prev" title="API" href="api.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -34,14 +34,12 @@
             
   <section id="c7n-functions-required">
 <span id="c7n-functions"></span><h1><a class="toc-backref" href="#id1" role="doc-backlink">C7N Functions Required</a><a class="headerlink" href="#c7n-functions-required" title="Link to this heading">¶</a></h1>
-<p>This survey of C7N filter clauses is based on source code and
-on an analysis of working policies. The required functions
-are grouped into four clusters, depending on the presence of absence of
-the “op” operator clause, and the number of resource types using the feature.
+<p>This survey of C7N filter clauses is based on source code and on an analysis of working policies.
+The required functions are grouped into four clusters, depending on the presence of absence of the “op” operator clause, and the number of resource types using the feature.
 Within each group, they are ranked in order of popularity.</p>
 <p>For each individual type of filter clause, we provide the following details:</p>
 <ul class="simple">
-<li><p>The C7N sechema definition.</p></li>
+<li><p>The C7N schema definition.</p></li>
 <li><p>The resource types where the filter type is used.</p></li>
 <li><p>The variant implementations that are registered (if any.)</p></li>
 <li><p>If used in the working policies,</p>
@@ -207,7 +205,7 @@ interface.</p>
 <li><p>Separate from C7N. The CEL processing is outside C7N, and capable of standing alone.
 CEL is focused on Protobuf (and JSON) objects.
 The interface to C7N is via the <code class="xref py py-mod docutils literal notranslate"><span class="pre">c7nlib</span></code> library of functions. These do <strong>not</strong> depend
-on imports from the C7N project, but rely on a <cite>CELFilter</cite> class offering specific methods.
+on imports from the C7N project, but rely on a <code class="docutils literal notranslate"><span class="pre">CELFilter</span></code> class offering specific methods.
 Access to C7N objects and their associated methods is limited to the features exposed
 through the function library and the expected class definition.</p></li>
 <li><p>Resource Representation. CEL is focused on Protobuf (and JSON) objects.
@@ -9958,14 +9956,14 @@ route table is checked.</p>
     </div>
 </search>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Documentation Content:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Use of CEL-Python</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="integration.html">Application Integration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api.html">CEL-Py API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="structure.html">Data Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="structure.html">Architecture and Design Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">C7N Functions Required</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#design-principles">Design Principles</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#c7n-context-object">C7N Context Object</a></li>
@@ -9985,7 +9983,7 @@ route table is checked.</p>
 <h3>Related Topics</h3>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
-      <li>Previous: <a href="structure.html" title="previous chapter">Data Structures</a></li>
+      <li>Previous: <a href="api.html" title="previous chapter">API</a></li>
   </ul></li>
 </ul>
 </div>

@@ -16,7 +16,9 @@
 """
 Test translation of the pb2g tool to convert textproto to Gherkin..
 """
-from pytest import *
+from textwrap import dedent
+
+import pytest
 
 import pb2g
 from pb2g import *
@@ -48,6 +50,88 @@ def test_building_case():
     s = structure_builder(parse_serialized_value(Tokens(example_1)))
     expected = MessageType({'x': None, 'y': BoolType(source=False)})
     assert s == expected, f"{s!r} != {expected!r}"
+
+
+def test_transform_given_type(capsys):
+    proto = dedent("""\
+        section {
+          name: "variables"
+          description: "Variable lookups."
+          test {
+            name: "self_eval_bound_lookup"
+            expr: "x"
+            type_env: {
+              name: "x",
+              ident: { type: { primitive: INT64 } }
+            }
+            bindings: {
+              key: "x"
+              value: { value: { int64_value: 123 } }
+            }
+            value: { int64_value: 123 }
+          }
+        }
+    """
+    )
+    interim = dedent("""\
+        Scenario: self_eval_bound_lookup
+                  
+           Given type_env parameter "x" is &{type:{primitive:INT64}}
+        
+           Given bindings parameter "x" is int64_value:123
+        
+            When CEL expression "x" is evaluated
+            Then value is int64_value:123
+    """)
+
+    expected = dedent("""\
+        Scenario: self_eval_bound_lookup
+                  
+           #     type:{primitive:INT64}
+           Given type_env parameter "x" is celpy.celtypes.IntType
+        
+           #     int64_value:123
+           Given bindings parameter "x" is celpy.celtypes.IntType(source=123)
+        
+            When CEL expression "x" is evaluated
+            #    int64_value:123
+            Then value is celpy.celtypes.IntType(source=123)
+    """)
+
+    pb2g.expand_cel(interim)
+    feature, errors = capsys.readouterr()
+    assert errors == ""
+    assert feature == expected
+
+
+def test_transform_then_type(capsys):
+    proto = dedent("""\
+      test {
+        name: "type_type"
+        expr: "type(type)"
+        value: { type_value: "type" }
+      }
+    """
+                   )
+    interim = dedent("""\
+        Scenario: type_type
+                  
+            When CEL expression "type(type)" is evaluated
+            Then value is type_value:"type"
+    """)
+
+    expected = dedent("""\
+        Scenario: type_type
+                  
+            When CEL expression "type(type)" is evaluated
+            #    type_value:"type"
+            Then value is celpy.celtypes.TypeType
+    """)
+
+    pb2g.expand_cel(interim)
+    feature, errors = capsys.readouterr()
+    assert errors == ""
+    assert feature == expected
 
 
 def test_given_bindings():
@@ -212,13 +296,21 @@ def test_given_bindings():
         seconds=123, nanos=123456789)
 
 
-@fixture
+@pytest.fixture
 def exception_equal(monkeypatch):
     def args_eq(exc1, exc2):
         return type(exc1) == type(exc2) and exc1.args == exc2.args
 
     monkeypatch.setattr(pb2g.CELEvalError, '__eq__', args_eq)
 
+def test_parsing_primitives():
+    assert (parse_serialized_value(Tokens('int64_value:0'))) == Primitive(type_name=Token(type='NAME', value='int64_value'), value_text=Token(type='INT', value='0'))
+    assert (parse_serialized_value(Tokens('uint64_value:0'))) == Primitive(type_name=Token(type='NAME', value='uint64_value'), value_text=Token(type='INT', value='0'))
+    assert (parse_serialized_value(Tokens('double_value:0'))) == Primitive(type_name=Token(type='NAME', value='double_value'), value_text=Token(type='INT', value='0'))
+    assert (parse_serialized_value(Tokens('string_value:""'))) == Primitive(type_name=Token(type='NAME', value='string_value'), value_text=Token(type='STRING', value='""'))
+    assert (parse_serialized_value(Tokens('bytes_value:""'))) == Primitive(type_name=Token(type='NAME', value='bytes_value'), value_text=Token(type='STRING', value='""'))
+    assert (parse_serialized_value(Tokens('bool_value:false'))) == Primitive(type_name=Token(type='NAME', value='bool_value'), value_text=Token(type='BOOL', value='false'))
+    assert (parse_serialized_value(Tokens('null_value:NULL_VALUE'))) == Primitive(type_name=Token(type='NAME', value='null_value'), value_text=Token(type='NULL', value='NULL_VALUE'))
 
 def test_then_values(exception_equal):
     assert structure_builder(parse_serialized_value(Tokens('int64_value:0'))) == IntType(source=0)
@@ -293,7 +385,7 @@ def test_then_values(exception_equal):
         source=-843200000.0)
     assert structure_builder(parse_serialized_value(Tokens('double_value:-5.43e-21'))) == DoubleType(
         source=-5.43e-21)
-    assert structure_builder(parse_serialized_value(Tokens('type_value:"list"'))) == TypeType(value='list')
+    assert structure_builder(parse_serialized_value(Tokens('type_value:"list"'))) == type_value(value='list')
     assert structure_builder(parse_serialized_value(Tokens('errors:{message:"range error"}'))) == CELEvalError(
         'range error')
     assert structure_builder(parse_serialized_value(Tokens('int64_value:-123'))) == IntType(source=-123)
@@ -316,19 +408,19 @@ def test_then_values(exception_equal):
     assert structure_builder(parse_serialized_value(Tokens('string_value:"ÿ"'))) == StringType(source='ÿ')
     assert structure_builder(parse_serialized_value(Tokens('errors:{message:"invalid UTF-8"}'))) == CELEvalError(
         'invalid UTF-8')
-    assert structure_builder(parse_serialized_value(Tokens('type_value:"bool"'))) == TypeType(value='bool')
+    assert structure_builder(parse_serialized_value(Tokens('type_value:"bool"'))) == type_value(value='bool')
     assert structure_builder(
         parse_serialized_value(Tokens('errors:{message:"unknown varaible"}'))) == CELEvalError(
         'unknown varaible')
-    assert structure_builder(parse_serialized_value(Tokens('type_value:"int"'))) == TypeType(value='int')
-    assert structure_builder(parse_serialized_value(Tokens('type_value:"uint"'))) == TypeType(value='uint')
-    assert structure_builder(parse_serialized_value(Tokens('type_value:"double"'))) == TypeType(value='double')
-    assert structure_builder(parse_serialized_value(Tokens('type_value:"null_type"'))) == TypeType(
+    assert structure_builder(parse_serialized_value(Tokens('type_value:"int"'))) == type_value(value='int')
+    assert structure_builder(parse_serialized_value(Tokens('type_value:"uint"'))) == type_value(value='uint')
+    assert structure_builder(parse_serialized_value(Tokens('type_value:"double"'))) == type_value(value='double')
+    assert structure_builder(parse_serialized_value(Tokens('type_value:"null_type"'))) == type_value(
         value='null_type')
-    assert structure_builder(parse_serialized_value(Tokens('type_value:"string"'))) == TypeType(value='string')
-    assert structure_builder(parse_serialized_value(Tokens('type_value:"bytes"'))) == TypeType(value='bytes')
-    assert structure_builder(parse_serialized_value(Tokens('type_value:"map"'))) == TypeType(value='map')
-    assert structure_builder(parse_serialized_value(Tokens('type_value:"type"'))) == TypeType(value='type')
+    assert structure_builder(parse_serialized_value(Tokens('type_value:"string"'))) == type_value(value='string')
+    assert structure_builder(parse_serialized_value(Tokens('type_value:"bytes"'))) == type_value(value='bytes')
+    assert structure_builder(parse_serialized_value(Tokens('type_value:"map"'))) == type_value(value='map')
+    assert structure_builder(parse_serialized_value(Tokens('type_value:"type"'))) == type_value(value='type')
     assert structure_builder(parse_serialized_value(Tokens('uint64_value:1729'))) == UintType(source=1729)
     assert structure_builder(parse_serialized_value(Tokens('uint64_value:3'))) == UintType(source=3)
     assert structure_builder(parse_serialized_value(Tokens('uint64_value:2'))) == UintType(source=2)
@@ -2169,12 +2261,12 @@ def test_then_values_2(exception_equal):
         parse_serialized_value(Tokens('string_value:"2009-02-13T23:31:30Z"'))) == StringType(
         source='2009-02-13T23:31:30Z')
     assert structure_builder(
-        parse_serialized_value(Tokens('type_value:"google.protobuf.Timestamp"'))) == TypeType(
+        parse_serialized_value(Tokens('type_value:"google.protobuf.Timestamp"'))) == type_value(
         value='google.protobuf.Timestamp')
     assert structure_builder(parse_serialized_value(Tokens('string_value:"1000000s"'))) == StringType(
         source='1000000s')
     assert structure_builder(
-        parse_serialized_value(Tokens('type_value:"google.protobuf.Duration"'))) == TypeType(
+        parse_serialized_value(Tokens('type_value:"google.protobuf.Duration"'))) == type_value(
         value='google.protobuf.Duration')
     assert structure_builder(parse_serialized_value(Tokens('int64_value:13'))) == IntType(source=13)
     assert structure_builder(parse_serialized_value(Tokens('int64_value:43'))) == IntType(source=43)
@@ -2189,16 +2281,30 @@ def test_then_values_2(exception_equal):
     assert structure_builder(parse_serialized_value(Tokens('int64_value:3730'))) == IntType(source=3730)
 
 def test_type_env_values():
-    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.Int32Value"}'))) == TypeType(value='google.protobuf.Int32Value')
-    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.Int64Value"}'))) == TypeType(value='google.protobuf.Int64Value')
-    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.UInt32Value"}'))) == TypeType(value='google.protobuf.UInt32Value')
-    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.UInt64Value"}'))) == TypeType(value='google.protobuf.UInt64Value')
-    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.FloatValue"}'))) == TypeType(value='google.protobuf.FloatValue')
-    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.DoubleValue"}'))) == TypeType(value='google.protobuf.DoubleValue')
-    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.BoolValue"}'))) == TypeType(value='google.protobuf.BoolValue')
-    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.StringValue"}'))) == TypeType(value='google.protobuf.StringValue')
-    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.BytesValue"}'))) == TypeType(value='google.protobuf.BytesValue')
-    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.ListValue"}'))) == TypeType(value='google.protobuf.ListValue')
-    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.Struct"}'))) == TypeType(value='google.protobuf.Struct')
-    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.Value"}'))) == TypeType(value='google.protobuf.Value')
-    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protubuf.Any"}'))) == TypeType(value='google.protubuf.Any')
+    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.Int32Value"}'))) == type_value(value='google.protobuf.Int32Value')
+    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.Int64Value"}'))) == type_value(value='google.protobuf.Int64Value')
+    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.UInt32Value"}'))) == type_value(value='google.protobuf.UInt32Value')
+    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.UInt64Value"}'))) == type_value(value='google.protobuf.UInt64Value')
+    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.FloatValue"}'))) == type_value(value='google.protobuf.FloatValue')
+    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.DoubleValue"}'))) == type_value(value='google.protobuf.DoubleValue')
+    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.BoolValue"}'))) == type_value(value='google.protobuf.BoolValue')
+    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.StringValue"}'))) == type_value(value='google.protobuf.StringValue')
+    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.BytesValue"}'))) == type_value(value='google.protobuf.BytesValue')
+    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.ListValue"}'))) == type_value(value='google.protobuf.ListValue')
+    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.Struct"}'))) == type_value(value='google.protobuf.Struct')
+    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protobuf.Value"}'))) == type_value(value='google.protobuf.Value')
+    assert structure_builder(parse_serialized_value(Tokens('type:{message_type:"google.protubuf.Any"}'))) == type_value(value='google.protubuf.Any')
+
+def test_type_repr():
+    assert type_value("type").cel_name() == "celpy.celtypes.TypeType"
+    assert type_value("bool").cel_name() == "celpy.celtypes.BoolType"
+    assert type_value("bytes").cel_name() == "celpy.celtypes.BytesType"
+    assert type_value("double").cel_name() == "celpy.celtypes.DoubleType"
+    assert type_value("int").cel_name() == "celpy.celtypes.IntType"
+    assert type_value("list").cel_name() == "celpy.celtypes.ListType"
+    assert type_value("list_type").cel_name() == "celpy.celtypes.ListType"
+    assert type_value("map").cel_name() == "celpy.celtypes.MapType"
+    assert type_value("map_type").cel_name() == "celpy.celtypes.MapType"
+    assert type_value("null_type").cel_name() == "NoneType"
+    assert type_value("string").cel_name() == "celpy.celtypes.StringType"
+    assert type_value("uint").cel_name() == "celpy.celtypes.UintType"

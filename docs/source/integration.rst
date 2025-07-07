@@ -8,32 +8,26 @@
 Application Integration
 ########################
 
-We'll look at the essential base case for integration:
-evaluate a function given some variable bindings.
+We'll look at integration of CEL into another application from four perspectives:
 
-Then we'll look at providing custom function bindings to extend
-the environment.
+1.  We'll look at the essential base case for integration into another application.
+    This will use an ``Activation`` to provide values for variables.
 
-We'll also look at additional examples from the Go implementation.
-This will lead us to providing custom type providers
-and custom type adapters.
+2.  A more sophisticated integration involves extending the environment with custom functions.
+    This can provide a well-defined interface between CEL expressions and application functionality.
 
-There are a few exception and error-handling cases that are helpful
-for writing CEL that tolerates certain kinds of data problems.
+3.  Some additional examples from the Go implementation show how extend the environment using new types.
 
-Finally, we'll look at how CEL can be integrated into Cloud Custodian.
+4.  There are a few exception and error-handling cases that are part of working with Python types.
 
-The Essentials
-==============
+5.  Finally, we'll look at how CEL can be integrated into Cloud Custodian (C7N).
 
-Here are two examples of variable bindings
+Integration Essentials
+======================
 
-README
-------
+Here's an example of variable bindings taken from a ``README`` example:
 
-Here's the example taken from the README.
-
-The baseline implementation works like this::
+..  code-block:: python
 
     >>> import celpy
     >>> cel_source = """
@@ -46,36 +40,49 @@ The baseline implementation works like this::
     >>> ast = env.compile(cel_source)
     >>> prgm = env.program(ast)
 
-    >>> activation = {
+    >>> context = {
     ...     "account": celpy.json_to_cel({"balance": 500, "overdraftProtection": False}),
     ...     "transaction": celpy.json_to_cel({"withdrawal": 600})
     ... }
-    >>> result = prgm.evaluate(activation)
+    >>> result = prgm.evaluate(context)
     >>> result
     BoolType(False)
 
-The :py:class:`celpy.Environment` can include type adapters and type providers. It's not clear
-how these should be implemented in Python or if they're even necessary.
+The ``cel_source`` is an expression to be evaluated.
+This references variables with names like ``account``, and ``transaction``.
 
-The compile step creates a syntax tree, which is used to create a final program to evaluate.
-Currently, there's a two-step process because we might want to optimize or transform the AST prior
-to evaluation.
+All CEL evaluation uses an :py:class:`celpy.Environment` object.
+The :py:class:`celpy.Environment` is used to provide type annotations for variables.
+It can provide a few other properties, including an overall package name, sometimes needed when working with protobuf types.
 
-The activation provides specific variable values used to evaluate the program.
+The :py:meth:`Environment.compile` method creates a abstract syntax tree from the CEL source.
+This will be used to create a final program to evaluate.
+This method can raise the :py:exc:`CELSyntaxError` exception.
 
-To an extent, the Python classes are loosely based on the object model in https://github.com/google/cel-go.
+The :py:meth:`Environment.program` method creates a runner out of an abstract syntax tree.
+
+Compiling and building a program is a two-step process to permit optimization or some other transformation the AST prior to evaluation.
+The Lark parser (https://lark-parser.readthedocs.io/en/latest/classes.html) is used, and transformers are a first-class feature of this parser.
+
+The ``context`` mapping defines variables and provides their values.
+This is used to evaluate the resulting program object.
+The program will produce a value defined in the :py:mod:`celpy.celtypes` module.
+In this example, it's a :py:mod:`celpy.celtypes.BoolType` value.
+
+The CEL types are all specializations of the obvious Python base types.
+To an extent, these Python classes are partially based on the object model in https://github.com/google/cel-go.
 We don't need all the Go formalisms, however, and rely on Pythonic variants.
 
-Simple example using builtin operators
+Simple example using builtin types
 ---------------------------------------
 
 Here's an example taken from
-https://github.com/google/cel-go/blob/master/examples/README.md
+https://github.com/google/cel-go/blob/master/examples/README.md.
+This will evaluate the CEL expression ``"Hello world! I'm " + name + "."`` with ``"CEL"`` passed as the ``name`` variable.
 
-Evaluate expression ``"Hello world! I'm " + name + "."`` with ``CEL`` passed as
-the ``name`` variable.
+This is the original Go code:
 
-..  code:: go
+..  code-block:: go
 
     import (
         "github.com/google/cel-go/cel"
@@ -97,7 +104,9 @@ the ``name`` variable.
     fmt.Println(out)
     // Output:Hello world! I'm CEL.
 
-Here's the Python version::
+Here's the Python version, following a similar outline:
+
+..  code-block:: python
 
     >>> import celpy
     >>> cel_source = """
@@ -109,59 +118,59 @@ Here's the Python version::
     >>> ast = env.compile(cel_source)
     >>> prgm = env.program(ast)
 
-    >>> activation = {
+    >>> context = {
     ...     "name": "CEL"
     ... }
-    >>> result = prgm.evaluate(activation)
+    >>> result = prgm.evaluate(context)
     >>> result
     "Hello world! I'm CEL."
 
-There's a big open concern here: there's no formal type adapter implementation.
-Nothing converts from the input value in the activation to the proper underlying
-type. This relies on Python's built-in type conversions.
+The steps include:
 
-..  todo:: Handle type adapters properly.
+1.  Create a :py:class:`celpy.Environment` with annotations for any variables.
+    These kinds of type definitions are atypical for Python, but are part of the definition of the CEL language.
+
+2.  Use :py:meth:`celpy.Environment.compile` to create an AST.
+
+3.  Use :py:meth:`celpy.Environment.program` to build a :py:class:`celpy.Runner` object that will do the final evaluation. This includes the environment and the AST.
+
+4.  Use :py:meth:`celpy.Runner.evaluate` to evaluate the program with specific values for the defined variables.
+
+In the Go world, there's a formal type adapter to convert input values to the objects used by CEL.
+For numerous types, a default adapter handles this.
+
+In Python, on the other hand, we define the type conversions as features of the Python versions of the CEL types.
+This approach fits better with native Python programming.
+
 
 Function Bindings
 =================
 
-Here are two more examples of binding, taken from
-https://github.com/google/cel-go/blob/master/examples/README.md
+There are two function binding examples in
+https://github.com/google/cel-go/blob/master/examples/README.md.
 
-Note the complication here comes from the way the Go implementation resolves overloaded functions.
-Each CEL overload of a function is described by a ``("name", [args], result)`` structure.
+There is a complication here that based on the way the Go resolves overloaded functions.
+In Go, each overload of a function is described by a ``("name", [args], result)`` data structure.
+The key of ``("name", [args], result)`` maps to a specific ``arg_name_arg()`` or ``name_arg()`` overloaded implementation for specific argument types.
 This allows for multiple type-specific overload versions of a generic function.
 
-The key of ``("name", [args], result)`` maps to a specific ``arg_name_arg()`` or ``name_arg()``
-overloaded implementation for specific argument types.
+For example, a ``("greet", [StringType, StringType], StringType)`` structure is expected to map to a function ``string_greet_string()`` that has the expected signature.
 
-For example, ``("greet", [StringType, StringType], StringType)`` maps to ``string_greet_string()``.
+This is emphatically not how Python generally works.
+We follow a more Pythonic approach is to provide a single, generic, function which examines the arguments and decides what to do.
+Outside type-checking, Python doesn't depend on overloaded name resolution.
 
-This is emphatically not how Python generally works. A more Pythonic approach is to provide
-a single, generic, function which examines the arguments and decides what to do. Python doesn't
-generally do overloaded name resolution.
+This means a Python function must then sort out type variants and handle argument value coercion on its own.
+For most cases, the ``match/case`` statement is helpful for this.
+The :py:func:`functools.singledispatch` decorator can also be helpful for this.
 
-There are two choices:
+The two examples have slightly different approaches to the CEL expression.
+These are important in Go, but less important in Python.
 
-1.  Build a mapping from ``("name", [args], result)`` to a specific overloaded implementation.
-    This pulls argument and result type coercion outside the Python function.
-    It matches the Go implementation, but can be confusing for Python implementers.
-    This requires exposing a great deal of machinery already available in a Python function
-    definition.
+Custom function in Go
+---------------------------------------
 
-2.  Ignore the complex type exposture techniques that Go requiees and dispatch to a Python function.
-    The Python function will sort out type variants and handle argument value coercion on its own.
-    This simplifies implementation down to name resolution.
-    Indeed, the type mapping rules can introspect Python's type annotations on the function
-    definition.
-
-We follow the 2nd alternative. The Python function binding relies -- exclusively -- on introspection
-of the function provided.
-
-Custom function on string type
-------------------------------
-
-Evaluate expression ``i.greet(you)`` with:
+We want to evaluate the CEL expression ``i.greet(you)`` with:
 
 ..  parsed-literal::
 
@@ -169,14 +178,14 @@ Evaluate expression ``i.greet(you)`` with:
     you     -> world
     greet   -> "Hello %s! Nice to meet you, I'm %s."
 
+The idea here is the new ``greet()`` behaves like a method of a String.
+The actual implementation, however, is not a method; it's a function of two arguments.
 
-First we need to declare two string variables and `greet` function.
-`NewInstanceOverload` must be used if we want to declare function which will
-operate on a type. First element of slice passed as `argTypes` into
-`NewInstanceOverload` is declaration of instance type. Next elements are
-parameters of function.
+First we need to declare two string variables and a ``greet()`` function.
+In Go, a ``NewInstanceOverload`` must be used to provide annotations for variables and the function.
+Here's the Go implementation:
 
-..  code:: go
+..  code-block:: go
 
     decls.NewVar("i", decls.String),
     decls.NewVar("you", decls.String),
@@ -186,12 +195,15 @@ parameters of function.
             decls.String))
     ... // Create env and compile
 
+We've omitted the Go details of creating an environment and compiling the CEL expression.
+These aren't different from the previous examples.
 
-Let's implement `greet` function and pass it to `program`. We will be using
-`Binary`, because `greet` function uses 2 parameters (1st instance, 2nd
-function parameter).
+Separately, a ``greetFunc()`` function must be defined.
+In Go, this function is then bound to the ``"string_greet_string"`` overload,
+ready for evaluation.
+Here's the Go implementation:
 
-..  code:: go
+..  code-block:: go
 
     greetFunc := &functions.Overload{
         Operator: "string_greet_string",
@@ -208,7 +220,22 @@ function parameter).
     fmt.Println(out)
     // Output:Hello world! Nice to meet you, I'm CEL.
 
-Here's the Python version::
+What's essential is defining some type information, then defining variables and functions that fit those types.
+
+The Python version has the same outline:
+
+1.  An :py:class:`celpy.Environment` with type annotations for the two variables and the function.
+
+2.  Compile the source.
+
+3.  Define the ``greet()`` function. While the CEL syntax  of ``i.greet(you)`` looks like a method
+of the ``i`` variable's class, the function is simply has two positional parameters.
+
+4.  Provide function implementation when creating the final :py:class:`celpy.Runner` instance.
+
+5.  Evaluate the program with specific values for the two variables.
+
+..  code-block:: python
 
     >>> import celpy
     >>> cel_source = """
@@ -224,53 +251,36 @@ Here's the Python version::
     >>> def greet(lhs: celpy.celtypes.StringType, rhs: celpy.celtypes.StringType) -> celpy.celtypes.StringType:
     ...     return "Hello {1:s}! Nice to meet you, I'm {0:s}.\\n".format(lhs, rhs)
     >>> prgm = env.program(ast, functions=[greet])
-    >>> activation = {
+    >>> context = {
     ...     "i": "CEL", "you": "world"
     ... }
-    >>> result = prgm.evaluate(activation)
+    >>> result = prgm.evaluate(context)
     >>> result
     "Hello world! Nice to meet you, I'm CEL.\\n"
+
+The key concept here is to distinguish between three distinct attributes:
+
+1.  Type annotations associated with variables or functions.
+
+2.  The function implementations used to build the :py:class:`celpy.Runner`.
+    The method-like syntax of ``i.greet(you)`` is evaluated as ``greet(i, you)``.
+
+3.  The variable values, which provide a context in which the runner evaluates the CEL expression.
+
+This reflects the idea that one CEL expression may be used to process data over and over again.
 
 Define custom global function
 -----------------------------
 
-Evaluate expression ``shake_hands(i,you)`` with:
+In Go, this is a small, but important different.ce
+We want to evaluate the expression ``shake_hands(i,you)``.
+This uses a global function syntax instead of method syntax.
 
-..  parsed-literal::
+While Go has slight differences in how the function is defined, in Python, there is no change.
 
-    i           -> CEL
-    you         -> world
-    shake_hands -> "%s and %s are shaking hands."
+Here's the Python version:
 
-
-In order to declare global function we need to use `NewOverload`:
-
-..  code:: go
-
-    decls.NewVar("i", decls.String),
-    decls.NewVar("you", decls.String),
-    decls.NewFunction("shake_hands",
-        decls.NewOverload("shake_hands_string_string",
-            []*exprpb.Type{decls.String, decls.String},
-            decls.String))
-    ... // Create env and compile.
-
-    shakeFunc := &functions.Overload{
-        Operator: "shake_hands_string_string",
-        Binary: func(lhs ref.Val, rhs ref.Val) ref.Val {
-            return types.String(
-                fmt.Sprintf("%s and %s are shaking hands.\n", lhs, rhs))
-            }}
-    prg, err := env.Program(c, cel.Functions(shakeFunc))
-
-    out, _, err := prg.Eval(map[string]interface{}{
-        "i": "CEL",
-        "you": "world",
-    })
-    fmt.Println(out)
-    // Output:CEL and world are shaking hands.
-
-Here's the Python version::
+..  code-block:: python
 
     >>> import celpy
     >>> cel_source = """
@@ -286,24 +296,25 @@ Here's the Python version::
     >>> def shake_hands(lhs: celpy.celtypes.StringType, rhs: celpy.celtypes.StringType) -> celpy.celtypes.StringType:
     ...     return f"{lhs} and {rhs} are shaking hands.\\n"
     >>> prgm = env.program(ast, functions=[shake_hands])
-    >>> activation = {
+    >>> context = {
     ...     "i": "CEL", "you": "world"
     ... }
-    >>> result = prgm.evaluate(activation)
+    >>> result = prgm.evaluate(context)
     >>> result
     'CEL and world are shaking hands.\\n'
 
 
+The ``shake_hands()`` function is essentially the same as the ``greet()`` function in the previous example.
 
-For more examples of how to use CEL, see
+For more examples of how to use CEL from Go, see
 https://github.com/google/cel-go/tree/master/cel/cel_test.go
 
-Examples from Go implementation
-================================
+More Examples from Go implementation
+=====================================
 
-See https://github.com/google/cel-go/blob/master/README.md
+See https://github.com/google/cel-go/blob/master/README.md for five more examples.
 
-..  code::
+..  code-block::
 
     // Check whether a resource name starts with a group name.
     resource.name.startsWith("/groups/" + auth.claims.group)
@@ -321,9 +332,10 @@ See https://github.com/google/cel-go/blob/master/README.md
     // in the JSON case.
     has(message.field)
 
-Following one of the more complete examples through the README
+Here's the first example, ``resource.name.startsWith("/groups/" + auth.claims.group)``.
+The Go code is as follows:
 
-..  code:: go
+..  code-block:: go
 
     import(
         "github.com/google/cel-go/cel"
@@ -353,7 +365,10 @@ Following one of the more complete examples through the README
         "group": "acme.co"})
     fmt.Println(out) // 'true'
 
-This has the following Python implementation::
+This has a Python implementation which is substantially similar.
+Here's the Python code:
+
+..  code-block:: python
 
     >>> import celpy
     >>> decls = {
@@ -363,60 +378,50 @@ This has the following Python implementation::
     >>> env = celpy.Environment(annotations=decls)
     >>> ast = env.compile('name.startsWith("/groups/" + group)')
     >>> prgm = env.program(ast)
-    >>> activation = {
+    >>> context = {
     ...     "name": "/groups/acme.co/documents/secret-stuff",
     ...     "group": "acme.co",
     ... }
-    >>> result = prgm.evaluate(activation)
+    >>> result = prgm.evaluate(context)
     >>> result
     BoolType(True)
+
+The general outline of compile, create a :py:class:`celpy.Runner`, and use :py:meth:`celpy.Runner.evaluate` to evaluate the CEL expression in a specific context is the central point here.
 
 Exceptions and Errors
 ======================
 
-Exceptions raised in Python world will (eventually) crash the CEL evluation.
-This gives the author of an extension function the complete traceback to help
-fix the Python code.
+Exceptions raised in Python world will (eventually) crash the CEL evaluation.
+This gives the author of an extension function the complete traceback to help fix the Python code.
 No masking or rewriting of Python exceptions ever occurs in extension functions.
 
-A special :exc:`celpy.EvalError` exception can be used in an extension function
-to permit CEL's short-circuit logic processing to silence this exception.  See the
-https://github.com/google/cel-go/blob/master/README.md#partial-state for more examples
-of how the short-circuit (partial state) operations work.
+A special :py:exc:`celpy.CELEvalError` exception can be used in an extension function to permit CEL's short-circuit logic processing to check and ignore an exception.
+See the https://github.com/google/cel-go/blob/master/README.md#partial-state for more examples of how the short-circuit (partial state) operations work.
 
-An extension function must **return** a :exc:`celpy.EvalError` object
-to allow processing to continue in spite of an uncomputable value.
+An extension function can **return** a :py:exc:`celpy.CELEvalError` object instead of raising it.
+This can allow processing to continue in spite of an uncomputable value.
 
-::
+..  code-block:: python
 
     from celpy import *
     def my_extension(a: Value) -> Value:
         try:
             return celtypes.UintType(64 // a)
         except DivideByZeroError as ex:
-            return EvalError(f"my_extnsion({a}) error")
+            return CELEvalError(f"my_extension({a}) error")
 
-The returned exception object allows short-circuit processing. For example,
+The returned exception object allows short-circuit processing.
+For example, the CEL expression ``false && my_extension(0)`` evaluates to ``false``.
+If computed, any :exc:`celpy.CELEvalError` objects will be silently ignored because the short-circuit result is known from the presence of a ``false`` value.
 
-::
-
-    false && my_extension(0)
-
-This evaluates to ``false``.  If computed, any :exc:`celpy.EvalError` object will be silently ignored.
-
-On the other hand,
-
-::
-
-    true && my_extension(0)
-
-This will result in a visible :exc:`celpy.EvalError` result from the extension function.
+On the other hand, the CEL expression ``true && my_extension(0)`` results in the :exc:`celpy.CELEvalError` result from the extension function.
 This will eventually be raised as an exception, so the framework using ``celpy`` can track this run-time error.
 
-Cloud Custodian
-===============
+Cloud Custodian (C7N) Integration
+==================================
 
 Custodian Filters can be evaluated by CEL.
+The idea is to extend the YAML-based DSL for policy documents to introduce easier-to-read expressions.
 
 As noted in https://github.com/cloud-custodian/cloud-custodian/issues/5759, a filter might look like the
 following::
@@ -432,15 +437,13 @@ following::
 
 This replaces a complex sequence of nested ``-  and:`` and ``-  or:`` sub-documents with a CEL expression.
 
-C7N processes resources by gathering resources, creating an instance of a subclass of the ``Filter``
-class, and evaluating an expression like ``take_action = list(filter(filter_instance, resource_list))``.
+C7N processioning works by gathering resources, creating an instance of a subclass of the ``Filter`` class, and evaluating an expression like ``take_action = list(filter(filter_instance, resource_list))``.
 
-The C7N filter expression in a given policy document is componsed of one or more atomic filter clauses,
-combined by ``and``, ``or``, and ``not`` operators.
+The C7N filter expression in a given policy document is composed of one or more atomic filter clauses, combined by ``and``, ``or``, and ``not`` operators.
 The filter as a whole is handled by the ``__call__()`` methods of subclasses of the ``BooleanGroupFilter`` class.
 
 Central to making this work is making the CEL expression into a function that can be applied to the ``resource`` object.
-It appears that all CEL operations will need to have a number of values in their activations:
+All CEL versions of a filter will need to have a the following two values in their activations:
 
 :resource:
     A :py:class:`celtypes.MapType` document with the resource details.
@@ -448,14 +451,15 @@ It appears that all CEL operations will need to have a number of values in their
 :now:
     A :py:class:`celtypes.TimestampType` object with the current time.
 
-Additional "global" objects may also be helpful.
 
 Baseline C7N Example
 --------------------
 
-The essence of the integration is to provide a resource to a function and receive a boolean result.
+The essence of the integration is to provide a resource description to a function defined as a CEL expression, and receive a boolean result.
 
-Here's a base example::
+Here's a base example:
+
+..  code-block:: python
 
     >>> import celpy
     >>> env = celpy.Environment()
@@ -484,22 +488,26 @@ Here's a base example::
     >>> prgm.evaluate(activation)
     BoolType(True)
 
+In this case, the context contained only one variable, ``resource``.
+It didn't require a definition of ``now``.
+
 Bulk Filter Example
 -------------------
 
 Pragmatically, C7N works via code somewhat like the following:
 
-::
+..  code-block::
 
     resources = [provider.describe(r) for r in provider.list(resource_type)]
     map(action, list(filter(cel_program, resources)))
 
-An action is applied to those resources that pass some filter test. The filter looks for items not compliant
-with policies.
+An action is applied to those resources that pass some filter test.
+Often, the action disables a resource to prevent data compromise.
+The filter looks for items not compliant with policies so they can be deleted or disabled.
 
 The ``cel_program`` in the above example is an executable CEL program wrapped into a C7N ``Filter`` subclass.
 
-::
+..  code-block::
 
     >>> import celpy
     >>> import datetime
@@ -537,23 +545,25 @@ The ``cel_program`` in the above example is an executable CEL program wrapped in
     >>> actionable
     [{'name': 'bad1', 'tags': {'not-owner': 'oops'}}, {'name': 'bad2', 'tags': {'owner': None}}]
 
+For each resource, the ``tag_policy_filter`` object applied an internal ``self.prgm`` to the resource.
+The internal ``self.prgm`` was built from the policy expression, stated in CEL.
 
 C7N Filter and Resource Types
 -------------------------------
 
-There are several parts to handling the various kinds of C7N filters in use.
+The :py:mod:`celpy.c7nlib` module provides filter subclasses that include CEL processing.
+There are two kinds of C7N filters in use.
 
-1.  The :py:mod:`c7n.filters` package defines about 23 generic filter classes, all of which need to
-    provide the ``resource`` object in the activation, and possibly provide a library of generic
-    CEL functions used for evaluation.
-    The general cases are of this is handled by the resource definition classes creating  values in a JSON document.
+1.  The :py:mod:`c7n.filters` package defines about 23 generic filter classes.
+    These apply to a ``resource`` object.
+    Additionally, there's a library of generic functions used for evaluation.
+    Generally, the resource definition classes create values in a JSON document.
     These values reflect the state of the resource and any closely-related resources.
 
 2.  The :py:mod:`c7n.resources` package defines a number of additional resource-specific filters.
-    All of these, similarly, need to provide CEL values as part of the resource object.
-    These classes can also provide additional resource-specific CEL functions used for evaluation.
+    These classes can also provide additional resource-specific processing.
 
-The atomic filter clauses have two general forms:
+The atomic filter clauses within a policy document have two general forms:
 
 -   Those with "op". These expose a resource attribute value,
     a filter comparison value, and an operator.
@@ -566,8 +576,8 @@ The atomic filter clauses have two general forms:
 The breakdown of ``filter`` rules in the C7N policy schema has the following counts.
 
 ..  csv-table::
-
     :header: category, count, notes
+
     "('Common', 'Op')",21,"Used for more than one resource type, exposes resource details to CEL"
     "('Common', 'No-Op')",15,"Used for more than one resource type, does not expose resource details"
     "('Singleton', 'Op')",27,"Used for exactly one resource type, exposes resource details to CEL"

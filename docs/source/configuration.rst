@@ -2,25 +2,13 @@
     # Copyright 2020 The Cloud Custodian Authors.
     # SPDX-License-Identifier: Apache-2.0
 
+..  _configuration:
+
 ######################
 Configuration
 ######################
 
-The CLI application can bind argument values from the environment.
-The command-line provides variable names and type information.
-The OS environment provides string values.
-
-..  code:: bash
-
-    export x=6
-    export y=7
-    celpy -n --arg x:int --arg y:int 'x*y'
-    42
-
-While this example uses the OS environment,
-it isn't the usual sense of *configuration*.
-The only configuration options available for the command-line application are the logging configuration.
-
+The **celpy** package uses a configuration file to set the logging options.
 If a ``celpy.toml`` file exists in the local directory or the user's ``HOME`` directory, this will be used to provide logging configuration for the ``celpy`` application.
 
 This file must have a ``logging`` paragraph.
@@ -40,11 +28,41 @@ This paragraph can contain the parameters for logging configuration.
         class = "logging.StreamHandler"
         formatter = "console"
 
+This provides minimal log output, showing only warnings, errors, and fatal error messages.
+The ``root.level`` needs to be "INFO" or "DEBUG" to see more output.
+Setting a specific logger's level to "DEBUG" will raise the logging level for a specific component.
+
+All of the **celpy** loggers have names starting with ``celpy.``.
+This permits integration with other application without polluting those logs with **celpy** output.
+
 To enable very detailed debugging, do the following:
 
 -   Set the ``CEL_TRACE`` environment variable to some non-empty value, like ``"true"``.
     This enables a ``@trace`` decorator on some evaluation methods.
 
--   In a ``[logging.loggers.celpy.Evaluator]`` paragraph, set ``level = "DEBUG"``.
+-   Add a ``[logging.loggers.celpy.Evaluator]`` paragraph, with ``level = "DEBUG"``.
+    This can be done for any of the ``celpy`` components with loggers.
 
--   Set the ``[logging]`` paragraph, set ``root.level = "DEBUG"``.
+-   In the ``[logging]`` paragraph, set ``root.level = "DEBUG"``.
+
+Loggers include the following:
+
+-   ``celpy``
+
+-   ``celpy.Runner``
+
+-   ``celpy.Environment``
+
+-   ``celpy.repl``
+
+-   ``celpy.c7nlib``
+
+-   ``celpy.celtypes``
+
+-   ``celpy.evaluation``
+
+-   ``celpy.NameContainer``
+
+-   ``celpy.Evaluator``
+
+-   ``celpy.Transpiler``

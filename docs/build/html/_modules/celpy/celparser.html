@@ -47,19 +47,19 @@
 <span class="c1"># See the License for the specific language governing permissions and limitations under the License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">CEL Parser.</span>
+<span class="sd">A **Facade** around the CEL parser.</span>
 
-<span class="sd">See  https://github.com/google/cel-spec/blob/master/doc/langdef.md</span>
+<span class="sd">The Parser is an instance of the :py:class:`lark.Lark` class.</span>
 
-<span class="sd">https://github.com/google/cel-cpp/blob/master/parser/Cel.g4</span>
+<span class="sd">The grammar is in the  ``cel.lark`` file.</span>
 
-<span class="sd">https://github.com/google/cel-go/blob/master/parser/gen/CEL.g4</span>
+<span class="sd">For more information on CEL syntax, see the following:</span>
 
-<span class="sd">Builds a parser from the supplied cel.lark grammar.</span>
+<span class="sd">-   https://github.com/google/cel-spec/blob/master/doc/langdef.md</span>
 
-<span class="sd">..  todo:: Consider embedding the ``cel.lark`` file as a triple-quoted literal.</span>
+<span class="sd">-   https://github.com/google/cel-cpp/blob/master/parser/Cel.g4</span>
 
-<span class="sd">    This means fixing a LOT of \\&#39;s. But it also eliminates a data file from the installation.</span>
+<span class="sd">-   https://github.com/google/cel-go/blob/master/parser/gen/CEL.g4</span>
 
 <span class="sd">Example::</span>
 
@@ -106,6 +106,8 @@
 <div class="viewcode-block" id="CELParseError">
 <a class="viewcode-back" href="../../api.html#celpy.celparser.CELParseError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">CELParseError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A syntax error in the CEL expression.&quot;&quot;&quot;</span>
+
 <div class="viewcode-block" id="CELParseError.__init__">
 <a class="viewcode-back" href="../../api.html#celpy.celparser.CELParseError.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -121,13 +123,31 @@
 <div class="viewcode-block" id="CELParser">
 <a class="viewcode-back" href="../../api.html#celpy.celparser.CELParser">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">CELParser</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrapper for the CEL parser and the syntax error messages.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a Lark parser with the required options.</span>
+
+<span class="sd">    ..  important:: **Singleton**</span>
+
+<span class="sd">        There is one CEL_PARSER instance created by this class.</span>
+<span class="sd">        This is an optimization for environments like C7N where numerous</span>
+<span class="sd">        CEL expressions may parsed.</span>
+
+<span class="sd">        ::</span>
+
+<span class="sd">            CELParse.CEL_PARSER = None</span>
+
+<span class="sd">        Is required to create another parser instance.</span>
+<span class="sd">        This is commonly required in test environments.</span>
+
+<span class="sd">    This is also an **Adapter** for the CEL parser to provide pleasant</span>
+<span class="sd">    syntax error messages.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">CEL_PARSER</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Lark</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="CELParser.__init__">
 <a class="viewcode-back" href="../../api.html#celpy.celparser.CELParser.__init__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tree_class</span><span class="p">:</span> <span class="nb">type</span> <span class="o">=</span> <span class="n">lark</span><span class="o">.</span><span class="n">Tree</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">CELParser</span><span class="o">.</span><span class="n">CEL_PARSER</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">CEL_grammar</span> <span class="o">=</span> <span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">&quot;cel.lark&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
             <span class="n">CELParser</span><span class="o">.</span><span class="n">CEL_PARSER</span> <span class="o">=</span> <span class="n">Lark</span><span class="p">(</span>
@@ -140,6 +160,7 @@
                 <span class="n">propagate_positions</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                 <span class="n">maybe_placeholders</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                 <span class="n">priority</span><span class="o">=</span><span class="s2">&quot;invert&quot;</span><span class="p">,</span>
+                <span class="n">tree_class</span><span class="o">=</span><span class="n">tree_class</span><span class="p">,</span>
             <span class="p">)</span></div>
 
 
@@ -589,14 +610,15 @@
     </div>
 </search>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Documentation Content:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Use of CEL-Python</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../integration.html">Application Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../structure.html">Data Structures</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../api.html">CEL-Py API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../integration.html">Application Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../structure.html">Architecture and Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Development Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../c7n_functions.html">C7N Functions Required</a></li>
 </ul>
 
