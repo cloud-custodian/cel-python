@@ -19,7 +19,7 @@ import datetime
 import math
 from unittest.mock import sentinel
 
-from pytest import *
+import pytest
 
 from celpy import Int32Value
 from celpy.celtypes import *
@@ -32,7 +32,7 @@ def test_bool_type():
 
     assert logical_condition(t, sentinel.true, sentinel.false) == sentinel.true
     assert logical_condition(f, sentinel.true, sentinel.false) == sentinel.false
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         logical_condition(StringType("nope"), sentinel.true, sentinel.false)
 
     assert logical_and(t, t) == t
@@ -43,7 +43,7 @@ def test_bool_type():
     assert logical_and(exc, t) == exc
     assert logical_and(f, exc) == f
     assert logical_and(exc, f) == f
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         logical_and(exc, StringType("nope"))
 
     assert logical_or(t, t) == t
@@ -54,17 +54,17 @@ def test_bool_type():
     assert logical_or(exc, t) == t
     assert logical_or(f, exc) == exc
     assert logical_or(exc, f) == exc
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         logical_or(exc, StringType("nope"))
 
     assert logical_not(t) == f
     assert logical_not(f) == t
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         logical_not(StringType("nope"))
 
     assert repr(f) == "BoolType(False)"
     assert repr(t) == "BoolType(True)"
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         -t
     assert hash(t) == hash(t)
     assert hash(t) != hash(f)
@@ -76,7 +76,7 @@ def test_bytes_type():
     b_0 = BytesType(b'bytes')
     b_1 = BytesType('bytes')
     b_2 = BytesType([98, 121, 116, 101, 115])
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         BytesType(3.14)
     assert repr(b_0) == "BytesType(b'bytes')"
     assert BytesType(None) == BytesType(b'')
@@ -89,15 +89,15 @@ def test_double_type():
     assert repr(d_pi) == "DoubleType(3.1415926)"
     assert str(d_pi) == "3.1415926"
     assert -d_pi == -3.1415926
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         d_pi % d_e
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         2 % d_e
     assert d_pi / DoubleType(0.0) == float("inf")
     assert math.isclose(d_pi / d_e, 3.1415926 / 2.718281828)
     assert d_pi == d_pi
     assert d_pi != d_e
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         d_pi == StringType("nope")
     assert hash(d_pi) == hash(d_pi)
     assert hash(d_pi) != hash(d_e)
@@ -117,9 +117,9 @@ def test_int_type():
     assert IntType("-0x2a") == -42
     assert IntType("42") == 42
     assert IntType("-42") == -42
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         IntType(9223372036854775807) + IntType(1)
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         -IntType(9223372036854775808) - IntType(1)
     assert id(i_42) == id(IntType(i_42))
     assert repr(i_42) == "IntType(42)"
@@ -160,23 +160,23 @@ def test_uint_type():
     u_42 = UintType(42)
     u_max = UintType(18446744073709551615)
     assert UintType(DoubleType(1.9)) == UintType(2)
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         assert UintType(DoubleType(-123.456)) == UintType(-123)
     assert UintType(TimestampType("2009-02-13T23:31:30Z")) == 1234567890
     assert UintType("0x2a") == 42
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         assert UintType("-0x2a") == -42
     assert UintType("42") == 42
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         assert UintType("-42") == -42
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         UintType(18446744073709551615) + UintType(1)
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         UintType(0) - UintType(1)
     assert id(u_42) == id(UintType(u_42))
     assert repr(u_42) == "UintType(42)"
     assert str(u_max) == "18446744073709551615"
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         assert -UintType("42")
     assert u_42 == u_42 + UintType(1) - UintType(1)
     assert u_42 == u_42 * UintType(2) / UintType(2)
@@ -207,27 +207,27 @@ def test_list_type():
     l_1 = ListType([IntType(42), IntType(6), IntType(7)])
     l_2 = ListType([IntType(42), StringType("2.718281828459045**1.791759469228055"), IntType(7)])
     assert l_1 == l_1
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         assert l_1 != l_2
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         assert not l_1 == l_2
     assert repr(l_1) == "ListType([IntType(42), IntType(6), IntType(7)])"
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         l_1 < l_2
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         l_1 <= l_2
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         l_1 > l_2
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         l_1 >= l_2
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         l_1 == DoubleType("42.0")
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         assert l_1 != DoubleType("42.0")
     assert l_1 != ListType([IntType(42), IntType(42), IntType(42)])
     assert ListType() == ListType([])
     assert ListType(ListType([IntType(42)])) == ListType([IntType(42)])
-
+    assert l_1.contains(IntType(42))
 
 def test_map_type():
     m_0 = MapType()
@@ -251,36 +251,45 @@ def test_map_type():
     assert m_1 == m_3
     assert not m_1 != m_1
     assert not m_single != m_single
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         MapType(3.1415926)
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         assert m_1 != m_2
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         assert not m_1 == m_2
     assert repr(m_1) == (
         "MapType({StringType('A'): IntType(42), "
         "StringType('X'): IntType(6), "
         "StringType('Y'): IntType(7)})")
     assert m_1[StringType("A")] == IntType(42)
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         m_1[ListType([StringType("A")])]
-    with raises(TypeError):
+    with pytest.raises(TypeError):
+        m_1.get(ListType([StringType("A")]))
+    with pytest.raises(TypeError):
         m_1 < m_2
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         m_1 <= m_2
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         m_1 > m_2
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         m_1 >= m_2
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         m_1 == DoubleType("42.0")
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         assert m_1 != DoubleType("42.0")
     assert m_1 != MapType({
         StringType("A"): IntType(42),
         StringType("X"): IntType(42),
         StringType("Y"): IntType(42)}
     )
+    assert m_1.contains(StringType("A"))
+    assert m_1.get(StringType("A")) == IntType(42)
+    assert m_1.get(StringType("NOT_FOUND"), IntType(21)) == IntType(21)
+    with pytest.raises(KeyError):
+        m_1.get(StringType("NOT_FOUND"))
+    with pytest.raises(ValueError):
+        m_bad = MapType([("A", IntType(42)), ("A", StringType("Duplicate"))])
 
 
 def test_string_type():
@@ -294,6 +303,7 @@ def test_string_type():
     assert s_1 != s_2
     assert id(s_1) == id(s_1)
     assert id(s_1) != id(s_2)
+    assert s_2.contains("str")
 
 
 def test_string_issue_48():
@@ -311,29 +321,29 @@ def test_timestamp_type():
     assert ts_1 == ts_1_dt
     assert ts_1 == ts_1_tuple
     assert ts_1 == ts_1_m
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         TimestampType("2009-02-13T23:31:xyZ")
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         TimestampType(IntType(42))
     assert repr(ts_1) == repr(ts_1_m)
     assert str(ts_1) == "2009-02-13T23:31:30Z"
     assert TimestampType(2009, 2, 13, 23, 31, 0) + DurationType("30s") == ts_1
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         assert TimestampType(2009, 2, 13, 23, 31, 0) + StringType("30s")
     assert DurationType("30s") + TimestampType(2009, 2, 13, 23, 31, 0) == ts_1
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         assert StringType("30s") + TimestampType(2009, 2, 13, 23, 31, 0)
     assert (
         TimestampType(2009, 2, 13, 0, 0, 0) - TimestampType(2009, 1, 1, 0, 0, 0)
         == DurationType(datetime.timedelta(days=43))
     )
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         assert TimestampType(2009, 2, 13, 23, 31, 0) - StringType("30s")
     assert TimestampType(2009, 2, 13, 23, 32, 0) - DurationType("30s") == ts_1
 
     assert ts_1.getDate() == IntType(13)
     assert ts_1.getDate("+00:00") == IntType(13)
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         assert ts_1.getDate("+no:pe") == IntType(13)
     assert ts_1.getDayOfMonth() == IntType(12)
     assert ts_1.getDayOfWeek() == IntType(5)
@@ -375,15 +385,15 @@ def test_duration_type():
     d_1 = DurationType("43200s")
     assert d_1 == d_1_dt
     assert d_1 == d_1_tuple
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         DurationType(datetime.timedelta(seconds=315576000001))
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         DurationType("not:a:duration")
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         DurationType("315576000001s")
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         DurationType(IntType(315576000001))
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         DurationType({"Some": "JSON"})
     assert repr(d_1) == "DurationType('43200s')"
     assert str(d_1) == "43200s"
@@ -396,13 +406,13 @@ def test_duration_type():
     # See https://github.com/google/cel-spec/issues/138
     assert DurationType("+2m30s").getSeconds() == IntType(150)
     assert DurationType("-2m30s").getSeconds() == IntType(-150)
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         DurationType("-2w30z")
 
 
 def test_function_type():
     f_1 = FunctionType()
-    with raises(NotImplementedError):
+    with pytest.raises(NotImplementedError):
         f_1(IntType(0))
 
 
@@ -415,14 +425,13 @@ def test_int32_value():
 
 
 def test_type_type():
-    t_1 = TypeType("DOUBLE")
     t_2 = TypeType("IntType")
-    with raises(TypeError):
-        t_3 = TypeType("not_a_type")
+    t_3 = TypeType("not_a_type")
     t_4 = TypeType(DoubleType(3.14159))
-    assert t_1 == t_1
-    assert t_1 != t_2
-    assert t_1 == t_4
+    assert t_2 == t_2
+    assert t_2 == t_3
+    assert t_2 != t_4
+    assert TypeType(DoubleType) is TypeType
 
 
 def test_message_type():
@@ -430,5 +439,5 @@ def test_message_type():
     assert mt_1["name"] == IntType(42)
     mt_2 = MessageType(value=IntType(42))
     assert mt_2["value"] == IntType(42)
-    with raises(TypeError):
+    with pytest.raises(TypeError):
         MessageType("not", "good")

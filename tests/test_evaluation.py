@@ -15,11 +15,11 @@
 """
 Test all the evaluation methods.
 
-A large number of tests use :py:meth:`Evaluator.evaluate`.
+A large number of tests exercise :py:meth:`Evaluator.evaluate`.
 
-This may not be ideal from a unit testing perspective. This approach
-tends to test the superclass :py:meth:`lark.visitors.Interpreter.visit`,
-which involves testing a fair amount of Lark code.
+The approach used here may not be ideal from a unit testing perspective. 
+This approach tends to test the superclass :py:meth:`lark.visitors.Interpreter.visit`,
+which involves re-testing a fair amount of Lark code.
 
 The alternative is to test methods in detail. For example,
 using :py:meth:`Evaluator.expr` directly with a :py:class:`lark.Tree` object and
@@ -114,18 +114,20 @@ def test_eval_error_decorator():
         elif a == sentinel.OtherError:
             raise ValueError(sentinel.value_error_message)
         else:
-            return sentinel.c
+            return sentinel.A_OP_B
 
-    result_1 = mock_operation(sentinel.TypeError, sentinel.b)
+    result_1 = mock_operation(sentinel.TypeError, sentinel.VALUE)
+    assert isinstance(result_1, CELEvalError)
     assert result_1.args == (sentinel.eval_message, TypeError, (sentinel.type_error_message,))
     assert result_1.__cause__.__class__ == TypeError
 
     with pytest.raises(ValueError) as exc_info:
-        result_2 = mock_operation(sentinel.OtherError, sentinel.b)
+        result_2 = mock_operation(sentinel.OtherError, sentinel.VALUE)
+    assert not isinstance(exc_info.value, CELEvalError)
     assert exc_info.value.args == (sentinel.value_error_message,)
 
-    result_3 = mock_operation(sentinel.a, sentinel.b)
-    assert result_3 == sentinel.c
+    result_3 = mock_operation(sentinel.A, sentinel.B)
+    assert result_3 == sentinel.A_OP_B
 
 
 def test_boolean_decorator():
@@ -146,6 +148,10 @@ def test_boolean_decorator():
 
 
 def test_operator_in():
+    """
+    Was a separate function.
+    Revised with 0.4.0 release to be method of String,Type ListType, and MapType.
+    """
     container_1 = celtypes.ListType([
         celtypes.IntType(42),
         celtypes.IntType(6),
@@ -207,6 +213,7 @@ def test_referent():
     assert r_1.annotation is celtypes.IntType
     assert r_1.container is None
     assert r_1.value is celtypes.IntType
+    assert r_0 != r_1
     r_1.value = celtypes.IntType(42)
     assert r_1.annotation is celtypes.IntType
     assert r_1.container is None
@@ -218,6 +225,7 @@ def test_referent():
     assert r_1.container is nc
     assert r_1.value == nc  # preferred over the assigned value.
     r_c = r_1.clone()
+    assert r_c == r_1
     assert r_c.container == r_1.container
     assert r_c.value == r_1.value
 
@@ -232,8 +240,15 @@ def test_name_container():
             "a.b.c": celtypes.StringType("yeah"),
         }
     )
-    member_dot = nc.resolve_name("", "a").resolve_name("", "b").resolve_name("", "c")
-    assert member_dot == celtypes.StringType("yeah")
+    assert nc.find_name([]).value == nc
+    assert nc.find_name(["a","b","c"]).value == celtypes.StringType("yeah")
+    member_dot = nc.resolve_name("", "a").container.resolve_name("", "b").container.resolve_name("", "c")
+    assert member_dot.value == celtypes.StringType("yeah")
+
+    nc2 = NameContainer()
+    nc2.load_values({"answer": celtypes.IntType(42)})
+    with pytest.raises(TypeError):
+        nc2.find_name(["answer", "nope"]).value
 
 
 def test_name_container_init():
@@ -258,6 +273,13 @@ def test_activation_no_package_no_vars():
         annotations={"x": celtypes.IntType},
         vars={"x": celtypes.IntType(42)})
     assert a_n.resolve_variable("x") == celtypes.IntType(42)
+
+
+def test_activation_annotation_no_vars():
+    a = Activation(annotations={"answer": celtypes.IntType})
+    with pytest.raises(KeyError) as exc_info:
+        print(f"Found {a.undefined=}")
+    assert exc_info.value.args == ("undefined",)
 
 
 def test_activation_jq_package_vars():
@@ -340,7 +362,6 @@ def test_activation_bad_dot_name_syntax():
             }
         )
 
-
 @pytest.fixture
 def mock_tree():
     tree = Mock(
@@ -351,10 +372,6 @@ def mock_tree():
         ]
     )
     return tree
-
-def test_find_ident(mock_tree):
-    fi = FindIdent.in_tree(mock_tree)
-    assert fi == sentinel.ident
 
 
 def test_trace_decorator(mock_tree):
@@ -376,19 +393,6 @@ def test_trace_decorator(mock_tree):
         call('%s%s -> %r', '| ', 'ident', sentinel.result)
     ]
 
-def test_evaluator_init():
-    tree = lark.Tree(data="literal", children=[])
-    activation = Mock()
-    def override(a):
-        return celtypes.BoolType(False)
-    e_0 = Evaluator(tree, activation)
-    assert e_0.functions == celpy.evaluation.base_functions
-    e_1 = Evaluator(tree, activation, functions=[override])
-    assert e_1.functions['override'] == override
-    e_2 = Evaluator(tree, activation, functions={"override": override})
-    assert e_2.functions['override'] == override
-
-
 def test_set_activation():
     tree = lark.Tree(data="literal", children=[])
     activation = Activation(
@@ -409,55 +413,135 @@ def test_set_activation():
     assert e_0.ident_value('int') == celtypes.IntType
 
 
-def test_function_eval(monkeypatch):
+def test_function_eval_0(monkeypatch):
     tree = lark.Tree(
         data="primary",
         children=[]
     )
-    activation = Mock()
+    activation = Mock(spec=Activation, resolve_function=Mock(side_effect=KeyError))
     evaluator = Evaluator(
         tree,
         activation
     )
-    assert isinstance(evaluator.function_eval(lark.Token("IDENT", "nope")), CELEvalError)
-    error = CELEvalError(sentinel.message)
-    assert evaluator.function_eval(lark.Token("IDENT", "size"), error) == error
 
-    monkeypatch.setitem(evaluator.functions, "size", Mock(side_effect=ValueError(sentinel.value)))
+    unknown_function_result = evaluator.function_eval(lark.Token("IDENT", "nope"))
+    print(f"{unknown_function_result=}")
+    assert isinstance(unknown_function_result, CELEvalError)
+
+def test_function_eval_1(monkeypatch):
+    tree = lark.Tree(
+        data="primary",
+        children=[]
+    )
+    activation = Mock(spec=Activation, resolve_function=Mock(return_value=function_size))
+    evaluator = Evaluator(
+        tree,
+        activation
+    )
+
+    error = CELEvalError(sentinel.message)
+    function_of_error_result = evaluator.function_eval(lark.Token("IDENT", "size"), error)
+    print(f"{function_of_error_result=}")
+    assert function_of_error_result == error
+
+def test_function_eval_2(monkeypatch):
+    mock_size = Mock(side_effect=ValueError(sentinel.value))
+    tree = lark.Tree(
+        data="primary",
+        children=[]
+    )
+    activation = Mock(spec=Activation,
+                      resolve_function=Mock(return_value=mock_size))
+    evaluator = Evaluator(
+        tree,
+        activation
+    )
+
     value = evaluator.function_eval(lark.Token("IDENT", "size"))
     assert isinstance(value, CELEvalError)
     assert value.args[1] == ValueError, f"{value.args} != (..., ValueError, ...)"
     assert value.args[2] == (sentinel.value,), f"{value.args} != (..., ..., (sentinel.value,))"
 
-    monkeypatch.setitem(evaluator.functions, "size", Mock(side_effect=TypeError(sentinel.type)))
+def test_function_eval_3(monkeypatch):
+    mock_size = Mock(side_effect=TypeError(sentinel.type))
+    tree = lark.Tree(
+        data="primary",
+        children=[]
+    )
+    activation = Mock(spec=Activation,
+                      resolve_function=Mock(return_value=mock_size))
+    evaluator = Evaluator(
+        tree,
+        activation
+    )
+
     value = evaluator.function_eval(lark.Token("IDENT", "size"))
     assert isinstance(value, CELEvalError)
     assert value.args[1] == TypeError, f"{value.args} != (..., TypeError, ...)"
     assert value.args[2] == (sentinel.type,), f"{value.args} != (..., ..., (sentinel.type,))"
 
 
-def test_method_eval(monkeypatch):
+def test_method_eval_0(monkeypatch):
     tree = lark.Tree(
         data="primary",
         children=[]
     )
-    activation = Mock()
+    activation = Mock(spec=Activation, functions=sentinel.FUNCTIONS, resolve_function=Mock(side_effect=KeyError))
     evaluator = Evaluator(
         tree,
         activation
     )
-    assert isinstance(evaluator.method_eval(None, lark.Token("IDENT", "nope")), CELEvalError)
+
+    unknown_method_result = evaluator.method_eval(None, lark.Token("IDENT", "nope"))
+    print(f"{unknown_method_result=}")
+    assert isinstance(unknown_method_result, CELEvalError)
+
+def test_method_eval_1(monkeypatch):
+    tree = lark.Tree(
+        data="primary",
+        children=[]
+    )
+    activation = Mock(spec=Activation, resolve_function=Mock(return_value=function_size))
+    evaluator = Evaluator(
+        tree,
+        activation
+    )
+
     error = CELEvalError(sentinel.message)
     assert evaluator.method_eval(error, lark.Token("IDENT", "size"), None) == error
     assert evaluator.method_eval(None, lark.Token("IDENT", "size"), error) == error
 
-    monkeypatch.setitem(evaluator.functions, "size", Mock(side_effect=ValueError(sentinel.value)))
+def test_method_eval_2(monkeypatch):
+    mock_function = Mock(side_effect=ValueError(sentinel.value))
+    tree = lark.Tree(
+        data="primary",
+        children=[]
+    )
+    activation = Mock(spec=Activation,
+                      resolve_function=Mock(return_value=mock_function))
+    evaluator = Evaluator(
+        tree,
+        activation
+    )
+
     value = evaluator.method_eval(None, lark.Token("IDENT", "size"))
     assert isinstance(value, CELEvalError)
     assert value.args[1] == ValueError, f"{value.args} != (..., ValueError, ...)"
     assert value.args[2] == (sentinel.value,), f"{value.args} != (..., ..., (sentinel.value,))"
 
-    monkeypatch.setitem(evaluator.functions, "size", Mock(side_effect=TypeError(sentinel.type)))
+def test_method_eval_3(monkeypatch):
+    mock_function = Mock(side_effect=TypeError(sentinel.type))
+    tree = lark.Tree(
+        data="primary",
+        children=[]
+    )
+    activation = Mock(spec=Activation,
+                      resolve_function=Mock(return_value=mock_function))
+    evaluator = Evaluator(
+        tree,
+        activation
+    )
+
     value = evaluator.method_eval(None, lark.Token("IDENT", "size"))
     assert isinstance(value, CELEvalError)
     assert value.args[1] == TypeError, f"{value.args} != (..., TypeError, ...)"
@@ -536,7 +620,7 @@ def mock_left_expr_tree():
 
 def test_eval_expr_3_left_good(mock_left_expr_tree):
     """Assert ``true ? 6 : invalid`` does not execute the invalid expression."""
-    activation = Mock()
+    activation = Mock(resolve_function=Mock(return_value=celpy.celtypes.logical_condition))
     evaluator = Evaluator(
         mock_left_expr_tree,
         activation
@@ -548,11 +632,10 @@ def test_eval_expr_3_left_good(mock_left_expr_tree):
 def test_eval_expr_3_bad_override(mock_left_expr_tree):
     def bad_condition(a, b, c):
         raise TypeError
-    activation = Mock()
+    activation = Mock(resolve_function=Mock(return_value=bad_condition))
     evaluator = Evaluator(
         mock_left_expr_tree,
         activation,
-        functions={"_?_:_": bad_condition}
     )
     with pytest.raises(celpy.evaluation.CELEvalError) as exc_info:
         evaluator.evaluate()
@@ -561,11 +644,10 @@ def test_eval_expr_3_bad_override(mock_left_expr_tree):
 def test_eval_expr_3_bad_cond_value(mock_left_expr_tree):
     def bad_condition(a, b, c):
         raise celpy.evaluation.CELEvalError("Baseline Error")
-    activation = Mock()
+    activation = Mock(resolve_function=Mock(return_value=bad_condition))
     evaluator = Evaluator(
         mock_left_expr_tree,
         activation,
-        functions={"_?_:_": bad_condition}
     )
     with pytest.raises(celpy.evaluation.CELEvalError) as exc_info:
         evaluator.evaluate()
@@ -598,7 +680,7 @@ def mock_right_expr_tree():
 
 def test_eval_expr_3_right_good(mock_right_expr_tree):
     """Assert ``false ? invalid : 7`` does not execute the invalid expression."""
-    activation = Mock()
+    activation = Mock(resolve_function=Mock(return_value=celtypes.logical_condition))
     evaluator = Evaluator(
         mock_right_expr_tree,
         activation
@@ -670,7 +752,7 @@ def binop_2_tree(data, lit_type, lit_value_1, lit_value_2):
 
 def test_eval_conditionalor_2_good():
     tree = binop_2_tree("conditionalor", "BOOL_LIT", "false", "true")
-    activation = Mock()
+    activation = Mock(resolve_function=Mock(return_value=celtypes.logical_or))
     evaluator = Evaluator(
         tree,
         activation
@@ -682,11 +764,11 @@ def test_eval_conditionalor_2_bad_override():
     def bad_logical_or(a, b):
         raise TypeError
     tree = binop_2_tree("conditionalor", "BOOL_LIT", "false", "true")
-    activation = Mock()
+    activation = Mock(resolve_function=Mock(return_value=bad_logical_or))
     evaluator = Evaluator(
         tree,
         activation,
-        functions={"_||_": bad_logical_or}
+        # functions={"_||_": bad_logical_or}
     )
     with pytest.raises(celpy.evaluation.CELEvalError):
         evaluator.evaluate()
@@ -722,7 +804,7 @@ def test_eval_conditionaland_1():
 
 def test_eval_conditionaland_2_good():
     tree = binop_2_tree("conditionaland", "BOOL_LIT", "false", "true")
-    activation = Mock()
+    activation = Mock(resolve_function=Mock(return_value=celtypes.logical_and))
     evaluator = Evaluator(
         tree,
         activation
@@ -734,11 +816,10 @@ def test_eval_conditionaland_2_bad_override():
     def bad_logical_and(a, b):
         raise TypeError
     tree = binop_2_tree("conditionaland", "BOOL_LIT", "false", "true")
-    activation = Mock()
+    activation = Mock(resolve_function=Mock(return_value=bad_logical_and))
     evaluator = Evaluator(
         tree,
         activation,
-        functions={"_&&_": bad_logical_and}
     )
     with pytest.raises(celpy.evaluation.CELEvalError):
         evaluator.evaluate()
@@ -859,8 +940,8 @@ def test_binops(binop_trees):
     to provide an override for.
     """
     t_0, t_1, t_2, expected, function = binop_trees
-    activation = Mock()
 
+    activation = Mock(resolve_function=Mock(return_value=base_functions[function]))
     evaluator_0 = Evaluator(
         t_0,
         activation
@@ -886,10 +967,10 @@ def test_binops(binop_trees):
 
     def bad_function(a, b):
         raise TypeError
+    activation = Mock(resolve_function=Mock(return_value=bad_function))
     evaluator_2_b = Evaluator(
         t_2,
         activation,
-        functions={function: bad_function}
     )
     with pytest.raises(celpy.evaluation.CELEvalError):
         evaluator_2_b.evaluate()
@@ -965,7 +1046,7 @@ def test_unops(unop_trees):
     to provide an override for.
     """
     t_0, t_1, t_2, expected, function = unop_trees
-    activation = Mock()
+    activation = Mock(resolve_function=Mock(return_value=base_functions[function]))
 
     evaluator_0 = Evaluator(
         t_0,
@@ -992,19 +1073,20 @@ def test_unops(unop_trees):
 
     def bad_function(a, b):
         raise TypeError
+    activation = Mock(resolve_function=Mock(return_value=bad_function))
     evaluator_2_b = Evaluator(
         t_2,
         activation,
-        functions={function: bad_function}
     )
     with pytest.raises(celpy.evaluation.CELEvalError):
         evaluator_2_b.evaluate()
 
-# The following use a patch to :py:meth:`Evaluator.visit_children` to produce useful answers.
-# It simplifies the required :py:class:`lark.Tree` object.
-
 
 def test_member(monkeypatch):
+    """
+    Uses a patch to :py:meth:`Evaluator.visit_children` to produce useful answers.
+    It simplifies the required :py:class:`lark.Tree` object.
+    """
     visit_children = Mock(return_value=[celtypes.IntType(42)])
     monkeypatch.setattr(Evaluator, 'visit_children', visit_children)
     tree = lark.Tree(
@@ -1231,7 +1313,7 @@ def test_member_dot_package(monkeypatch):
 
 
 def test_member_dot_missing_package(monkeypatch):
-    """Activation has ``{"name1": {"name2": Annotation}}`` created from "name1.name2".
+    """Activation has ``{"name1": {"not the expected name": Annotation}}`` created from "name1.not the expected name".
 
     To get a parse tree::
 
@@ -1273,7 +1355,7 @@ def test_member_dot_missing_package(monkeypatch):
 
 
 def test_member_dot_arg_method_0(monkeypatch):
-    """A method, e.g., Timestamp(1234567890).getMonth(); distinct from the macros."""
+    """A method, e.g., timestamp("2009-02-13T23:31:30Z").getMonth(); distinct from the macros."""
     visit_children = Mock(
         return_value=[
             celtypes.TimestampType("2009-02-13T23:31:30Z"),
@@ -1300,7 +1382,7 @@ def test_member_dot_arg_method_0(monkeypatch):
     )
     evaluator_0 = Evaluator(
         tree,
-        activation=Mock()
+        activation=Mock(resolve_function=Mock(return_value=function_getMonth))
     )
     assert evaluator_0.member_dot_arg(tree.children[0]) == celtypes.IntType(1)
 
@@ -1337,7 +1419,7 @@ def test_member_dot_arg_method_1(monkeypatch):
     )
     evaluator_0 = Evaluator(
         tree,
-        activation=Mock()
+        activation=Mock(resolve_function=Mock(return_value=function_contains))
     )
     assert evaluator_0.member_dot_arg(tree.children[0]) == celtypes.BoolType(True)
 
@@ -1350,18 +1432,16 @@ def test_build_macro_eval(monkeypatch):
 
     mock_evaluator_class = Mock(
         return_value=Mock(
+            # OLD DESIGN
             set_activation=Mock(
                 return_value=Mock(
                     evaluate=Mock(return_value=sentinel.output)
                 )
-            )
+            ),
+            evaluate=Mock(return_value=sentinel.output)
         )
     )
     monkeypatch.setattr(celpy.evaluation, 'Evaluator',  mock_evaluator_class)
-    mock_find_ident_class = Mock(
-        in_tree=Mock(return_value=sentinel.variable)
-    )
-    monkeypatch.setattr(celpy.evaluation, 'FindIdent',  mock_find_ident_class)
 
     sub_expression = lark.Tree(data="expr", children=[])
     child = lark.Tree(
@@ -1383,27 +1463,17 @@ def test_build_macro_eval(monkeypatch):
     )
     subexpr = evaluator_0.build_macro_eval(child)
 
-    # `FindIdent` walked the tree to locate the variable name.
-    assert mock_find_ident_class.in_tree.mock_calls == [
-        call(lark.Tree("ident", [lark.Token("IDENT", 'variable')]))
-    ]
-
     # Nested `Evaluator` instance created
     assert mock_evaluator_class.mock_calls == [
-        call(sub_expression, activation=evaluator_0.activation, functions=evaluator_0.functions)
+        call(sub_expression, activation=evaluator_0.activation)  # , functions=evaluator_0.functions)
     ]
 
     # When we evaluated the sub-expression created, it uses the nest `Evaluator` instance.
     assert subexpr(sentinel.input) == sentinel.output
 
     # The nested evaluator's top-level activation had the input value set.
-    assert mock_evaluator_class.return_value.set_activation.mock_calls == [
-        call({sentinel.variable: sentinel.input})
-    ]
-
-    # And. The nested evaluator's evaluate() was used to produce the answer.
-    assert mock_evaluator_class.return_value.set_activation.return_value.evaluate.mock_calls == [
-        call()
+    assert mock_evaluator_class.return_value.evaluate.mock_calls == [
+        call({'variable': sentinel.input})
     ]
 
 
@@ -1415,18 +1485,16 @@ def test_build_ss_macro_eval(monkeypatch):
 
     mock_evaluator_class = Mock(
         return_value=Mock(
+            # OLD DESIGN
             set_activation=Mock(
                 return_value=Mock(
                     evaluate=Mock(side_effect=[sentinel.output, CELEvalError])
                 )
-            )
+            ),
+            evaluate=Mock(side_effect=[sentinel.output, CELEvalError])
         )
     )
     monkeypatch.setattr(celpy.evaluation, 'Evaluator',  mock_evaluator_class)
-    mock_find_ident_class = Mock(
-        in_tree=Mock(return_value=sentinel.variable)
-    )
-    monkeypatch.setattr(celpy.evaluation, 'FindIdent',  mock_find_ident_class)
 
     sub_expression = lark.Tree(data="expr", children=[])
     child = lark.Tree(
@@ -1448,14 +1516,9 @@ def test_build_ss_macro_eval(monkeypatch):
     )
     subexpr = evaluator_0.build_ss_macro_eval(child)
 
-    # `FindIdent` walked the tree to locate the variable name.
-    assert mock_find_ident_class.in_tree.mock_calls == [
-        call(lark.Tree("ident", [lark.Token("IDENT", 'variable')]))
-    ]
-
     # Nested `Evaluator` instance created
     assert mock_evaluator_class.mock_calls == [
-        call(sub_expression, activation=evaluator_0.activation, functions=evaluator_0.functions)
+        call(sub_expression, activation=evaluator_0.activation) # , functions=evaluator_0.functions)
     ]
 
     # When we evaluated the sub-expression created, it uses the nest `Evaluator` instance.
@@ -1467,15 +1530,9 @@ def test_build_ss_macro_eval(monkeypatch):
     assert isinstance(subexpr(sentinel.input), CELEvalError)
 
     # The nested evaluator's top-level activation had the input value set.
-    assert mock_evaluator_class.return_value.set_activation.mock_calls == [
-        call({sentinel.variable: sentinel.input}),
-        call({sentinel.variable: sentinel.input}),
-    ]
-
-    # And. The nested evaluator's evaluate() was used to produce the answer.
-    assert mock_evaluator_class.return_value.set_activation.return_value.evaluate.mock_calls == [
-        call(),
-        call(),
+    assert mock_evaluator_class.return_value.evaluate.mock_calls == [
+        call({'variable': sentinel.input}),
+        call({'variable': sentinel.input}),
     ]
 
 def test_build_reduce_macro_eval(monkeypatch):
@@ -1486,18 +1543,16 @@ def test_build_reduce_macro_eval(monkeypatch):
 
     mock_evaluator_class = Mock(
         return_value=Mock(
+            # OLD DESIGN
             set_activation=Mock(
                 return_value=Mock(
                     evaluate=Mock(return_value=sentinel.output)
                 )
-            )
+            ),
+            evaluate=Mock(return_value=sentinel.output)
         )
     )
     monkeypatch.setattr(celpy.evaluation, 'Evaluator', mock_evaluator_class)
-    mock_find_ident_class = Mock(
-        in_tree=Mock(return_value=sentinel.variable)
-    )
-    monkeypatch.setattr(celpy.evaluation, 'FindIdent', mock_find_ident_class)
 
     sub_expression_1 = lark.Tree(data="expr", children=["1"])
     sub_expression_2 = lark.Tree(data="expr", children=["2"])
@@ -1522,15 +1577,9 @@ def test_build_reduce_macro_eval(monkeypatch):
     )
     subexpr, init_value = evaluator_0.build_reduce_macro_eval(child)
 
-    # `FindIdent` walked the tree to locate the variable name.
-    assert mock_find_ident_class.in_tree.mock_calls == [
-        call(lark.Tree("ident", [lark.Token("IDENT", 'r')])),
-        call(lark.Tree("ident", [lark.Token("IDENT", 'i')]))
-    ]
-
     # Nested `Evaluator` instance created
     assert mock_evaluator_class.mock_calls == [
-        call(sub_expression_2, activation=evaluator_0.activation, functions=evaluator_0.functions)
+        call(sub_expression_2, activation=evaluator_0.activation) # , functions=evaluator_0.functions)
     ]
 
     # init_value is the sub_expression
@@ -1540,17 +1589,13 @@ def test_build_reduce_macro_eval(monkeypatch):
     assert subexpr(sentinel.input1, sentinel.input2) == sentinel.output
 
     # The nested evaluator's top-level activation had the input value set.
-    assert mock_evaluator_class.return_value.set_activation.mock_calls == [
-        call({sentinel.variable: sentinel.input2})
-    ]
-
-    # And. The nested evaluator's evaluate() was used to produce the answer.
-    assert mock_evaluator_class.return_value.set_activation.return_value.evaluate.mock_calls == [
-        call()
+    assert mock_evaluator_class.return_value.evaluate.mock_calls == [
+        call({'r': sentinel.input1, 'i': sentinel.input2})
     ]
 
 
 def macro_member_tree(macro_name, *args):
+    """Creates 'placeholder.macro_name(*args)' default args are variable, 0."""
     tree = lark.Tree(
         data="member",
         children=[
@@ -1835,7 +1880,7 @@ def test_member_index(index_trees):
 
     evaluator_0 = Evaluator(
         tree,
-        activation=Mock()
+        activation=Mock(resolve_function=Mock(return_value=operator.getitem))
     )
     if isinstance(expected, type):
         # Does the member_index() method produce a CELEvalError instance?
@@ -2267,10 +2312,11 @@ def test_primary_ident_arg_empty(monkeypatch):
         ],
         meta=Mock(line=1, column=1)
     )
+    shake_hands_function = Mock(return_value=sentinel.value)
     evaluator_0 = Evaluator(
         tree,
-        activation=Mock(),
-        functions = {"shake_hands": Mock(return_value=sentinel.value)}
+        activation=Mock(resolve_function=Mock(return_value=shake_hands_function)),
+        # functions = {"shake_hands": Mock(return_value=sentinel.value)}
     )
     assert evaluator_0.primary(tree) == sentinel.value
     assert visit_children.mock_calls == [call(lark.Tree("exprlist", []))]

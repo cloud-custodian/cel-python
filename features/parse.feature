@@ -7,7 +7,8 @@ Feature: parse
 Scenario: list_index
           Member = Member '[' Expr ']'
    #     type:{list_type:{elem_type:{primitive:INT64}}}
-   Given type_env parameter "a" is TypeType(value='list_type')
+   # Given type_env parameter "a" is TypeType(value='list_type')
+   Given type_env parameter "a" is list_type
 
    #     list_value:{values:{int64_value:0}}
    Given bindings parameter "a" is [IntType(source=0)]

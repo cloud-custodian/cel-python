@@ -1214,7 +1214,8 @@ Scenario: key_in_mixed_key_type_map_error
 Scenario: bytes_gt_left_false
 
    #     type:{primitive:BYTES}
-   Given type_env parameter "x" is TypeType(value='BYTES')
+   # Given type_env parameter "x" is TypeType(value='BYTES')
+   Given type_env parameter "x" is BYTES
 
    #     bytes_value:"\x00"
    Given bindings parameter "x" is BytesType(source=b'\x00')
@@ -1227,7 +1228,8 @@ Scenario: bytes_gt_left_false
 Scenario: int_lte_right_true
 
    #     type:{primitive:INT64}
-   Given type_env parameter "x" is TypeType(value='INT64')
+   # Given type_env parameter "x" is TypeType(value='INT64')
+   Given type_env parameter "x" is INT64
 
    #     int64_value:124
    Given bindings parameter "x" is IntType(source=124)
@@ -1240,7 +1242,8 @@ Scenario: int_lte_right_true
 Scenario: bool_lt_right_true
 
    #     type:{primitive:BOOL}
-   Given type_env parameter "x" is TypeType(value='BOOL')
+   # Given type_env parameter "x" is TypeType(value='BOOL')
+   Given type_env parameter "x" is BOOL
 
    #     bool_value:true
    Given bindings parameter "x" is BoolType(source=True)
@@ -1253,7 +1256,8 @@ Scenario: bool_lt_right_true
 Scenario: double_ne_left_false
 
    #     type:{primitive:DOUBLE}
-   Given type_env parameter "x" is TypeType(value='DOUBLE')
+   # Given type_env parameter "x" is TypeType(value='DOUBLE')
+   Given type_env parameter "x" is DOUBLE
 
    #     double_value:9.8
    Given bindings parameter "x" is DoubleType(source=9.8)
@@ -1266,7 +1270,8 @@ Scenario: double_ne_left_false
 Scenario: map_ne_right_false
 
    #     type:{map_type:{key_type:{primitive:STRING} value_type:{primitive:STRING}}}
-   Given type_env parameter "x" is TypeType(value='map_type')
+   # Given type_env parameter "x" is TypeType(value='map_type')
+   Given type_env parameter "x" is map_type
 
    #     map_value:{entries:{key:{string_value:"c"} value:{string_value:"d"}} entries:{key:{string_value:"a"} value:{string_value:"b"}}}
    Given bindings parameter "x" is MapType({StringType(source='c'): StringType(source='d'), StringType(source='a'): StringType(source='b')})
@@ -1279,7 +1284,8 @@ Scenario: map_ne_right_false
 Scenario: null_eq_left_true
           A comparison _==_ against null only binds if the type is determined to be null or we skip the type checking
    #     type:{null:NULL_VALUE}
-   Given type_env parameter "x" is TypeType(value=None)
+   # Given type_env parameter "x" is TypeType(value=None)
+   Given type_env parameter "x" is null_type
 
    #     null_value:NULL_VALUE
    Given bindings parameter "x" is None
@@ -1292,7 +1298,8 @@ Scenario: null_eq_left_true
 Scenario: list_eq_right_false
 
    #     type:{list_type:{elem_type:{primitive:INT64}}}
-   Given type_env parameter "x" is TypeType(value='list_type')
+   # Given type_env parameter "x" is TypeType(value='list_type')
+   Given type_env parameter "x" is list_type
 
    #     list_value:{values:{int64_value:2} values:{int64_value:1}}
    Given bindings parameter "x" is [IntType(source=2), IntType(source=1)]
@@ -1305,7 +1312,8 @@ Scenario: list_eq_right_false
 Scenario: string_gte_right_true
 
    #     type:{primitive:STRING}
-   Given type_env parameter "x" is TypeType(value='STRING')
+   # Given type_env parameter "x" is TypeType(value='STRING')
+   Given type_env parameter "x" is STRING
 
    #     string_value:"abc"
    Given bindings parameter "x" is StringType(source='abc')
@@ -1318,7 +1326,8 @@ Scenario: string_gte_right_true
 Scenario: uint_eq_right_false
 
    #     type:{primitive:UINT64}
-   Given type_env parameter "x" is TypeType(value='UINT64')
+   # Given type_env parameter "x" is TypeType(value='UINT64')
+   Given type_env parameter "x" is UINT64
 
    #     uint64_value:1000
    Given bindings parameter "x" is UintType(source=1000)
@@ -1331,7 +1340,8 @@ Scenario: uint_eq_right_false
 Scenario: null_lt_right_no_such_overload
           There is no _<_ operation for null, even if both operands are null
    #     type:{null:NULL_VALUE}
-   Given type_env parameter "x" is TypeType(value=None)
+   # Given type_env parameter "x" is TypeType(value=None)
+   Given type_env parameter "x" is null_type
 
    #     null_value:NULL_VALUE
    Given bindings parameter "x" is None

@@ -1,3 +1,4 @@
+@future
 Feature: proposed features, not yet part of CEL
 See https://github.com/google/cel-spec/issues/143 for the new macros
 - <range_expr>.reduce(<reduce_var>, <iter_var>, <init_expr>, <op_expr>)

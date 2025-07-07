@@ -34,7 +34,6 @@ dependencies = [
     "pyyaml>=6.0.2",
     "jmespath>=1.0.1",
     "tomli >= 1.1.0 ; python_version < '3.11'",
-    "sphinx>=7.4.7",
 ]
 
 [project.scripts]
@@ -59,8 +58,10 @@ dev = [
     "mypy>=1.15.0",
     "pytest>=8.3.5",
     "ruff>=0.11.10",
+    "sphinx>=7.4.7",
     "tox>=4.24",
     "tox-uv>=1.25.0",
     "types-pyyaml>=6.0.12.20250516",
     "google-re2-stubs",
+    "sphinxcontrib-plantuml>=0.30",
 ]

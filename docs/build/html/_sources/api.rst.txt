@@ -5,10 +5,29 @@
 ..  _`api`:
 
 ###########
-CEL-Py API
+API
 ###########
 
 Details of the CEL-Python implementation and the API to the various components.
+
+The following modules are described here:
+
+-   celpy_ (The ``__init__.py`` file defines this.)
+
+-   \_\_main\_\_ (The CLI main application.)
+
+-   adapter_
+
+-   c7nlib_
+
+-   celparser_
+
+-   celtypes_
+
+-   evaluation_
+
+``celpy``
+=========
 
 ..  automodule:: celpy.__init__
 
@@ -17,18 +36,28 @@ Details of the CEL-Python implementation and the API to the various components.
 
 ..  automodule:: celpy.__main__
 
-celtypes
-=========
+``adapter``
+===========
+
+..  automodule:: celpy.adapter
+
+``c7nlib``
+===========
+
+..  automodule:: celpy.c7nlib
+
+``celparser``
+=============
+
+..  automodule:: celpy.celparser
+
+``celtypes``
+=============
 
 ..  automodule:: celpy.celtypes
 
-evaluation
-==========
+``evaluation``
+==============
 
 ..  automodule:: celpy.evaluation
-
-parser
-======
-
-..  automodule:: celpy.celparser
 

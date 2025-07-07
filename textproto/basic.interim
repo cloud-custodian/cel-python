@@ -1,0 +1,275 @@
+
+Feature: basic
+         Basic conformance tests that all implementations should pass.
+
+# self_eval_zeroish -- Simple self-evaluating forms to zero-ish values.
+
+Scenario: self_eval_int_zero
+          
+    When CEL expression "0" is evaluated
+    Then value is int64_value:0
+
+
+Scenario: self_eval_uint_zero
+          
+    When CEL expression "0u" is evaluated
+    Then value is uint64_value:0
+
+
+Scenario: self_eval_float_zero
+          
+    When CEL expression "0.0" is evaluated
+    Then value is double_value:0
+
+
+Scenario: self_eval_float_zerowithexp
+          
+    When CEL expression "0e+0" is evaluated
+    Then value is double_value:0
+
+
+Scenario: self_eval_string_empty
+          
+    When CEL expression "''" is evaluated
+    Then value is string_value:""
+
+
+Scenario: self_eval_string_empty_quotes
+          
+    When CEL expression "\"\"" is evaluated
+    Then value is string_value:""
+
+
+Scenario: self_eval_string_raw_prefix
+          
+    When CEL expression "r\"\"" is evaluated
+    Then value is string_value:""
+
+
+Scenario: self_eval_bytes_empty
+          
+    When CEL expression "b\"\"" is evaluated
+    Then value is bytes_value:""
+
+
+Scenario: self_eval_bool_false
+          
+    When CEL expression "false" is evaluated
+    Then value is bool_value:false
+
+
+Scenario: self_eval_null
+          
+    When CEL expression "null" is evaluated
+    Then value is null_value:NULL_VALUE
+
+
+Scenario: self_eval_empty_list
+          
+    When CEL expression "[]" is evaluated
+    Then value is list_value:{}
+
+
+Scenario: self_eval_empty_map
+          
+    When CEL expression "{}" is evaluated
+    Then value is map_value:{}
+
+
+Scenario: self_eval_string_raw_prefix_triple_double
+          
+    When CEL expression "r\"\"\"\"\"\"" is evaluated
+    Then value is string_value:""
+
+
+Scenario: self_eval_string_raw_prefix_triple_single
+          
+    When CEL expression "r''''''" is evaluated
+    Then value is string_value:""
+
+
+
+# self_eval_nonzeroish -- Simple self-evaluating forms to non-zero-ish values.
+
+Scenario: self_eval_int_nonzero
+          
+    When CEL expression "42" is evaluated
+    Then value is int64_value:42
+
+
+Scenario: self_eval_uint_nonzero
+          
+    When CEL expression "123456789u" is evaluated
+    Then value is uint64_value:123456789
+
+
+Scenario: self_eval_int_negative_min
+          
+    When CEL expression "-9223372036854775808" is evaluated
+    Then value is int64_value:-9223372036854775808
+
+
+Scenario: self_eval_float_negative_exp
+          
+    When CEL expression "-2.3e+1" is evaluated
+    Then value is double_value:-23
+
+
+Scenario: self_eval_string_excl
+          
+    When CEL expression "\"!\"" is evaluated
+    Then value is string_value:"!"
+
+
+Scenario: self_eval_string_escape
+          
+    When CEL expression "'\\''" is evaluated
+    Then value is string_value:"'"
+
+
+Scenario: self_eval_bytes_escape
+          
+    When CEL expression "b'ÿ'" is evaluated
+    Then value is bytes_value:"ÿ"
+
+
+Scenario: self_eval_bytes_invalid_utf8
+          
+    When CEL expression "b'\\000\\xff'" is evaluated
+    Then value is bytes_value:"\x00\xff"
+
+
+Scenario: self_eval_list_singleitem
+          
+    When CEL expression "[-1]" is evaluated
+    Then value is list_value:{values:{int64_value:-1}}
+
+
+Scenario: self_eval_map_singleitem
+          
+    When CEL expression "{\"k\":\"v\"}" is evaluated
+    Then value is map_value:{entries:{key:{string_value:"k"} value:{string_value:"v"}}}
+
+
+Scenario: self_eval_bool_true
+          
+    When CEL expression "true" is evaluated
+    Then value is bool_value:true
+
+
+Scenario: self_eval_int_hex
+          
+    When CEL expression "0x55555555" is evaluated
+    Then value is int64_value:1431655765
+
+
+Scenario: self_eval_int_hex_negative
+          
+    When CEL expression "-0x55555555" is evaluated
+    Then value is int64_value:-1431655765
+
+
+Scenario: self_eval_uint_hex
+          
+    When CEL expression "0x55555555u" is evaluated
+    Then value is uint64_value:1431655765
+
+
+Scenario: self_eval_unicode_escape_four
+          
+    When CEL expression "\"\\u270c\"" is evaluated
+    Then value is string_value:"✌"
+
+
+Scenario: self_eval_unicode_escape_eight
+          
+    When CEL expression "\"\\U0001f431\"" is evaluated
+    Then value is string_value:"🐱"
+
+
+Scenario: self_eval_ascii_escape_seq
+          
+    When CEL expression "\"\\a\\b\\f\\n\\r\\t\\v\\\"\\'\\\\\"" is evaluated
+    Then value is string_value:"\x07\x08\x0c\n\r\t\x0b\"'\\"
+
+
+
+# variables -- Variable lookups.
+
+Scenario: self_eval_bound_lookup
+          
+   Given type_env parameter "x" is &{type:{primitive:INT64}}
+
+   Given bindings parameter "x" is int64_value:123
+
+    When CEL expression "x" is evaluated
+    Then value is int64_value:123
+
+
+Scenario: self_eval_unbound_lookup
+          An unbound variable should be marked as an error during execution. See google/cel-go#154
+    When CEL expression "x" is evaluated
+    Then eval_error is errors:{message:"undeclared reference to 'x' (in container '')"}
+
+
+Scenario: unbound_is_runtime_error
+          Make sure we can short-circuit around an unbound variable.
+    When CEL expression "x || true" is evaluated
+    Then value is bool_value:true
+
+
+
+# functions -- Basic mechanisms for function calls.
+
+Scenario: binop
+          
+    When CEL expression "1 + 1" is evaluated
+    Then value is int64_value:2
+
+
+Scenario: unbound
+          
+    When CEL expression "f_unknown(17)" is evaluated
+    Then eval_error is errors:{message:"unbound function"}
+
+
+Scenario: unbound_is_runtime_error
+          
+    When CEL expression "f_unknown(17) || true" is evaluated
+    Then value is bool_value:true
+
+
+
+# reserved_const -- Named constants should never be shadowed by identifiers.
+
+Scenario: false
+          
+   Given type_env parameter "false" is &{type:{primitive:BOOL}}
+
+   Given bindings parameter "false" is bool_value:true
+
+    When CEL expression "false" is evaluated
+    Then value is bool_value:false
+
+
+Scenario: true
+          
+   Given type_env parameter "true" is &{type:{primitive:BOOL}}
+
+   Given bindings parameter "true" is bool_value:false
+
+    When CEL expression "true" is evaluated
+    Then value is bool_value:true
+
+
+Scenario: null
+          
+   Given type_env parameter "null" is &{type:{primitive:BOOL}}
+
+   Given bindings parameter "null" is bool_value:true
+
+    When CEL expression "null" is evaluated
+    Then value is null_value:NULL_VALUE
+
+
+
