@@ -243,17 +243,14 @@ def stat(path: Union[Path, str]) -> Optional[celtypes.MapType]:
             "st_atime": celtypes.TimestampType(
                 datetime.datetime.fromtimestamp(status.st_atime)
             ),
-            "st_birthtime": celtypes.TimestampType(
-                datetime.datetime.fromtimestamp(status.st_birthtime)
-            ),
             "st_ctime": celtypes.TimestampType(
                 datetime.datetime.fromtimestamp(status.st_ctime)
             ),
-            "st_dev": celtypes.IntType(status.st_dev),
-            "st_ino": celtypes.IntType(status.st_ino),
             "st_mtime": celtypes.TimestampType(
                 datetime.datetime.fromtimestamp(status.st_mtime)
             ),
+            "st_dev": celtypes.IntType(status.st_dev),
+            "st_ino": celtypes.IntType(status.st_ino),
             "st_nlink": celtypes.IntType(status.st_nlink),
             "st_size": celtypes.IntType(status.st_size),
             "group_access": celtypes.BoolType(status.st_gid == os.getegid()),
@@ -289,13 +286,16 @@ def stat(path: Union[Path, str]) -> Optional[celtypes.MapType]:
         data["x"] = celtypes.BoolType(os.access(path, os.X_OK))
         try:
             extra = {
+                "st_birthtime": celtypes.TimestampType(
+                    datetime.datetime.fromtimestamp(status.st_birthtime)
+                ),
                 "st_blksize": celtypes.IntType(status.st_blksize),
                 "st_blocks": celtypes.IntType(status.st_blocks),
                 "st_flags": celtypes.IntType(status.st_flags),
                 "st_rdev": celtypes.IntType(status.st_rdev),
                 "st_gen": celtypes.IntType(status.st_gen),
             }
-        except NameError:  # pragma: no cover
+        except AttributeError:  # pragma: no cover
             extra = {}
         return celtypes.MapType(data | extra)
     except FileNotFoundError:
