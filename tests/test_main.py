@@ -634,9 +634,10 @@ def test_stat_good():
     assert doc['st_mtime'] == celtypes.TimestampType(
         datetime.datetime.fromtimestamp(
             cwd.stat().st_mtime))
-    assert doc['st_birthtime'] == celtypes.TimestampType(
-        datetime.datetime.fromtimestamp(
-            cwd.stat().st_birthtime))
+    # Not on all versions of Python.
+    # assert doc['st_birthtime'] == celtypes.TimestampType(
+    #     datetime.datetime.fromtimestamp(
+    #         cwd.stat().st_birthtime))
     assert doc['st_ino'] == celtypes.IntType(cwd.stat().st_ino)
     assert doc['st_size'] == celtypes.IntType(cwd.stat().st_size)
     assert doc['st_nlink'] == celtypes.IntType(cwd.stat().st_nlink)
