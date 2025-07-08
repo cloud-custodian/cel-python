@@ -47,85 +47,25 @@
 <span class="c1"># See the License for the specific language governing permissions and limitations under the License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Pure Python implementation of CEL.</span>
+<span class="sd">The CLI interface to ``celpy``.</span>
 
-<span class="sd">This provides a few jq-like, bc-like, and shell expr-like features.</span>
-
-<span class="sd">-   ``jq`` uses ``.`` to refer the current document. By setting a package</span>
-<span class="sd">    name of ``&quot;jq&quot;`` and placing the JSON object in the package, we achieve</span>
-<span class="sd">    similar syntax.</span>
-
-<span class="sd">-   ``bc`` offers complex function definitions and other programming support.</span>
-<span class="sd">    CEL can only evaluate a few bc-like expressions.</span>
-
-<span class="sd">-   This does everything ``expr`` does, but the syntax is slightly different.</span>
-<span class="sd">    The output of comparisons -- by default -- is boolean, where ``expr`` is an integer 1 or 0.</span>
-<span class="sd">    Use ``-f &#39;d&#39;`` to see decimal output instead of Boolean text values.</span>
-
-<span class="sd">-   This does some of what ``test`` does, without a lot of the sophisticated</span>
-<span class="sd">    file system data gathering.</span>
-<span class="sd">    Use ``-b`` to set the exit status code from a Boolean result.</span>
-
-<span class="sd">TODO: This can also have a REPL, as well as process CSV files.</span>
-
-<span class="sd">SYNOPSIS</span>
-<span class="sd">========</span>
-
-<span class="sd">::</span>
-
-<span class="sd">    python -m celpy [--arg name:type=value ...] [--null-input] expr</span>
-
-<span class="sd">Options:</span>
-
-<span class="sd">:--arg:</span>
-<span class="sd">    Provides argument names, types and optional values.</span>
-<span class="sd">    If the value is not provided, the name is expected to be an environment</span>
-<span class="sd">    variable, and the value of the environment variable is converted and used.</span>
-
-<span class="sd">:--null-input:</span>
-<span class="sd">    Normally, JSON documents are read from stdin in ndjson format. If no JSON documents are</span>
-<span class="sd">    provided, the ``--null-input`` option skips trying to read from stdin.</span>
-
-<span class="sd">:expr:</span>
-<span class="sd">    A CEL expression to evaluate.</span>
-
-<span class="sd">JSON documents are read from stdin in NDJSON format (http://jsonlines.org/, http://ndjson.org/).</span>
-<span class="sd">For each JSON document, the expression is evaluated with the document in a default</span>
-<span class="sd">package. This allows `.name` to pick items from the document.</span>
-
-<span class="sd">By default, the output is JSON serialized. This means strings will be JSON-ified and have quotes.</span>
-
-<span class="sd">If a ``--format`` option is provided, this is applied to the resulting object; this can be</span>
-<span class="sd">used to strip quotes, or limit precision on double objects, or convert numbers to hexadecimal.</span>
-
-<span class="sd">Arguments, Types, and Namespaces</span>
-<span class="sd">================================</span>
-
-<span class="sd">CEL objects rely on the celtypes definitions.</span>
-
-<span class="sd">Because of the close association between CEL and protobuf, some well-known protobuf types</span>
-<span class="sd">are also supported.</span>
-
-<span class="sd">..  todo:: CLI type environment</span>
-
-<span class="sd">    Permit name.name:type=value to create namespace bindings.</span>
-
-<span class="sd">Further, type providers can be bound to CEL. This means an extended CEL</span>
-<span class="sd">may have additional types beyond those defined by the :py:class:`Activation` class.</span>
-
+<span class="sd">This parses the command-line options.</span>
+<span class="sd">It also offers an interactive REPL.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">cmd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">logging.config</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">stat</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">os_stat</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">cast</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">cast</span>
 
 <span class="k">try</span><span class="p">:</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">tomllib</span>
@@ -223,7 +163,7 @@
             <span class="n">type_definition</span> <span class="o">=</span> <span class="n">CLI_ARG_TYPES</span><span class="p">[</span><span class="n">type_name</span><span class="p">]</span>
             <span class="n">value</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
                 <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">,</span>
-                <span class="n">type_definition</span><span class="p">(</span><span class="n">value_text</span><span class="p">),</span>  <span class="c1"># type: ignore[arg-type, call-arg]</span>
+                <span class="n">type_definition</span><span class="p">(</span><span class="n">value_text</span><span class="p">),</span>  <span class="c1"># type: ignore [call-arg]</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentTypeError</span><span class="p">(</span>
@@ -334,6 +274,76 @@
 
 
 
+<div class="viewcode-block" id="stat">
+<a class="viewcode-back" href="../../api.html#celpy.__main__.stat">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">stat</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This function is added to the CLI to permit file-system interrogation.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;st_atime&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">TimestampType</span><span class="p">(</span>
+                <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_atime</span><span class="p">)</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;st_birthtime&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">TimestampType</span><span class="p">(</span>
+                <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_birthtime</span><span class="p">)</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;st_ctime&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">TimestampType</span><span class="p">(</span>
+                <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_ctime</span><span class="p">)</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;st_dev&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_dev</span><span class="p">),</span>
+            <span class="s2">&quot;st_ino&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_ino</span><span class="p">),</span>
+            <span class="s2">&quot;st_mtime&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">TimestampType</span><span class="p">(</span>
+                <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">)</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;st_nlink&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_nlink</span><span class="p">),</span>
+            <span class="s2">&quot;st_size&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_size</span><span class="p">),</span>
+            <span class="s2">&quot;group_access&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_gid</span> <span class="o">==</span> <span class="n">os</span><span class="o">.</span><span class="n">getegid</span><span class="p">()),</span>
+            <span class="s2">&quot;user_access&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_uid</span> <span class="o">==</span> <span class="n">os</span><span class="o">.</span><span class="n">geteuid</span><span class="p">()),</span>
+        <span class="p">}</span>
+
+        <span class="c1"># From mode File type:</span>
+        <span class="c1"># - block, character, directory, regular, symbolic link, named pipe, socket</span>
+        <span class="c1"># One predicate should be True; we want the code for that key.</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;kind&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="n">predicate</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_mode</span><span class="p">):</span> <span class="n">code</span>
+                <span class="k">for</span> <span class="n">code</span><span class="p">,</span> <span class="n">predicate</span> <span class="ow">in</span> <span class="p">[</span>
+                    <span class="p">(</span><span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="n">os_stat</span><span class="o">.</span><span class="n">S_ISBLK</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s2">&quot;c&quot;</span><span class="p">,</span> <span class="n">os_stat</span><span class="o">.</span><span class="n">S_ISCHR</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s2">&quot;d&quot;</span><span class="p">,</span> <span class="n">os_stat</span><span class="o">.</span><span class="n">S_ISDIR</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">,</span> <span class="n">os_stat</span><span class="o">.</span><span class="n">S_ISREG</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s2">&quot;p&quot;</span><span class="p">,</span> <span class="n">os_stat</span><span class="o">.</span><span class="n">S_ISFIFO</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s2">&quot;l&quot;</span><span class="p">,</span> <span class="n">os_stat</span><span class="o">.</span><span class="n">S_ISLNK</span><span class="p">),</span>
+                    <span class="p">(</span><span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="n">os_stat</span><span class="o">.</span><span class="n">S_ISSOCK</span><span class="p">),</span>
+                <span class="p">]</span>
+            <span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Special bits: uid, gid, sticky</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;setuid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">((</span><span class="n">os_stat</span><span class="o">.</span><span class="n">S_ISUID</span> <span class="o">&amp;</span> <span class="n">status</span><span class="o">.</span><span class="n">st_mode</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;setgid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">((</span><span class="n">os_stat</span><span class="o">.</span><span class="n">S_ISGID</span> <span class="o">&amp;</span> <span class="n">status</span><span class="o">.</span><span class="n">st_mode</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;sticky&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">((</span><span class="n">os_stat</span><span class="o">.</span><span class="n">S_ISVTX</span> <span class="o">&amp;</span> <span class="n">status</span><span class="o">.</span><span class="n">st_mode</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># permissions, limited to user-level RWX, nothing more.</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;r&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">access</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">R_OK</span><span class="p">))</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;w&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">access</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">W_OK</span><span class="p">))</span>
+        <span class="n">data</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">access</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">X_OK</span><span class="p">))</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">extra</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;st_blksize&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_blksize</span><span class="p">),</span>
+                <span class="s2">&quot;st_blocks&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_blocks</span><span class="p">),</span>
+                <span class="s2">&quot;st_flags&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_flags</span><span class="p">),</span>
+                <span class="s2">&quot;st_rdev&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_rdev</span><span class="p">),</span>
+                <span class="s2">&quot;st_gen&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_gen</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="k">except</span> <span class="ne">NameError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="n">extra</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">(</span><span class="n">data</span> <span class="o">|</span> <span class="n">extra</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+
 <div class="viewcode-block" id="CEL_REPL">
 <a class="viewcode-back" href="../../api.html#celpy.__main__.CEL_REPL">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">CEL_REPL</span><span class="p">(</span><span class="n">cmd</span><span class="o">.</span><span class="n">Cmd</span><span class="p">):</span>
@@ -397,6 +407,7 @@
 
     <span class="n">do_exit</span> <span class="o">=</span> <span class="n">do_quit</span>
     <span class="n">do_bye</span> <span class="o">=</span> <span class="n">do_quit</span>
+    <span class="n">do_EOF</span> <span class="o">=</span> <span class="n">do_quit</span>
 
 <div class="viewcode-block" id="CEL_REPL.default">
 <a class="viewcode-back" href="../../api.html#celpy.__main__.CEL_REPL.default">[docs]</a>
@@ -431,10 +442,10 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">activation</span><span class="p">[</span><span class="n">variable</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">document</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">CELJSONDecoder</span><span class="p">)</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">activation</span><span class="p">)</span>
-        <span class="n">display</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">boolean_to_status</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)):</span>
-            <span class="k">return</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">result</span> <span class="k">else</span> <span class="mi">1</span>
+        <span class="n">result_value</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">activation</span><span class="p">)</span>
+        <span class="n">display</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">boolean_to_status</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result_value</span><span class="p">,</span> <span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">result_value</span> <span class="k">else</span> <span class="mi">1</span>
         <span class="k">return</span> <span class="mi">0</span>
     <span class="k">except</span> <span class="n">CELEvalError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
         <span class="c1"># ``jq`` KeyError problems result in ``None``.</span>
@@ -481,12 +492,12 @@
 
     <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">format</span><span class="p">:</span>
 
-        <span class="k">def</span><span class="w"> </span><span class="nf">output_display</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">Result</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;{0:</span><span class="si">{format}</span><span class="s2">}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">options</span><span class="o">.</span><span class="n">format</span><span class="p">))</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">output_display</span><span class="p">(</span><span class="n">result_value</span><span class="p">:</span> <span class="n">Result</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;{0:</span><span class="si">{format}</span><span class="s2">}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">result_value</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">options</span><span class="o">.</span><span class="n">format</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
 
-        <span class="k">def</span><span class="w"> </span><span class="nf">output_display</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">Result</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">CELJSONEncoder</span><span class="p">))</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">output_display</span><span class="p">(</span><span class="n">result_value</span><span class="p">:</span> <span class="n">Result</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">result_value</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">CELJSONEncoder</span><span class="p">))</span>
 
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Expr: </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">options</span><span class="o">.</span><span class="n">expr</span><span class="p">)</span>
 
@@ -497,17 +508,18 @@
     <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">arg</span><span class="p">:</span>
         <span class="n">annotations</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="nb">type</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="nb">type</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">arg</span><span class="p">}</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">annotations</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">annotations</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">annotations</span><span class="p">[</span><span class="s2">&quot;stat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span>
 
     <span class="c1"># If we&#39;re creating a named JSON document, we don&#39;t provide a default package.</span>
-    <span class="c1"># If we&#39;re usinga  JSON document to populate a package, we provide the given name.</span>
+    <span class="c1"># If we&#39;re using a  JSON document to populate a package, we provide the given name.</span>
     <span class="n">env</span> <span class="o">=</span> <span class="n">Environment</span><span class="p">(</span>
         <span class="n">package</span><span class="o">=</span><span class="kc">None</span> <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">null_input</span> <span class="k">else</span> <span class="n">options</span><span class="o">.</span><span class="n">package</span><span class="p">,</span>
         <span class="n">annotations</span><span class="o">=</span><span class="n">annotations</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">expr</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">expr</span><span class="p">)</span>
-        <span class="n">prgm</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">program</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+        <span class="n">prgm</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">program</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">functions</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;stat&quot;</span><span class="p">:</span> <span class="n">stat</span><span class="p">})</span>
     <span class="k">except</span> <span class="n">CELParseError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span>
             <span class="n">env</span><span class="o">.</span><span class="n">cel_parser</span><span class="o">.</span><span class="n">error_text</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ex</span><span class="o">.</span><span class="n">line</span><span class="p">,</span> <span class="n">ex</span><span class="o">.</span><span class="n">column</span><span class="p">),</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span>
@@ -522,17 +534,19 @@
     <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">null_input</span><span class="p">:</span>
         <span class="c1"># Don&#39;t read stdin, evaluate with only the activation context.</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">activation</span><span class="p">)</span>
+            <span class="n">result_value</span> <span class="o">=</span> <span class="n">prgm</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">activation</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">boolean</span><span class="p">:</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)):</span>
-                    <span class="n">summary</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">result</span> <span class="k">else</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result_value</span><span class="p">,</span> <span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)):</span>
+                    <span class="n">summary</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">result_value</span> <span class="k">else</span> <span class="mi">1</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                        <span class="s2">&quot;Expected celtypes.BoolType, got </span><span class="si">%s</span><span class="s2"> = </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">result</span><span class="p">),</span> <span class="n">result</span>
+                        <span class="s2">&quot;Expected celtypes.BoolType, got </span><span class="si">%s</span><span class="s2"> = </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
+                        <span class="nb">type</span><span class="p">(</span><span class="n">result_value</span><span class="p">),</span>
+                        <span class="n">result_value</span><span class="p">,</span>
                     <span class="p">)</span>
                     <span class="n">summary</span> <span class="o">=</span> <span class="mi">2</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">output_display</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+                <span class="n">output_display</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span>
                 <span class="n">summary</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">except</span> <span class="n">CELEvalError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span>
@@ -629,14 +643,15 @@
     </div>
 </search>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Documentation Content:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Use of CEL-Python</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../integration.html">Application Integration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../api.html">CEL-Py API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../structure.html">Data Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../structure.html">Architecture and Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Development Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../c7n_functions.html">C7N Functions Required</a></li>
 </ul>
 

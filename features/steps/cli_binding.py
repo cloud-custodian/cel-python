@@ -51,9 +51,6 @@ def step_impl(context, arguments):
     else:
         environment = {}
     environment.update(context.data['bindings'])
-    # if sys.version_info.minor <= 6:
-    #     extra = {}
-    # else:
     extra = {'text': True}
 
     context.data['arguments'] = shlex.split(arguments)
@@ -77,10 +74,6 @@ def step_impl(context, arguments):
     test_dir.rmdir()
 
     context.data['status'] = result.returncode
-    # if sys.version_info.minor <= 6:
-    #     context.data['stdout'] = result.stdout.decode('utf-8')
-    #     context.data['stderr'] = result.stderr.decode('utf-8')
-    # else:
     context.data['stdout'] = result.stdout
     context.data['stderr'] = result.stderr
 

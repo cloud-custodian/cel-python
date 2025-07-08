@@ -161,7 +161,8 @@ Scenario: dyn_heterogeneous_list
           No need to disable type checking.
     When CEL expression "type(dyn([1, 'one']))" is evaluated
     #    type_value:"list"
-    Then value is TypeType(value='list')
+    # Then value is TypeType(value='list')
+    Then value is celpy.celtypes.ListType
 
 
 
@@ -310,35 +311,39 @@ Scenario: bool
 
     When CEL expression "type(true)" is evaluated
     #    type_value:"bool"
-    Then value is TypeType(value='bool')
+    # Then value is TypeType(value='bool')
+    Then value is BoolType
 
 
 Scenario: bool_denotation
 
     When CEL expression "bool" is evaluated
     #    type_value:"bool"
-    Then value is TypeType(value='bool')
+    # Then value is TypeType(value='bool')
+    Then value is BoolType
 
 
 Scenario: dyn_no_denotation
 
     When CEL expression "dyn" is evaluated
     #    errors:{message:"unknown varaible"}
-    Then eval_error is 'unknown varaible'
+    Then eval_error is 'unknown variable'
 
 
 Scenario: int
 
     When CEL expression "type(0)" is evaluated
     #    type_value:"int"
-    Then value is TypeType(value='int')
+    # Then value is TypeType(value='int')
+    Then value is IntType
 
 
 Scenario: int_denotation
 
     When CEL expression "int" is evaluated
     #    type_value:"int"
-    Then value is TypeType(value='int')
+    # Then value is TypeType(value='int')
+    Then value is IntType
 
 
 Scenario: eq_same
@@ -352,84 +357,96 @@ Scenario: uint
 
     When CEL expression "type(64u)" is evaluated
     #    type_value:"uint"
-    Then value is TypeType(value='uint')
+    # Then value is TypeType(value='uint')
+    Then value is UintType
 
 
 Scenario: uint_denotation
 
     When CEL expression "uint" is evaluated
     #    type_value:"uint"
-    Then value is TypeType(value='uint')
+    # Then value is TypeType(value='uint')
+    Then value is UintType
 
 
 Scenario: double
 
     When CEL expression "type(3.14)" is evaluated
     #    type_value:"double"
-    Then value is TypeType(value='double')
+    # Then value is TypeType(value='double')
+    Then value is DoubleType
 
 
 Scenario: double_denotation
 
     When CEL expression "double" is evaluated
     #    type_value:"double"
-    Then value is TypeType(value='double')
+    # Then value is TypeType(value='double')
+    Then value is DoubleType
 
 
 Scenario: null_type
 
     When CEL expression "type(null)" is evaluated
     #    type_value:"null_type"
-    Then value is TypeType(value='null_type')
+    # Then value is TypeType(value='null_type')
+    Then value is NoneType
 
 
 Scenario: null_type_denotation
 
     When CEL expression "null_type" is evaluated
     #    type_value:"null_type"
-    Then value is TypeType(value='null_type')
+    # Then value is TypeType(value='null_type')
+    Then value is NoneType
 
 
 Scenario: string
 
     When CEL expression "type('foo')" is evaluated
     #    type_value:"string"
-    Then value is TypeType(value='string')
+    # Then value is TypeType(value='string')
+    Then value is StringType
 
 
 Scenario: string_denotation
 
     When CEL expression "string" is evaluated
     #    type_value:"string"
-    Then value is TypeType(value='string')
+    # Then value is TypeType(value='string')
+    Then value is StringType
 
 
 Scenario: bytes
 
     When CEL expression "type(b'\xff')" is evaluated
     #    type_value:"bytes"
-    Then value is TypeType(value='bytes')
+    # Then value is TypeType(value='bytes')
+    Then value is BytesType
 
 
 Scenario: bytes_denotation
 
     When CEL expression "bytes" is evaluated
     #    type_value:"bytes"
-    Then value is TypeType(value='bytes')
+    # Then value is TypeType(value='bytes')
+    Then value is BytesType
 
 
 Scenario: list
 
     When CEL expression "type([1, 2, 3])" is evaluated
     #    type_value:"list"
-    Then value is TypeType(value='list')
+    # Then value is TypeType(value='list')
+    Then value is ListType
 
 
 Scenario: list_denotation
 
     When CEL expression "list" is evaluated
     #    type_value:"list"
-    Then value is TypeType(value='list')
+    # Then value is TypeType(value='list')
+    Then value is ListType
 
 
 Scenario: lists_monomorphic
@@ -443,14 +460,16 @@ Scenario: map
 
     When CEL expression "type({4: 16})" is evaluated
     #    type_value:"map"
-    Then value is TypeType(value='map')
+    # Then value is TypeType(value='map')
+    Then value is MapType
 
 
 Scenario: map_denotation
 
     When CEL expression "map" is evaluated
     #    type_value:"map"
-    Then value is TypeType(value='map')
+    # Then value is TypeType(value='map')
+    Then value is MapType
 
 
 Scenario: map_monomorphic
@@ -492,21 +511,24 @@ Scenario: type
 
     When CEL expression "type(int)" is evaluated
     #    type_value:"type"
-    Then value is TypeType(value='type')
+    # Then value is TypeType(value='type')
+    Then value is TypeType
 
 
 Scenario: type_denotation
 
     When CEL expression "type" is evaluated
     #    type_value:"type"
-    Then value is TypeType(value='type')
+    # Then value is TypeType(value='type')
+    Then value is TypeType
 
 
 Scenario: type_type
 
     When CEL expression "type(type)" is evaluated
     #    type_value:"type"
-    Then value is TypeType(value='type')
+    # Then value is TypeType(value='type')
+    Then value is TypeType
 
 
 

@@ -56,14 +56,16 @@ This can explain "return error for overflow" as an vague-looking error response.
 Use ``-D match=exact`` to do exact error matching. The default is "any error will do."
 """
 import logging
-import re
-import subprocess
 import sys
 from enum import Enum, auto
 from pathlib import Path
+try:
+    from types import NoneType
+except ImportError:
+    # Python 3.9 hack
+    NoneType = type(None)
 from typing import (Any, Callable, Dict, List, NamedTuple, Optional, Tuple,
                     Type, Union, cast)
-from unittest.mock import MagicMock, Mock
 
 from behave import *
 
@@ -83,20 +85,6 @@ class TypeKind(str, Enum):
     MAP_TYPE_SPEC = "map_type_spec"
     ELEM_TYPE = "elem_type"
     TYPE_SPEC = "type_spec"
-
-
-# class TypeEnv(NamedTuple):
-#     name: str  # The variable for which we're providing a type
-#     kind: TypeKind  # Not too useful, except for MAP_TYPE
-#     type_ident: Union[str, List[str]]  # The type(s) to define
-#
-#     @property
-#     def annotation(self) -> Tuple[str, Callable]:
-#         """Translate Protobuf/Gherkin TypeEnv to a CEL type declaration"""
-#         if self.kind == TypeKind.MAP_TYPE:
-#             # A mapping, constrained by the self.type_ident array.
-#             return (self.name, f"Map[{', '.join(self.type_ident)}]")
-#         return (self.name, self.type_ident)
 
 
 class Bindings(NamedTuple):
@@ -320,14 +308,18 @@ class NestedTestAllTypes(celpy.celtypes.MessageType):
         Provides default values for the defined fields.
         """
         logger.info(f"NestedTestAllTypes.get({field!r}, {default!r})")
-        if field == "child":
-            default_class = NestedTestAllTypes
+        if field in self:
+            return self[field]
+        elif field == "child":
+            return NestedTestAllTypes()
         elif field == "payload":
-            default_class = TestAllTypes
+            return TestAllTypes()
+        elif default is not None:
+            return default
         else:
             err = f"no such member in mapping: {field!r}"
             raise KeyError(err)
-        return super().get(field, default if default is not None else default_class())
+        # return super().get(field, default if default is not None else default_class())
 
 class NestedMessage(celpy.celtypes.MessageType):
     """
@@ -349,6 +341,45 @@ class NestedMessage(celpy.celtypes.MessageType):
     """
     pass
 
+# From Protobuf definitions, these are the CEL types implement them.
+TYPE_NAMES = {
+    "google.protobuf.Any": MessageType,
+    "google.protubuf.Any": MessageType,  # Note spelling anomaly.
+    "google.protobuf.BoolValue": BoolType,
+    "google.protobuf.BytesValue": BytesType,
+    "google.protobuf.DoubleValue": DoubleType,
+    "google.protobuf.Duration": DurationType,
+    "google.protobuf.FloatValue": DoubleType,
+    "google.protobuf.Int32Value": IntType,
+    "google.protobuf.Int64Value": IntType,
+    "google.protobuf.ListValue": ListType,
+    "google.protobuf.StringValue": StringType,
+    "google.protobuf.Struct": MessageType,
+    "google.protobuf.Timestamp": TimestampType,
+    "google.protobuf.UInt32Value": UintType,
+    "google.protobuf.UInt64Value": UintType,
+    "google.protobuf.Value": MessageType,
+    "type": TypeType,
+    "list_type": ListType,
+    "map_type": MapType,
+    "map": MapType,
+    "list": ListType,
+    "string": StringType,
+    "bytes": BytesType,
+    "bool": BoolType,
+    "int": IntType,
+    "uint": UintType,
+    "double": DoubleType,
+    "null_type": NoneType,
+    "STRING": StringType,
+    "BOOL": BoolType,
+    "INT64": IntType,
+    "UINT64": UintType,
+    "INT32": IntType,
+    "UINT32": UintType,
+    "BYTES": BytesType,
+    "DOUBLE": DoubleType,
+}
 
 @given(u'disable_check parameter is {disable_check}')
 def step_impl(context, disable_check):
@@ -359,9 +390,17 @@ def step_impl(context, disable_check):
 def step_impl(context, name, type_env):
     """
     type_env has name and type information used to create the environment.
+    Generally, it should be one of the type names, e.g. ``INT64``.
+    These need to be mapped to celpy.celtypes types.
+
+    Sometimes it already is a ``celpy.celtypes`` name.
     """
-    type_value = eval(type_env)
-    context.data['type_env'][name] = type_value
+    if type_env.startswith("celpy"):
+        context.data['type_env'][name] = eval(type_env)
+    if type_env.startswith('"'):
+        context.data['type_env'][name] = TYPE_NAMES[type_env[1:-1]]
+    else:
+        context.data['type_env'][name] = TYPE_NAMES[type_env]
 
 
 @given(u'bindings parameter "{name}" is {binding}')
@@ -395,7 +434,10 @@ def cel(context):
         context.data['test_all_types'] = TestAllTypes
         context.data['nested_test_all_types'] = NestedTestAllTypes
 
-    env = Environment(package=context.data['container'], annotations=context.data['type_env'])
+    env = Environment(
+        package=context.data['container'],
+        annotations=context.data['type_env'],
+        runner_class=context.data['runner'])
     ast = env.compile(context.data['expr'])
     prgm = env.program(ast)
 
@@ -404,9 +446,11 @@ def cel(context):
     try:
         result = prgm.evaluate(activation)
         context.data['result'] = result
+        context.data['exc_info'] = None
         context.data['error'] = None
     except CELEvalError as ex:
         # No 'result' to distinguish from an expected None value.
+        context.data['exc_info'] = sys.exc_info()
         context.data['error'] = ex.args[0]
 
 
@@ -425,21 +469,19 @@ def step_impl(context, expr):
 @then(u'value is {value}')
 def step_impl(context, value):
     """
-    value should be the repr() string for a CEL object.
+    The ``value`` **must** be the ``repr()`` string for a CEL object.
 
-    We make a special case around textproto ``{ type_value: "google.protobuf.Duration" }``.
-    These come to us as a ``TypeType(value='google.protobuf.Duration')`` as an expected result.
-
-    We don't actually create a protobuf objects, but we've defined TypeType to match
-    CELType classes against protobuf type names.
+    This includes types and protobuf messages.
     """
     try:
         expected = eval(value)
     except TypeError as ex:
-        print(f"Could not eval({value!r})")
+        print(f"Could not eval({value!r}) in {context.scenario}")
         raise
     context.data['expected'] = expected
-    assert 'result' in context.data, f"Error {context.data['error']!r}; no result in {context.data!r}"
+    if 'result' not in context.data:
+        print("Unexpected exception:", context.data['exc_info'])
+        raise AssertionError(f"Error {context.data['error']!r} unexpected")
     result = context.data['result']
     if expected is not None:
         assert result == expected, \
@@ -450,33 +492,65 @@ def step_impl(context, value):
 
 class ErrorCategory(Enum):
     divide_by_zero = auto()
-    modulus_by_zero = auto()
-    no_such_overload = auto()
+    does_not_support = auto()
     integer_overflow = auto()
+    invalid = auto()
+    invalid_argument = auto()
+    modulus_by_zero = auto()
+    no_such_key = auto()
+    no_such_member = auto()
+    no_such_overload = auto()
+    range_error = auto()
+    repeated_key = auto()
+    unbound_function = auto()
     undeclared_reference = auto()
     unknown_variable = auto()
+    other = auto()
 
 
 ERROR_ALIASES = {
     "division by zero": ErrorCategory.divide_by_zero,
     "divide by zero": ErrorCategory.divide_by_zero,
+    "invalid UTF-8": ErrorCategory.invalid,
     "modulus by zero": ErrorCategory.modulus_by_zero,
+    "modulus or divide by zero": ErrorCategory.modulus_by_zero,
+    "no such key": ErrorCategory.no_such_key,
+    "no such member": ErrorCategory.no_such_member,
     "no such overload": ErrorCategory.no_such_overload,
     "no matching overload": ErrorCategory.no_such_overload,
+    "range": ErrorCategory.range_error,
+    "range error": ErrorCategory.range_error,
+    "repeated key": ErrorCategory.repeated_key,
+    "Failed with repeated key": ErrorCategory.repeated_key,
     "return error for overflow": ErrorCategory.integer_overflow,
-    "unknown varaible": ErrorCategory.unknown_variable,
+    "unknown variable": ErrorCategory.unknown_variable,
+    "unknown varaible": ErrorCategory.unknown_variable,  # spelling error in TextProto
+    "unbound function": ErrorCategory.unbound_function,
+    "unsupported key type": ErrorCategory.does_not_support,
 }
 
 
 def error_category(text: str) -> ErrorCategory:
+    """Summarize errors into broad ErrorCategory groupings."""
     if text in ErrorCategory.__members__:
         return ErrorCategory[text]
     if text in ERROR_ALIASES:
         return ERROR_ALIASES[text]
-    # The hard problem: "undeclared reference to 'x' (in container '')"
-    if text.startswith("undeclared reference"):
-        return ErrorCategory.undeclared_reference
 
+    # Some harder problems:
+    if text.startswith("undeclared reference to"):
+        return ErrorCategory.undeclared_reference
+    elif text.startswith("found no matching overload for"):
+        return ErrorCategory.no_such_overload
+    elif text.startswith("no such key"):
+        return ErrorCategory.no_such_key
+    elif text.startswith("no such member"):
+        return ErrorCategory.no_such_member
+    elif "does not support" in text:
+        return ErrorCategory.does_not_support
+    else:
+        print(f"***No error category for {text!r}***")
+        return ErrorCategory.other
 
 @then(u"eval_error is {quoted_text}")
 def step_impl(context, quoted_text):
@@ -491,9 +565,10 @@ def step_impl(context, quoted_text):
     if quoted_text == "None":
         assert context.data['error'] is None, f"error not None in {context.data}"
     else:
+        print(f"*** Analyzing context.data = {context.data!r}***")
         text = quoted_text[1:-1] if quoted_text[0] in ["'", '"'] else quoted_text
-        actual_ec = error_category(context.data['error'] or "")
         expected_ec = error_category(text)
+        actual_ec = error_category(context.data['error'] or "")
         if context.config.userdata.get("match", "any") == "exact":
             assert expected_ec == actual_ec, f"{expected_ec} != {actual_ec} in {context.data}"
         else:

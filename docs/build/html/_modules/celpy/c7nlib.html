@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>celpy.c7nlib &#8212; CEL in Python  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for celpy.c7nlib</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-Copyright: Copyright (c) Capital One Services, LLC</span>
+<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<span class="c1"># Copyright 2020 Capital One Services, LLC</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and limitations under the License.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Functions for C7N features when evaluating CEL expressions.</span>
+
+<span class="sd">These functions provide a mapping between C7N features and CEL.</span>
+
+<span class="sd">These functions are exposed by the global ``FUNCTIONS`` dictionary that is provided</span>
+<span class="sd">to the CEL evaluation run-time to provide necessary C7N features.</span>
+
+<span class="sd">The functions rely on implementation details in the ``CELFilter`` class.</span>
+
+<span class="sd">The API</span>
+<span class="sd">=======</span>
+
+<span class="sd">A C7N implementation can use CEL expressions and the :py:mod:`c7nlib` module as follows::</span>
+
+<span class="sd">    class CELFilter(c7n.filters.core.Filter):</span>
+<span class="sd">        decls = {</span>
+<span class="sd">            &quot;resource&quot;: celpy.celtypes.MapType,</span>
+<span class="sd">            &quot;now&quot;: celpy.celtypes.TimestampType,</span>
+<span class="sd">            &quot;event&quot;: celpy.celtypes.MapType,</span>
+<span class="sd">        }</span>
+<span class="sd">        decls.update(celpy.c7nlib.DECLARATIONS)</span>
+
+<span class="sd">        def __init__(self, expr: str) -&gt; None:</span>
+<span class="sd">            self.expr = expr</span>
+
+<span class="sd">        def validate(self) -&gt; None:</span>
+<span class="sd">            cel_env = celpy.Environment(</span>
+<span class="sd">                annotations=self.decls,</span>
+<span class="sd">                runner_class=c7nlib.C7N_Interpreted_Runner)</span>
+<span class="sd">            cel_ast = cel_env.compile(self.expr)</span>
+<span class="sd">            self.pgm = cel_env.program(cel_ast, functions=celpy.c7nlib.FUNCTIONS)</span>
+
+<span class="sd">        def process(self,</span>
+<span class="sd">            resources: Iterable[celpy.celtypes.MapType]) -&gt; Iterator[celpy.celtypes.MapType]:</span>
+<span class="sd">            now = datetime.datetime.utcnow()</span>
+<span class="sd">            for resource in resources:</span>
+<span class="sd">                with C7NContext(filter=the_filter):</span>
+<span class="sd">                    cel_activation = {</span>
+<span class="sd">                        &quot;resource&quot;: celpy.json_to_cel(resource),</span>
+<span class="sd">                        &quot;now&quot;: celpy.celtypes.TimestampType(now),</span>
+<span class="sd">                    }</span>
+<span class="sd">                    if self.pgm.evaluate(cel_activation):</span>
+<span class="sd">                        yield resource</span>
+
+<span class="sd">The :py:mod:`celpy.c7nlib` library of functions is bound into the CEL :py:class:`celpy.__init__.Runner` object  that&#39;s built from the AST.</span>
+
+<span class="sd">Several variables will be required in the :py:class:`celpy.evaluation.Activation` for use by most CEL expressions</span>
+<span class="sd">that implement C7N filters:</span>
+
+<span class="sd">:resource:</span>
+<span class="sd">    A JSON document describing a cloud resource.</span>
+
+<span class="sd">:now:</span>
+<span class="sd">    The current timestamp.</span>
+
+<span class="sd">:event:</span>
+<span class="sd">    May be needed; it should  be a JSON document describing an AWS CloudWatch event.</span>
+
+
+<span class="sd">The type: value Features</span>
+<span class="sd">========================</span>
+
+<span class="sd">The core value features of C7N require a number of CEL extensions.</span>
+
+<span class="sd">-   :func:`glob(string, pattern)` uses Python fnmatch rules. This implements ``op: glob``.</span>
+
+<span class="sd">-   :func:`difference(list, list)` creates intermediate sets and computes the difference</span>
+<span class="sd">    as a boolean value. Any difference is True.  This implements ``op: difference``.</span>
+
+<span class="sd">-   :func:`intersect(list, list)` creats intermediate sets and computes the intersection</span>
+<span class="sd">    as a boolean value. Any interection is True.  This implements ``op: intersect``.</span>
+
+<span class="sd">-   :func:`normalize(string)` supports normalized comparison between strings.</span>
+<span class="sd">    In this case, it means lower cased and trimmed. This implements ``value_type: normalize``.</span>
+
+<span class="sd">-   :func:`net.cidr_contains` checks to see if a given CIDR block contains a specific</span>
+<span class="sd">    address.  See https://www.openpolicyagent.org/docs/latest/policy-reference/#net.</span>
+
+<span class="sd">-   :func:`net.cidr_size` extracts the prefix length of a parsed CIDR block.</span>
+
+<span class="sd">-   :func:`version` uses ``disutils.version.LooseVersion`` to compare version strings.</span>
+
+<span class="sd">-   :func:`resource_count` function. This is TBD.</span>
+
+<span class="sd">The type: value_from features</span>
+<span class="sd">==============================</span>
+
+<span class="sd">This relies on  ``value_from()`` and ``jmes_path_map()`` functions</span>
+
+<span class="sd">In context, it looks like this::</span>
+
+<span class="sd">    value_from(&quot;s3://c7n-resources/exemptions.json&quot;, &quot;json&quot;)</span>
+<span class="sd">    .jmes_path_map(&#39;exemptions.ec2.rehydration.[&quot;IamInstanceProfile.Arn&quot;][].*[].*[]&#39;)</span>
+<span class="sd">    .contains(resource[&quot;IamInstanceProfile&quot;][&quot;Arn&quot;])</span>
+
+<span class="sd">The ``value_from()`` function reads values from a given URI.</span>
+
+<span class="sd">-   A full URI for an S3 bucket.</span>
+
+<span class="sd">-   A full URI for a server that supports HTTPS GET requests.</span>
+
+<span class="sd">If a format is given, this is used, otherwise it&#39;s based on the</span>
+<span class="sd">suffix of the path.</span>
+
+<span class="sd">The ``jmes_path_map()`` function compiles and applies a JMESPath</span>
+<span class="sd">expression against each item in the collection to create a</span>
+<span class="sd">new collection.  To an extent, this repeats functionality</span>
+<span class="sd">from the ``map()`` macro.</span>
+
+<span class="sd">Additional Functions</span>
+<span class="sd">====================</span>
+
+<span class="sd">A number of C7N subclasses of ``Filter`` provide additional features. There are</span>
+<span class="sd">at least 70-odd functions that are expressed or implied by these filters.</span>
+
+<span class="sd">Because the CEL expressions are always part of a ``CELFilter``, all of these</span>
+<span class="sd">additional C7N features need to be transformed into &quot;mixins&quot; that are implemented</span>
+<span class="sd">in two places. The function is part of the legacy subclass of ``Filter``,</span>
+<span class="sd">and the function is also part of ``CELFilter``.</span>
+
+<span class="sd">::</span>
+
+<span class="sd">    class InstanceImageMixin:</span>
+<span class="sd">        # from :py:class:`InstanceImageBase` refactoring</span>
+<span class="sd">        def get_instance_image(self):</span>
+<span class="sd">            pass</span>
+
+<span class="sd">    class RelatedResourceMixin:</span>
+<span class="sd">        # from :py:class:`RelatedResourceFilter` mixin</span>
+<span class="sd">        def get_related_ids(self):</span>
+<span class="sd">            pass</span>
+
+<span class="sd">        def get_related(self):</span>
+<span class="sd">            pass</span>
+
+<span class="sd">    class CredentialReportMixin:</span>
+<span class="sd">        # from :py:class:`c7n.resources.iam.CredentialReport` filter.</span>
+<span class="sd">        def get_credential_report(self):</span>
+<span class="sd">            pass</span>
+
+<span class="sd">    class ResourceKmsKeyAliasMixin:</span>
+<span class="sd">        # from :py:class:`c7n.resources.kms.ResourceKmsKeyAlias`</span>
+<span class="sd">        def get_matching_aliases(self, resource):</span>
+<span class="sd">            pass</span>
+
+<span class="sd">    class CrossAccountAccessMixin:</span>
+<span class="sd">        # from :py:class:`c7n.filters.iamaccessfilter.CrossAccountAccessFilter`</span>
+<span class="sd">        def get_accounts(self, resource):</span>
+<span class="sd">            pass</span>
+<span class="sd">        def get_vpcs(self, resource):</span>
+<span class="sd">            pass</span>
+<span class="sd">        def get_vpces(self, resource):</span>
+<span class="sd">            pass</span>
+<span class="sd">        def get_orgids(self, resource):</span>
+<span class="sd">            pass</span>
+<span class="sd">        # from :py:class:`c7n.resources.secretsmanager.CrossAccountAccessFilter`</span>
+<span class="sd">        def get_resource_policy(self, resource):</span>
+<span class="sd">            pass</span>
+
+<span class="sd">    class SNSCrossAccountMixin:</span>
+<span class="sd">        # from :py:class:`c7n.resources.sns.SNSCrossAccount`</span>
+<span class="sd">        def get_endpoints(self, resource):</span>
+<span class="sd">            pass</span>
+<span class="sd">        def get_protocols(self, resource):</span>
+<span class="sd">            pass</span>
+
+<span class="sd">    class ImagesUnusedMixin:</span>
+<span class="sd">        # from :py:class:`c7n.resources.ami.ImageUnusedFilter`</span>
+<span class="sd">        def _pull_ec2_images(self, resource):</span>
+<span class="sd">            pass</span>
+<span class="sd">        def _pull_asg_images(self, resource):</span>
+<span class="sd">            pass</span>
+
+<span class="sd">    class SnapshotUnusedMixin:</span>
+<span class="sd">        # from :py:class:`c7n.resources.ebs.SnapshotUnusedFilter`</span>
+<span class="sd">        def _pull_asg_snapshots(self, resource):</span>
+<span class="sd">            pass</span>
+<span class="sd">        def _pull_ami_snapshots(self, resource):</span>
+<span class="sd">            pass</span>
+
+<span class="sd">    class IamRoleUsageMixin:</span>
+<span class="sd">        # from :py:class:`c7n.resources.iam.IamRoleUsage`</span>
+<span class="sd">        def service_role_usage(self, resource):</span>
+<span class="sd">            pass</span>
+<span class="sd">        def instance_profile_usage(self, resource):</span>
+<span class="sd">            pass</span>
+
+<span class="sd">    class SGUsageMixin:</span>
+<span class="sd">        # from :py:class:`c7n.resources.vpc.SGUsage`</span>
+<span class="sd">        def scan_groups(self, resource):</span>
+<span class="sd">            pass</span>
+
+<span class="sd">    class IsShieldProtectedMixin:</span>
+<span class="sd">        # from :py:mod:`c7n.resources.shield`</span>
+<span class="sd">        def get_type_protections(self, resource):</span>
+<span class="sd">            pass</span>
+
+<span class="sd">    class ShieldEnabledMixin:</span>
+<span class="sd">        # from :py:class:`c7n.resources.account.ShieldEnabled`</span>
+<span class="sd">        def account_shield_subscriptions(self, resource):</span>
+<span class="sd">            pass</span>
+
+<span class="sd">    class CELFilter(</span>
+<span class="sd">        InstanceImageMixin, RelatedResourceMixin, CredentialReportMixin,</span>
+<span class="sd">        ResourceKmsKeyAliasMixin, CrossAccountAccessMixin, SNSCrossAccountMixin,</span>
+<span class="sd">        ImagesUnusedMixin, SnapshotUnusedMixin, IamRoleUsageMixin, SGUsageMixin,</span>
+<span class="sd">        Filter,</span>
+<span class="sd">    ):</span>
+<span class="sd">        &#39;&#39;&#39;Container for functions used by c7nlib to expose data to CEL&#39;&#39;&#39;</span>
+<span class="sd">        def __init__(self, data, manager) -&gt; None:</span>
+<span class="sd">            super().__init__(data, manager)</span>
+<span class="sd">            assert data[&quot;type&quot;].lower() == &quot;cel&quot;</span>
+<span class="sd">            self.expr = data[&quot;expr&quot;]</span>
+<span class="sd">            self.parser = c7n.filters.offhours.ScheduleParser()</span>
+
+<span class="sd">        def validate(self):</span>
+<span class="sd">            pass  # See above example</span>
+
+<span class="sd">        def process(self, resources):</span>
+<span class="sd">            pass  # See above example</span>
+
+<span class="sd">This is not the complete list. See the ``tests/test_c7nlib.py`` for the ``celfilter_instance``</span>
+<span class="sd">fixture which contains **all** of the functions required.</span>
+
+<span class="sd">C7N Context Object</span>
+<span class="sd">==================</span>
+
+<span class="sd">A number of the functions require access to C7N features that are not simply part</span>
+<span class="sd">of the resource being filtered. There are two alternative ways to handle this dependency:</span>
+
+<span class="sd">-   A global C7N context object that has the current ``CELFilter`` providing</span>
+<span class="sd">    access to C7N internals.</span>
+
+<span class="sd">-   A ``C7N`` argument to the functions that need C7N access.</span>
+<span class="sd">    This would be provided in the activation context for CEL.</span>
+
+<span class="sd">To keep the library functions looking simple, the module global ``C7N`` is used.</span>
+<span class="sd">This avoids introducing a non-CEL parameter to the :py:mod:`celpy.c7nlib` functions.</span>
+
+<span class="sd">The ``C7N`` context object contains the following attributes:</span>
+
+<span class="sd">:filter:</span>
+<span class="sd">    The original C7N ``Filter`` object. This provides access to the</span>
+<span class="sd">    resource manager. It can be used to manage supplemental</span>
+<span class="sd">    queries using C7N caches and other resource management.</span>
+
+<span class="sd">This is set by the :py:class:`C7NContext` prior to CEL evaluation.</span>
+
+<span class="sd">Name Resolution</span>
+<span class="sd">===============</span>
+
+<span class="sd">Note that names are **not** resolved via a lookup in the program object,</span>
+<span class="sd">an instance of the :py:class:`celpy.Runner` class. To keep these functions</span>
+<span class="sd">simple, the runner is not part of the run-time, and name resolution</span>
+<span class="sd">will appear to be &quot;hard-wrired&quot; among these functions.</span>
+
+<span class="sd">This is rarely an issue, since most of these functions are independent.</span>
+<span class="sd">The :func:`value_from` function relies on :func:`text_from` and :func:`parse_text`.</span>
+<span class="sd">Changing either of these functions with an override won&#39;t modify the behavior</span>
+<span class="sd">of :func:`value_from`.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">csv</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">fnmatch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">ipaddress</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os.path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">urllib.request</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">zlib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">closing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">packaging.version</span><span class="w"> </span><span class="kn">import</span> <span class="n">Version</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">types</span><span class="w"> </span><span class="kn">import</span> <span class="n">TracebackType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">cast</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pendulum</span><span class="w"> </span><span class="kn">import</span> <span class="n">parse</span> <span class="k">as</span> <span class="n">parse_date</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jmespath</span>  <span class="c1"># type: ignore [import-untyped]</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">celpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">InterpretedRunner</span><span class="p">,</span> <span class="n">celtypes</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">celpy.adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">json_to_cel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">celpy.evaluation</span><span class="w"> </span><span class="kn">import</span> <span class="n">Annotation</span><span class="p">,</span> <span class="n">Context</span><span class="p">,</span> <span class="n">Evaluator</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;celpy.</span><span class="si">{</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="C7NContext">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.C7NContext">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">C7NContext</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Saves current C7N filter for use by functions in this module.</span>
+
+<span class="sd">    This is essential for making C7N filter available to *some* of these functions.</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        with C7NContext(filter):</span>
+<span class="sd">            cel_prgm.evaluate(cel_activation)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="C7NContext.__init__">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.C7NContext.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">filter</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filter</span> <span class="o">=</span> <span class="nb">filter</span></div>
+
+
+<div class="viewcode-block" id="C7NContext.__repr__">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.C7NContext.__repr__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(filter=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">filter</span><span class="si">!r}</span><span class="s2">)&quot;</span></div>
+
+
+<div class="viewcode-block" id="C7NContext.__enter__">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.C7NContext.__enter__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">global</span> <span class="n">C7N</span>
+        <span class="n">C7N</span> <span class="o">=</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="C7NContext.__exit__">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.C7NContext.__exit__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">exc_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]],</span>
+        <span class="n">exc_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">],</span>
+        <span class="n">traceback</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TracebackType</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">global</span> <span class="n">C7N</span>
+        <span class="n">C7N</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="s2">&quot;C7NContext&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">return</span></div>
+</div>
+
+
+
+<span class="c1"># An object used for access to the C7N filter.</span>
+<span class="c1"># A module global makes the interface functions much simpler.</span>
+<span class="c1"># They can rely on `C7N.filter` providing the current `CELFilter` instance.</span>
+<span class="n">C7N</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="s2">&quot;C7NContext&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="key">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.key">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">key</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">,</span> <span class="n">target</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The C7N shorthand ``tag:Name`` doesn&#39;t translate well to CEL. It extracts a single value</span>
+<span class="sd">    from a sequence of objects with a ``{&quot;Key&quot;: x, &quot;Value&quot;: y}`` structure; specifically,</span>
+<span class="sd">    the value for ``y`` when ``x == &quot;Name&quot;``.</span>
+
+<span class="sd">    This function locate a particular &quot;Key&quot;: target within a list of {&quot;Key&quot;: x, &quot;Value&quot;, y} items,</span>
+<span class="sd">    returning the y value if one is found, null otherwise.</span>
+
+<span class="sd">    In effect, the ``key()``    function::</span>
+
+<span class="sd">        resource[&quot;Tags&quot;].key(&quot;Name&quot;)[&quot;Value&quot;]</span>
+
+<span class="sd">    is somewhat like::</span>
+
+<span class="sd">        resource[&quot;Tags&quot;].filter(x, x[&quot;Key&quot;] == &quot;Name&quot;)[0]</span>
+
+<span class="sd">    But the ``key()`` function doesn&#39;t raise an exception if the key is not found,</span>
+<span class="sd">    instead it returns None.</span>
+
+<span class="sd">    We might want to generalize this into a ``first()`` reduction macro.</span>
+<span class="sd">    ``resource[&quot;Tags&quot;].first(x, x[&quot;Key&quot;] == &quot;Name&quot; ? x[&quot;Value&quot;] : null, null)``</span>
+<span class="sd">    This macro returns the first non-null value or the default (which can be ``null``.)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="s2">&quot;Key&quot;</span><span class="p">)</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="s2">&quot;Value&quot;</span><span class="p">)</span>
+    <span class="n">matches</span><span class="p">:</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">item</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">source</span>
+        <span class="k">if</span> <span class="n">cast</span><span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span> <span class="n">cast</span><span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span> <span class="n">item</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">))</span> <span class="o">==</span> <span class="n">target</span>
+    <span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span> <span class="nb">next</span><span class="p">(</span><span class="n">matches</span><span class="p">))</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="glob">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.glob">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">glob</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compare a string with a pattern.</span>
+
+<span class="sd">    While ``&quot;*.py&quot;.glob(some_string)`` seems logical because the pattern the more persistent object,</span>
+<span class="sd">    this seems to cause confusion.</span>
+
+<span class="sd">    We use ``some_string.glob(&quot;*.py&quot;)`` to express a regex-like rule. This parallels the CEL</span>
+<span class="sd">    `.matches()` method.</span>
+
+<span class="sd">    We also support ``glob(some_string, &quot;*.py&quot;)``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">(</span><span class="n">fnmatch</span><span class="o">.</span><span class="n">fnmatch</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">pattern</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="difference">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.difference">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">difference</span><span class="p">(</span><span class="n">left</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">,</span> <span class="n">right</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the difference between two lists. This is ordered set difference: left - right.</span>
+<span class="sd">    It&#39;s true if the result is non-empty: there is an item in the left, not present in the right.</span>
+<span class="sd">    It&#39;s false if the result is empty: the lists are the same.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">left</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">right</span><span class="p">)))</span></div>
+
+
+
+<div class="viewcode-block" id="intersect">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.intersect">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">intersect</span><span class="p">(</span><span class="n">left</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">,</span> <span class="n">right</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the intersection between two lists.</span>
+<span class="sd">    It&#39;s true if the result is non-empty: there is an item in both lists.</span>
+<span class="sd">    It&#39;s false if the result is empty: there is no common item between the lists.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">left</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">right</span><span class="p">)))</span></div>
+
+
+
+<div class="viewcode-block" id="normalize">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.normalize">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">normalize</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Normalize a string.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="unique_size">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.unique_size">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">unique_size</span><span class="p">(</span><span class="n">collection</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Unique size of a list</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">collection</span><span class="p">)))</span></div>
+
+
+
+<div class="viewcode-block" id="IPv4Network">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.IPv4Network">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IPv4Network</span><span class="p">(</span><span class="n">ipaddress</span><span class="o">.</span><span class="n">IPv4Network</span><span class="p">):</span>
+    <span class="c1"># Override for net 2 net containment comparison</span>
+<div class="viewcode-block" id="IPv4Network.__contains__">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.IPv4Network.__contains__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>  <span class="c1"># type: ignore[no-untyped-def]</span>
+        <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">ipaddress</span><span class="o">.</span><span class="n">_BaseNetwork</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">supernet_of</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>  <span class="c1"># type: ignore[no-untyped-call]</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">IPv4Network</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__contains__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span></div>
+
+
+    <span class="n">contains</span> <span class="o">=</span> <span class="fm">__contains__</span>
+
+    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="o">.</span><span class="n">major</span> <span class="o">==</span> <span class="mi">3</span> <span class="ow">and</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="o">.</span><span class="n">minor</span> <span class="o">&lt;=</span> <span class="mi">6</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+
+        <span class="nd">@staticmethod</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_is_subnet_of</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>  <span class="c1"># type: ignore[no-untyped-def]</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Always false if one is v4 and the other is v6.</span>
+                <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">_version</span> <span class="o">!=</span> <span class="n">b</span><span class="o">.</span><span class="n">_version</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2"> are not of the same version&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="p">(</span>
+                    <span class="n">b</span><span class="o">.</span><span class="n">network_address</span> <span class="o">&lt;=</span> <span class="n">a</span><span class="o">.</span><span class="n">network_address</span>
+                    <span class="ow">and</span> <span class="n">b</span><span class="o">.</span><span class="n">broadcast_address</span> <span class="o">&gt;=</span> <span class="n">a</span><span class="o">.</span><span class="n">broadcast_address</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Unable to test subnet containment between </span><span class="si">{</span><span class="n">a</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">supernet_of</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>  <span class="c1"># type: ignore[no-untyped-def]</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Return True if this network is a supernet of other.&quot;&quot;&quot;</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_subnet_of</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>  <span class="c1"># type: ignore[no-untyped-call]</span></div>
+
+
+
+<span class="n">CIDR</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">IPv4Network</span><span class="p">,</span> <span class="n">ipaddress</span><span class="o">.</span><span class="n">IPv4Address</span><span class="p">]</span>
+<span class="n">CIDR_Class</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">IPv4Network</span><span class="p">],</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">ipaddress</span><span class="o">.</span><span class="n">IPv4Address</span><span class="p">]]</span>
+
+
+<div class="viewcode-block" id="parse_cidr">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.parse_cidr">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">parse_cidr</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CIDR</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Process cidr ranges.</span>
+
+<span class="sd">    This is a union of types outside CEL.</span>
+
+<span class="sd">    It appears to be Union[None, IPv4Network, ipaddress.IPv4Address]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">klass</span><span class="p">:</span> <span class="n">CIDR_Class</span> <span class="o">=</span> <span class="n">IPv4Network</span>
+    <span class="k">if</span> <span class="s2">&quot;/&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">value</span><span class="p">:</span>
+        <span class="n">klass</span> <span class="o">=</span> <span class="n">ipaddress</span><span class="o">.</span><span class="n">ip_address</span>  <span class="c1"># type: ignore[assignment]</span>
+    <span class="n">v</span><span class="p">:</span> <span class="n">CIDR</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">klass</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">ipaddress</span><span class="o">.</span><span class="n">AddressValueError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">v</span></div>
+
+
+
+<div class="viewcode-block" id="size_parse_cidr">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.size_parse_cidr">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">size_parse_cidr</span><span class="p">(</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CIDR prefixlen value&quot;&quot;&quot;</span>
+    <span class="n">cidr</span> <span class="o">=</span> <span class="n">parse_cidr</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cidr</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cidr</span><span class="p">,</span> <span class="n">IPv4Network</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">cidr</span><span class="o">.</span><span class="n">prefixlen</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+
+<div class="viewcode-block" id="ComparableVersion">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.ComparableVersion">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ComparableVersion</span><span class="p">(</span><span class="n">Version</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The old LooseVersion could fail on comparing present strings, used</span>
+<span class="sd">    in the value as shorthand for certain options.</span>
+
+<span class="sd">    The new Version doesn&#39;t fail as easily.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ComparableVersion.__eq__">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.ComparableVersion.__eq__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">ComparableVersion</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">return</span> <span class="kc">False</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="version">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.version">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">version</span><span class="p">(</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>  <span class="c1"># actually, a ComparableVersion</span>
+    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">,</span> <span class="n">ComparableVersion</span><span class="p">(</span><span class="n">value</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="present">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.present">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">present</span><span class="p">(</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">value</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="absent">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.absent">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">absent</span><span class="p">(</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">,</span> <span class="ow">not</span> <span class="nb">bool</span><span class="p">(</span><span class="n">value</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="text_from">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.text_from">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">text_from</span><span class="p">(</span>
+    <span class="n">url</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Read raw text from a URL. This can be expanded to accept S3 or other URL&#39;s.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">req</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">Request</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Accept-Encoding&quot;</span><span class="p">:</span> <span class="s2">&quot;gzip&quot;</span><span class="p">})</span>
+    <span class="n">raw_data</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="k">with</span> <span class="n">closing</span><span class="p">(</span><span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span><span class="n">req</span><span class="p">))</span> <span class="k">as</span> <span class="n">response</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">info</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Content-Encoding&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;gzip&quot;</span><span class="p">:</span>
+            <span class="n">raw_data</span> <span class="o">=</span> <span class="n">zlib</span><span class="o">.</span><span class="n">decompress</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span> <span class="n">zlib</span><span class="o">.</span><span class="n">MAX_WBITS</span> <span class="o">|</span> <span class="mi">32</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span>
+                <span class="s2">&quot;utf8&quot;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">raw_data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="n">raw_data</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="parse_text">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.parse_text">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">parse_text</span><span class="p">(</span>
+    <span class="n">source_text</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse raw text using a given format.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">format</span> <span class="o">==</span> <span class="s2">&quot;json&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">source_text</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="nb">format</span> <span class="o">==</span> <span class="s2">&quot;txt&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">rstrip</span><span class="p">())</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">source_text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()]</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">format</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;ldjson&quot;</span><span class="p">,</span> <span class="s2">&quot;ndjson&quot;</span><span class="p">,</span> <span class="s2">&quot;jsonl&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">json_to_cel</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">s</span><span class="p">))</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">source_text</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()]</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">format</span> <span class="o">==</span> <span class="s2">&quot;csv&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">json_to_cel</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">csv</span><span class="o">.</span><span class="n">reader</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">source_text</span><span class="p">))]</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">format</span> <span class="o">==</span> <span class="s2">&quot;csv2dict&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">json_to_cel</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">csv</span><span class="o">.</span><span class="n">DictReader</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">source_text</span><span class="p">))]</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported format: </span><span class="si">{</span><span class="nb">format</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span></div>
+
+
+
+<div class="viewcode-block" id="value_from">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.value_from">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">value_from</span><span class="p">(</span>
+    <span class="n">url</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span>
+    <span class="nb">format</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Read values from a URL.</span>
+
+<span class="sd">    First, do :func:`text_from` to read the source.</span>
+<span class="sd">    Then, do :func:`parse_text` to parse the source, if needed.</span>
+
+<span class="sd">    This makes the format optional, and deduces it from the URL&#39;s path information.</span>
+
+<span class="sd">    C7N will generally replace this with a function</span>
+<span class="sd">    that leverages a more sophisticated :class:`c7n.resolver.ValuesFrom`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">supported_formats</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;json&quot;</span><span class="p">,</span> <span class="s2">&quot;ndjson&quot;</span><span class="p">,</span> <span class="s2">&quot;ldjson&quot;</span><span class="p">,</span> <span class="s2">&quot;jsonl&quot;</span><span class="p">,</span> <span class="s2">&quot;txt&quot;</span><span class="p">,</span> <span class="s2">&quot;csv&quot;</span><span class="p">,</span> <span class="s2">&quot;csv2dict&quot;</span><span class="p">)</span>
+
+    <span class="c1"># 1. get format either from arg or URL</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">format</span><span class="p">:</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">suffix</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="nb">format</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="n">suffix</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="k">if</span> <span class="nb">format</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">supported_formats</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported format: </span><span class="si">{</span><span class="nb">format</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># 2. read raw data</span>
+    <span class="c1"># Note this is directly bound to text_from() and does not go though the environment</span>
+    <span class="c1"># or other CEL indirection.</span>
+    <span class="n">raw_data</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span> <span class="n">text_from</span><span class="p">(</span><span class="n">url</span><span class="p">))</span>
+
+    <span class="c1"># 3. parse physical format (json, ldjson, ndjson, jsonl, txt, csv, csv2dict)</span>
+    <span class="k">return</span> <span class="n">parse_text</span><span class="p">(</span><span class="n">raw_data</span><span class="p">,</span> <span class="nb">format</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="jmes_path">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.jmes_path">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">jmes_path</span><span class="p">(</span>
+    <span class="n">source_data</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">,</span> <span class="n">path_source</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Apply JMESPath to an object read from from a URL.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">expression</span> <span class="o">=</span> <span class="n">jmespath</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">path_source</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">expression</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">source_data</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="jmes_path_map">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.jmes_path_map">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">jmes_path_map</span><span class="p">(</span>
+    <span class="n">source_data</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">,</span> <span class="n">path_source</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Apply JMESPath to a each object read from from a URL.</span>
+<span class="sd">    This is for ndjson, nljson and jsonl files.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">expression</span> <span class="o">=</span> <span class="n">jmespath</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">path_source</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">json_to_cel</span><span class="p">(</span><span class="n">expression</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">row</span><span class="p">))</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">source_data</span><span class="p">]</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="marked_key">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.marked_key">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">marked_key</span><span class="p">(</span>
+    <span class="n">source</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">ListType</span><span class="p">,</span> <span class="n">target</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Examines a list of {&quot;Key&quot;: text, &quot;Value&quot;: text} mappings</span>
+<span class="sd">    looking for the given Key value.</span>
+
+<span class="sd">    Parses a ``message:action@action_date`` value into a mapping</span>
+<span class="sd">    {&quot;message&quot;: message, &quot;action&quot;: action, &quot;action_date&quot;: action_date}</span>
+
+<span class="sd">    If no Key or no Value or the Value isn&#39;t the right structure,</span>
+<span class="sd">    the result is a null.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">key</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">msg</span><span class="p">,</span> <span class="n">tgt</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">action</span><span class="p">,</span> <span class="n">action_date_str</span> <span class="o">=</span> <span class="n">tgt</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="s2">&quot;message&quot;</span><span class="p">):</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="n">msg</span><span class="p">),</span>
+            <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="s2">&quot;action&quot;</span><span class="p">):</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="n">action</span><span class="p">),</span>
+            <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="s2">&quot;action_date&quot;</span><span class="p">):</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">TimestampType</span><span class="p">(</span><span class="n">action_date_str</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="image">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.image">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">image</span><span class="p">(</span><span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N to get the image details for this EC2 or ASG resource.</span>
+
+<span class="sd">    Minimally, the creation date is transformed into a CEL timestamp.</span>
+<span class="sd">    We may want to slightly generalize this to json_to_cell() the entire Image object.</span>
+
+<span class="sd">    The following may be usable, but it seems too complex:</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        C7N.filter.prefetch_instance_images(C7N.policy.resources)</span>
+<span class="sd">        image = C7N.filter.get_instance_image(resource[&quot;ImageId&quot;])</span>
+<span class="sd">        return json_to_cel(image)</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide the :py:class:`InstanceImageBase` mixin in a :py:class:`CELFilter` class.</span>
+<span class="sd">        We want to have the image details in the new :py:class:`CELFilter` instance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Assuming the :py:class:`CELFilter` class has this method extracted from the legacy filter.</span>
+    <span class="c1"># Requies the policy already did this: C7N.filter.prefetch_instance_images([resource]) to</span>
+    <span class="c1"># populate cache.</span>
+    <span class="n">image</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_instance_image</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">image</span><span class="p">:</span>
+        <span class="n">creation_date</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span><span class="s2">&quot;CreationDate&quot;</span><span class="p">]</span>
+        <span class="n">image_name</span> <span class="o">=</span> <span class="n">image</span><span class="p">[</span><span class="s2">&quot;Name&quot;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">creation_date</span> <span class="o">=</span> <span class="s2">&quot;2000-01-01T01:01:01.000Z&quot;</span>
+        <span class="n">image_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">({</span><span class="s2">&quot;CreationDate&quot;</span><span class="p">:</span> <span class="n">parse_date</span><span class="p">(</span><span class="n">creation_date</span><span class="p">),</span> <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">image_name</span><span class="p">})</span></div>
+
+
+
+<div class="viewcode-block" id="get_raw_metrics">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_raw_metrics">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_raw_metrics</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a statistics request using the current C7N filter object.</span>
+
+<span class="sd">    The ``request`` parameter is the request object that is passed through to AWS via</span>
+<span class="sd">    the current C7N filter&#39;s manager. The request is a Mapping with the following keys and values:</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        get_raw_metrics({</span>
+<span class="sd">            &quot;Namespace&quot;: &quot;AWS/EC2&quot;,</span>
+<span class="sd">            &quot;MetricName&quot;: &quot;CPUUtilization&quot;,</span>
+<span class="sd">            &quot;Dimensions&quot;: {&quot;Name&quot;: &quot;InstanceId&quot;, &quot;Value&quot;: resource.InstanceId},</span>
+<span class="sd">            &quot;Statistics&quot;: [&quot;Average&quot;],</span>
+<span class="sd">            &quot;StartTime&quot;: now - duration(&quot;4d&quot;),</span>
+<span class="sd">            &quot;EndTime&quot;: now,</span>
+<span class="sd">            &quot;Period&quot;: duration(&quot;86400s&quot;)</span>
+<span class="sd">        })</span>
+
+<span class="sd">    The request is passed through to AWS more-or-less directly. The result is a CEL</span>
+<span class="sd">    list of values for then requested statistic. A ``.map()`` macro</span>
+<span class="sd">    can be used to compute additional details. An ``.exists()`` macro can filter the</span>
+<span class="sd">    data to look for actionable values.</span>
+
+<span class="sd">    We would prefer to refactor C7N and implement this with code something like this:</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        C7N.filter.prepare_query(C7N.policy.resources)</span>
+<span class="sd">        data = C7N.filter.get_resource_statistics(client, resource)</span>
+<span class="sd">        return json_to_cel(data)</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide a :py:class:`MetricsAccess` mixin in a :py:class:`CELFilter` class.</span>
+<span class="sd">        We want to have the metrics processing in the new :py:class:`CELFilter` instance.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">session_factory</span><span class="p">()</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;cloudwatch&quot;</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_metric_statistics</span><span class="p">(</span>
+        <span class="n">Namespace</span><span class="o">=</span><span class="n">request</span><span class="p">[</span><span class="s2">&quot;Namespace&quot;</span><span class="p">],</span>
+        <span class="n">MetricName</span><span class="o">=</span><span class="n">request</span><span class="p">[</span><span class="s2">&quot;MetricName&quot;</span><span class="p">],</span>
+        <span class="n">Statistics</span><span class="o">=</span><span class="n">request</span><span class="p">[</span><span class="s2">&quot;Statistics&quot;</span><span class="p">],</span>
+        <span class="n">StartTime</span><span class="o">=</span><span class="n">request</span><span class="p">[</span><span class="s2">&quot;StartTime&quot;</span><span class="p">],</span>
+        <span class="n">EndTime</span><span class="o">=</span><span class="n">request</span><span class="p">[</span><span class="s2">&quot;EndTime&quot;</span><span class="p">],</span>
+        <span class="n">Period</span><span class="o">=</span><span class="n">request</span><span class="p">[</span><span class="s2">&quot;Period&quot;</span><span class="p">],</span>
+        <span class="n">Dimensions</span><span class="o">=</span><span class="n">request</span><span class="p">[</span><span class="s2">&quot;Dimensions&quot;</span><span class="p">],</span>
+    <span class="p">)[</span><span class="s2">&quot;Datapoints&quot;</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_metrics">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_metrics">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_metrics</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a statistics request using the current C7N filter.</span>
+
+<span class="sd">    This builds a request object that is passed through to AWS via the :func:`get_raw_metrics`</span>
+<span class="sd">    function.</span>
+
+<span class="sd">    The ``request`` parameter is a Mapping with the following keys and values:</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        resource.get_metrics({&quot;MetricName&quot;: &quot;CPUUtilization&quot;, &quot;Statistic&quot;: &quot;Average&quot;,</span>
+<span class="sd">            &quot;StartTime&quot;: now - duration(&quot;4d&quot;), &quot;EndTime&quot;: now, &quot;Period&quot;: duration(&quot;86400s&quot;)}</span>
+<span class="sd">            ).exists(m, m &lt; 30)</span>
+
+<span class="sd">    The namespace is derived from the ``C7N.policy``. The dimensions are derived from</span>
+<span class="sd">    the ``C7N.fiter.model``.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide a :py:class:`MetricsAccess` mixin in a :py:class:`CELFilter` class.</span>
+<span class="sd">        We want to have the metrics processing in the new :py:class:`CELFilter` instance.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dimension</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">get_model</span><span class="p">()</span><span class="o">.</span><span class="n">dimension</span>
+    <span class="n">namespace</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">resource_type</span>
+    <span class="c1"># TODO: Varies by resource/policy type. Each policy&#39;s model may have different dimensions.</span>
+    <span class="n">dimensions</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">dimension</span><span class="p">,</span> <span class="s2">&quot;Value&quot;</span><span class="p">:</span> <span class="n">resource</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">dimension</span><span class="p">)}]</span>
+    <span class="n">raw_metrics</span> <span class="o">=</span> <span class="n">get_raw_metrics</span><span class="p">(</span>
+        <span class="n">cast</span><span class="p">(</span>
+            <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+            <span class="n">json_to_cel</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;Namespace&quot;</span><span class="p">:</span> <span class="n">namespace</span><span class="p">,</span>
+                    <span class="s2">&quot;MetricName&quot;</span><span class="p">:</span> <span class="n">request</span><span class="p">[</span><span class="s2">&quot;MetricName&quot;</span><span class="p">],</span>
+                    <span class="s2">&quot;Dimensions&quot;</span><span class="p">:</span> <span class="n">dimensions</span><span class="p">,</span>
+                    <span class="s2">&quot;Statistics&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">request</span><span class="p">[</span><span class="s2">&quot;Statistic&quot;</span><span class="p">]],</span>
+                    <span class="s2">&quot;StartTime&quot;</span><span class="p">:</span> <span class="n">request</span><span class="p">[</span><span class="s2">&quot;StartTime&quot;</span><span class="p">],</span>
+                    <span class="s2">&quot;EndTime&quot;</span><span class="p">:</span> <span class="n">request</span><span class="p">[</span><span class="s2">&quot;EndTime&quot;</span><span class="p">],</span>
+                    <span class="s2">&quot;Period&quot;</span><span class="p">:</span> <span class="n">request</span><span class="p">[</span><span class="s2">&quot;Period&quot;</span><span class="p">],</span>
+                <span class="p">}</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">cast</span><span class="p">(</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">],</span> <span class="n">item</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">request</span><span class="p">[</span><span class="s2">&quot;Statistic&quot;</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">cast</span><span class="p">(</span><span class="n">List</span><span class="p">[</span><span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">],</span> <span class="n">raw_metrics</span><span class="p">)</span>
+        <span class="p">]</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_raw_health_events">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_raw_health_events">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_raw_health_events</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a health-events request using the current C7N filter.</span>
+
+<span class="sd">    The ``request`` parameter is the filter object that is passed through to AWS via</span>
+<span class="sd">    the current C7N filter&#39;s manager. The request is a List of AWS health events.</span>
+
+<span class="sd">    ::</span>
+
+<span class="sd">        get_raw_health_events({</span>
+<span class="sd">            &quot;services&quot;: [&quot;ELASTICFILESYSTEM&quot;],</span>
+<span class="sd">            &quot;regions&quot;: [&quot;us-east-1&quot;, &quot;global&quot;],</span>
+<span class="sd">            &quot;eventStatusCodes&quot;: [&#39;open&#39;, &#39;upcoming&#39;],</span>
+<span class="sd">        })</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">session_factory</span><span class="p">()</span><span class="o">.</span><span class="n">client</span><span class="p">(</span>
+        <span class="s2">&quot;health&quot;</span><span class="p">,</span> <span class="n">region_name</span><span class="o">=</span><span class="s2">&quot;us-east-1&quot;</span>
+    <span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">describe_events</span><span class="p">(</span><span class="nb">filter</span><span class="o">=</span><span class="n">request</span><span class="p">)[</span><span class="s2">&quot;events&quot;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_health_events">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_health_events">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_health_events</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span> <span class="n">statuses</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a health-event request using the current C7N filter.</span>
+
+<span class="sd">    This builds a request object that is passed through to AWS via the :func:`get_raw_health_events`</span>
+<span class="sd">    function.</span>
+
+<span class="sd">    ..  todo:: Handle optional list of event types.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">statuses</span><span class="p">:</span>
+        <span class="n">statuses</span> <span class="o">=</span> <span class="p">[</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="s2">&quot;open&quot;</span><span class="p">),</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="s2">&quot;upcoming&quot;</span><span class="p">)]</span>
+    <span class="n">phd_svc_name_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;app-elb&quot;</span><span class="p">:</span> <span class="s2">&quot;ELASTICLOADBALANCING&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ebs&quot;</span><span class="p">:</span> <span class="s2">&quot;EBS&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;efs&quot;</span><span class="p">:</span> <span class="s2">&quot;ELASTICFILESYSTEM&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;elb&quot;</span><span class="p">:</span> <span class="s2">&quot;ELASTICLOADBALANCING&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;emr&quot;</span><span class="p">:</span> <span class="s2">&quot;ELASTICMAPREDUCE&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span>
+    <span class="n">service</span> <span class="o">=</span> <span class="n">phd_svc_name_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;resource&quot;</span><span class="p">],</span> <span class="n">m</span><span class="o">.</span><span class="n">get_model</span><span class="p">()</span><span class="o">.</span><span class="n">service</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+    <span class="n">raw_events</span> <span class="o">=</span> <span class="n">get_raw_health_events</span><span class="p">(</span>
+        <span class="n">cast</span><span class="p">(</span>
+            <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+            <span class="n">json_to_cel</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;services&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">service</span><span class="p">],</span>
+                    <span class="s2">&quot;regions&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">region</span><span class="p">,</span> <span class="s2">&quot;global&quot;</span><span class="p">],</span>
+                    <span class="s2">&quot;eventStatusCodes&quot;</span><span class="p">:</span> <span class="n">statuses</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">raw_events</span></div>
+
+
+
+<div class="viewcode-block" id="get_related_ids">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_related_ids">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_related_ids</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a get_related_ids() request using the current C7N filter.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide the :py:class:`RelatedResourceFilter` mixin in a :py:class:`CELFilter` class.</span>
+<span class="sd">        We want to have the related id&#39;s details in the new :py:class:`CELFilter` instance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Assuming the :py:class:`CELFilter` class has this method extracted from the legacy filter.</span>
+    <span class="n">related_ids</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_related_ids</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">related_ids</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_related_sgs">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_related_sgs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_related_sgs</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a get_related_sgs() request using the current C7N filter.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">security_groups</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_related_sgs</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">security_groups</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_related_subnets">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_related_subnets">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_related_subnets</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a get_related_subnets() request using the current C7N filter.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">subnets</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_related_subnets</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">subnets</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_related_nat_gateways">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_related_nat_gateways">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_related_nat_gateways</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a get_related_nat_gateways() request using the current C7N filter.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nat_gateways</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_related_nat_gateways</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">nat_gateways</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_related_igws">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_related_igws">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_related_igws</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a get_related_igws() request using the current C7N filter.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">igws</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_related_igws</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">igws</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_related_security_configs">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_related_security_configs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_related_security_configs</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a get_related_security_configs() request using the current C7N filter.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">security_configs</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_related_security_configs</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">security_configs</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_related_vpc">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_related_vpc">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_related_vpc</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a get_related_vpc() request using the current C7N filter.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">vpc</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_related_vpc</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">vpc</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_related_kms_keys">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_related_kms_keys">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_related_kms_keys</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a get_related_kms_keys() request using the current C7N filter.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">vpc</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_related_kms_keys</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">vpc</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="security_group">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.security_group">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">security_group</span><span class="p">(</span>
+    <span class="n">security_group_id</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a get_related() request using the current C7N filter to get</span>
+<span class="sd">    the security group.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide the :py:class:`RelatedResourceFilter` mixin in a :py:class:`CELFilter` class.</span>
+<span class="sd">        We want to have the related id&#39;s details in the new :py:class:`CELFilter` instance.</span>
+<span class="sd">        See :py:class:`VpcSecurityGroupFilter` subclass of :py:class:`RelatedResourceFilter`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Assuming the :py:class:`CELFilter` class has this method extracted from the legacy filter.</span>
+    <span class="n">security_groups</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_related</span><span class="p">([</span><span class="n">security_group_id</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">security_groups</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="subnet">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.subnet">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">subnet</span><span class="p">(</span>
+    <span class="n">subnet_id</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a get_related() request using the current C7N filter to get</span>
+<span class="sd">    the subnet.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide the :py:class:`RelatedResourceFilter` mixin in a :py:class:`CELFilter` class.</span>
+<span class="sd">        We want to have the related id&#39;s details in the new :py:class:`CELFilter` instance.</span>
+<span class="sd">        See :py:class:`VpcSubnetFilter` subclass of :py:class:`RelatedResourceFilter`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Get related ID&#39;s first, then get items for the related ID&#39;s.</span>
+    <span class="n">subnets</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_related</span><span class="p">([</span><span class="n">subnet_id</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">subnets</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="flow_logs">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.flow_logs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">flow_logs</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and locate the flow logs using the current C7N filter.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide a separate function to get the flow logs, separate from the</span>
+<span class="sd">        the filter processing.</span>
+
+<span class="sd">    ..  todo:: Refactor :func:`c7nlib.flow_logs` -- it exposes too much implementation detail.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># TODO: Refactor into a function in ``CELFilter``. Should not be here.</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">session_factory</span><span class="p">()</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ec2&quot;</span><span class="p">)</span>
+    <span class="n">logs</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">describe_flow_logs</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FlowLogs&quot;</span><span class="p">,</span> <span class="p">())</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">get_model</span><span class="p">()</span>
+    <span class="n">resource_map</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">fl</span> <span class="ow">in</span> <span class="n">logs</span><span class="p">:</span>
+        <span class="n">resource_map</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">fl</span><span class="p">[</span><span class="s2">&quot;ResourceId&quot;</span><span class="p">],</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fl</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">resource</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">id</span><span class="p">)</span> <span class="ow">in</span> <span class="n">resource_map</span><span class="p">:</span>
+        <span class="n">flogs</span> <span class="o">=</span> <span class="n">resource_map</span><span class="p">[</span><span class="n">cast</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">resource</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">id</span><span class="p">))]</span>
+        <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">flogs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">([])</span></div>
+
+
+
+<div class="viewcode-block" id="vpc">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.vpc">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">vpc</span><span class="p">(</span>
+    <span class="n">vpc_id</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a ``get_related()`` request using the current C7N filter to get</span>
+<span class="sd">    the VPC details.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide the :py:class:`RelatedResourceFilter` mixin in a :py:class:`CELFilter` class.</span>
+<span class="sd">        We want to have the related id&#39;s details in the new :py:class:`CELFilter` instance.</span>
+<span class="sd">        See :py:class:`VpcFilter` subclass of :py:class:`RelatedResourceFilter`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Assuming the :py:class:`CELFilter` class has this method extracted from the legacy filter.</span>
+    <span class="n">vpc</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_related</span><span class="p">([</span><span class="n">vpc_id</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">vpc</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="subst">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.subst">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">subst</span><span class="p">(</span>
+    <span class="n">jmes_path</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and build a set of substitutions to replace text in a JMES path.</span>
+
+<span class="sd">    This is based on how :py:class:`c7n.resolver.ValuesFrom` works. There are</span>
+<span class="sd">    two possible substitution values:</span>
+
+<span class="sd">    -   account_id</span>
+<span class="sd">    -   region</span>
+
+<span class="sd">    :param jmes_path: the source</span>
+<span class="sd">    :return: A JMES with values replaced.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">config_args</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;account_id&quot;</span><span class="p">:</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">account_id</span><span class="p">,</span>
+        <span class="s2">&quot;region&quot;</span><span class="p">:</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">region</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="n">jmes_path</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="n">config_args</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="credentials">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.credentials">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">credentials</span><span class="p">(</span><span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a get_related() request using the current C7N filter to get</span>
+<span class="sd">    the IAM-role credential details.</span>
+
+<span class="sd">    See :py:class:`c7n.resources.iam.CredentialReport` filter.</span>
+<span class="sd">    The `get_credential_report()` function does what we need.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Refactor the :py:class:`c7n.resources.iam.CredentialReport` filter into a</span>
+<span class="sd">        ``CredentialReportMixin`` mixin to the :py:class:`CELFilter` class.</span>
+<span class="sd">        The ``get_credential_report()`` function does what we need.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_credential_report</span><span class="p">(</span><span class="n">resource</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="kms_alias">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.kms_alias">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">kms_alias</span><span class="p">(</span>
+    <span class="n">vpc_id</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a get_matching_aliases() request using the current C7N filter to get</span>
+<span class="sd">    the alias.</span>
+
+<span class="sd">    See :py:class:`c7n.resources.kms.ResourceKmsKeyAlias`.</span>
+<span class="sd">    The `get_matching_aliases()` function does what we need.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Refactor the :py:class:`c7n.resources.kms.ResourceKmsKeyAlias` filter into a</span>
+<span class="sd">        ``ResourceKmsKeyAliasMixin`` mixin to the :py:class:`CELFilter` class.</span>
+<span class="sd">        The ``get_matching_aliases()`` dfunction does what we need.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_matching_aliases</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="kms_key">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.kms_key">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">kms_key</span><span class="p">(</span>
+    <span class="n">key_id</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and make a ``get_related()`` request using the current C7N filter to get</span>
+<span class="sd">    the key. We&#39;re looking for the c7n.resources.kms.Key resource manager to get the related key.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide the :py:class:`RelatedResourceFilter` mixin in a :py:class:`CELFilter` class.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_related</span><span class="p">([</span><span class="n">key_id</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">key</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="resource_schedule">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.resource_schedule">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">resource_schedule</span><span class="p">(</span>
+    <span class="n">tag_value</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N and use the the :py:class:`c7n.filters.offhours.ScheduleParser` class</span>
+<span class="sd">    to examine the tag&#39;s value, the current time, and return a True/False.</span>
+<span class="sd">    This parser is the `parser` value of the :py:class:`c7n.filters.offhours.Time` filter class.</span>
+<span class="sd">    Using the filter&#39;s `parser.parse(value)` provides needed structure.</span>
+
+<span class="sd">    The `filter.parser.parse(value)` will transform text of the Tag value</span>
+<span class="sd">    into a dictionary. This is further transformed to something we can use in CEL.</span>
+
+<span class="sd">    From this</span>
+<span class="sd">    ::</span>
+
+<span class="sd">        off=[(M-F,21),(U,18)];on=[(M-F,6),(U,10)];tz=pt</span>
+
+<span class="sd">    C7N ScheduleParser produces this</span>
+<span class="sd">    ::</span>
+
+<span class="sd">        {</span>
+<span class="sd">          off: [</span>
+<span class="sd">            { days: [1, 2, 3, 4, 5], hour: 21 },</span>
+<span class="sd">            { days: [0], hour: 18 }</span>
+<span class="sd">          ],</span>
+<span class="sd">          on: [</span>
+<span class="sd">            { days: [1, 2, 3, 4, 5], hour: 6 },</span>
+<span class="sd">            { days: [0], hour: 10 }</span>
+<span class="sd">          ],</span>
+<span class="sd">          tz: &quot;pt&quot;</span>
+<span class="sd">        }</span>
+
+<span class="sd">    For CEL, we need this</span>
+<span class="sd">    ::</span>
+
+<span class="sd">        {</span>
+<span class="sd">          off: [</span>
+<span class="sd">            { days: [1, 2, 3, 4, 5], hour: 21, tz: &quot;pt&quot; },</span>
+<span class="sd">            { days: [0], hour: 18, tz: &quot;pt&quot; }</span>
+<span class="sd">          ],</span>
+<span class="sd">          on: [</span>
+<span class="sd">            { days: [1, 2, 3, 4, 5], hour: 6, tz: &quot;pt&quot; },</span>
+<span class="sd">            { days: [0], hour: 10, tz: &quot;pt&quot; }</span>
+<span class="sd">          ],</span>
+<span class="sd">        }</span>
+
+<span class="sd">    This lets a CEL expression use</span>
+<span class="sd">    ::</span>
+
+<span class="sd">        key(&quot;maid_offhours&quot;).resource_schedule().off.exists(s,</span>
+<span class="sd">            now.getDayOfWeek(s.tz) in s.days &amp;&amp; now.getHour(s.tz) == s.hour)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">c7n_sched_doc</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">tag_value</span><span class="p">)</span>
+    <span class="n">tz</span> <span class="o">=</span> <span class="n">c7n_sched_doc</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;tz&quot;</span><span class="p">,</span> <span class="s2">&quot;et&quot;</span><span class="p">)</span>
+    <span class="n">cel_sched_doc</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">state</span><span class="p">:</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s2">&quot;days&quot;</span><span class="p">:</span> <span class="n">time</span><span class="p">[</span><span class="s2">&quot;days&quot;</span><span class="p">],</span> <span class="s2">&quot;hour&quot;</span><span class="p">:</span> <span class="n">time</span><span class="p">[</span><span class="s2">&quot;hour&quot;</span><span class="p">],</span> <span class="s2">&quot;tz&quot;</span><span class="p">:</span> <span class="n">tz</span><span class="p">}</span> <span class="k">for</span> <span class="n">time</span> <span class="ow">in</span> <span class="n">time_list</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">state</span><span class="p">,</span> <span class="n">time_list</span> <span class="ow">in</span> <span class="n">c7n_sched_doc</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">cel_sched_doc</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_accounts">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_accounts">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_accounts</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N filter and get accounts for a given resource.</span>
+<span class="sd">    Used by resources like AMI&#39;s, log-groups, ebs-snapshot, etc.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide the :py:class:`c7n.filters.iamaccessfilter.CrossAccountAccessFilter`</span>
+<span class="sd">        as a mixin to ``CELFilter``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_accounts</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="get_vpcs">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_vpcs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_vpcs</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N filter and get vpcs for a given resource.</span>
+<span class="sd">    Used by resources like AMI&#39;s, log-groups, ebs-snapshot, etc.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide the :py:class:`c7n.filters.iamaccessfilter.CrossAccountAccessFilter`</span>
+<span class="sd">        as a mixin to ``CELFilter``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_vpcs</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="get_vpces">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_vpces">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_vpces</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N filter and get vpces for a given resource.</span>
+<span class="sd">    Used by resources like AMI&#39;s, log-groups, ebs-snapshot, etc.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide the :py:class:`c7n.filters.iamaccessfilter.CrossAccountAccessFilter`</span>
+<span class="sd">        as a mixin to ``CELFilter``.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_vpces</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="get_orgids">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_orgids">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_orgids</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N filter and get orgids for a given resource.</span>
+<span class="sd">    Used by resources like AMI&#39;s, log-groups, ebs-snapshot, etc.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide the :py:class:`c7n.filters.iamaccessfilter.CrossAccountAccessFilter`</span>
+<span class="sd">        as a mixin to ``CELFilter``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_orgids</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="get_endpoints">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_endpoints">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_endpoints</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;For sns resources</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        Provide the :py:class:`c7n.filters.iamaccessfilter.CrossAccountAccessFilter`</span>
+<span class="sd">        as a mixin to ``CELFilter``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_endpoints</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="get_protocols">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_protocols">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_protocols</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;For sns resources</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_protocols</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="get_key_policy">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_key_policy">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_key_policy</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;For kms resources</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">key_id</span> <span class="o">=</span> <span class="n">resource</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+        <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="s2">&quot;TargetKeyId&quot;</span><span class="p">),</span> <span class="n">resource</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">(</span><span class="s2">&quot;KeyId&quot;</span><span class="p">))</span>
+    <span class="p">)</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">session_factory</span><span class="p">()</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;kms&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">get_key_policy</span><span class="p">(</span><span class="n">KeyId</span><span class="o">=</span><span class="n">key_id</span><span class="p">,</span> <span class="n">PolicyName</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">)[</span><span class="s2">&quot;Policy&quot;</span><span class="p">]</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_resource_policy">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_resource_policy">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_resource_policy</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reach into C7N filter and get the resource policy for a given resource.</span>
+<span class="sd">    Used by resources like AMI&#39;s, log-groups, ebs-snapshot, etc.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_resource_policy</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="describe_subscription_filters">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.describe_subscription_filters">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">describe_subscription_filters</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    For log-groups resources.</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        this should be directly available in CELFilter.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">session_factory</span><span class="p">()</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;logs&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span>
+        <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">retry</span><span class="p">(</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">describe_subscription_filters</span><span class="p">,</span> <span class="n">logGroupName</span><span class="o">=</span><span class="n">resource</span><span class="p">[</span><span class="s2">&quot;logGroupName&quot;</span><span class="p">]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;subscriptionFilters&quot;</span><span class="p">,</span> <span class="p">())</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="describe_db_snapshot_attributes">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.describe_db_snapshot_attributes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">describe_db_snapshot_attributes</span><span class="p">(</span>
+    <span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    For rds-snapshot and ebs-snapshot resources</span>
+
+<span class="sd">    ..  todo:: Refactor C7N</span>
+
+<span class="sd">        this should be directly available in CELFilter.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">session_factory</span><span class="p">()</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;ec2&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span>
+        <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">retry</span><span class="p">(</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">describe_snapshot_attribute</span><span class="p">,</span>
+            <span class="n">SnapshotId</span><span class="o">=</span><span class="n">resource</span><span class="p">[</span><span class="s2">&quot;SnapshotId&quot;</span><span class="p">],</span>
+            <span class="n">Attribute</span><span class="o">=</span><span class="s2">&quot;createVolumePermission&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="arn_split">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.arn_split">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">arn_split</span><span class="p">(</span><span class="n">arn</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">StringType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse an ARN, removing a partivular field.</span>
+<span class="sd">    The field name must one one of</span>
+<span class="sd">    &quot;partition&quot;, &quot;service&quot;, &quot;region&quot;, &quot;account-id&quot;, &quot;resource-type&quot;, &quot;resource-id&quot;</span>
+<span class="sd">    In the case of a ``resource-type/resource-id`` path, this will be a &quot;resource-id&quot; value,</span>
+<span class="sd">    and there will be no &quot;resource-type&quot;.</span>
+
+<span class="sd">    Examples formats</span>
+
+<span class="sd">        ``arn:partition:service:region:account-id:resource-id``</span>
+
+<span class="sd">        ``arn:partition:service:region:account-id:resource-type/resource-id``</span>
+
+<span class="sd">        ``arn:partition:service:region:account-id:resource-type:resource-id``</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">field_names</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">):</span> <span class="n">names</span>
+        <span class="k">for</span> <span class="n">names</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="p">(</span><span class="s2">&quot;partition&quot;</span><span class="p">,</span> <span class="s2">&quot;service&quot;</span><span class="p">,</span> <span class="s2">&quot;region&quot;</span><span class="p">,</span> <span class="s2">&quot;account-id&quot;</span><span class="p">,</span> <span class="s2">&quot;resource-id&quot;</span><span class="p">),</span>
+            <span class="p">(</span>
+                <span class="s2">&quot;partition&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;service&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;region&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;account-id&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;resource-type&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;resource-id&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">]</span>
+    <span class="p">}</span>
+    <span class="n">prefix</span><span class="p">,</span> <span class="o">*</span><span class="n">fields</span> <span class="o">=</span> <span class="n">arn</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">prefix</span> <span class="o">!=</span> <span class="s2">&quot;arn&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not an ARN: </span><span class="si">{</span><span class="n">arn</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">mapping</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">field_names</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">fields</span><span class="p">)],</span> <span class="n">fields</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">mapping</span><span class="p">[</span><span class="n">field</span><span class="p">])</span></div>
+
+
+
+<div class="viewcode-block" id="all_images">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.all_images">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">all_images</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Depends on :py:meth:`CELFilter._pull_ec2_images` and :py:meth:`CELFilter._pull_asg_images`</span>
+
+<span class="sd">    See :py:class:`c7n.resources.ami.ImageUnusedFilter`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span>
+        <span class="nb">list</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">_pull_ec2_images</span><span class="p">()</span> <span class="o">|</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">_pull_asg_images</span><span class="p">())</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="all_snapshots">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.all_snapshots">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">all_snapshots</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Depends on :py:meth:`CELFilter._pull_asg_snapshots`</span>
+<span class="sd">    and :py:meth:`CELFilter._pull_ami_snapshots`</span>
+
+<span class="sd">    See :py:class:`c7n.resources.ebs.SnapshotUnusedFilter`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span>
+        <span class="nb">list</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">_pull_asg_snapshots</span><span class="p">()</span> <span class="o">|</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">_pull_ami_snapshots</span><span class="p">())</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="all_launch_configuration_names">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.all_launch_configuration_names">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">all_launch_configuration_names</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Depends on :py:meth:`CELFilter.manager.get_launch_configuration_names`</span>
+
+<span class="sd">    See :py:class:`c7n.resources.asg.UnusedLaunchConfig`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">asgs</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">get_resource_manager</span><span class="p">(</span><span class="s2">&quot;asg&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">resources</span><span class="p">()</span>
+    <span class="n">used</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;LaunchConfigurationName&quot;</span><span class="p">,</span> <span class="n">a</span><span class="p">[</span><span class="s2">&quot;AutoScalingGroupName&quot;</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">asgs</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">a</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;LaunchTemplate&quot;</span><span class="p">)</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">used</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="all_service_roles">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.all_service_roles">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">all_service_roles</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Depends on :py:meth:`CELFilter.service_role_usage`</span>
+
+<span class="sd">    See :py:class:`c7n.resources.iam.UnusedIamRole`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">service_role_usage</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="all_instance_profiles">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.all_instance_profiles">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">all_instance_profiles</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Depends on :py:meth:`CELFilter.instance_profile_usage`</span>
+
+<span class="sd">    See :py:class:`c7n.resources.iam.UnusedInstanceProfiles`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">instance_profile_usage</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="all_dbsubenet_groups">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.all_dbsubenet_groups">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">all_dbsubenet_groups</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Depends on :py:meth:`CELFilter.get_dbsubnet_group_used`</span>
+
+<span class="sd">    See :py:class:`c7n.resources.rds.UnusedRDSSubnetGroup`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rds</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">get_resource_manager</span><span class="p">(</span><span class="s2">&quot;rds&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">resources</span><span class="p">()</span>
+    <span class="n">used</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;DBSubnetGroupName&quot;</span><span class="p">,</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;DBInstanceIdentifier&quot;</span><span class="p">])</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rds</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">used</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="all_scan_groups">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.all_scan_groups">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">all_scan_groups</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Depends on :py:meth:`CELFilter.scan_groups`</span>
+
+<span class="sd">    See :py:class:`c7n.resources.vpc.UnusedSecurityGroup`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">scan_groups</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="get_access_log">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_access_log">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_access_log</span><span class="p">(</span><span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Depends on :py:meth:`CELFilter.resources`</span>
+
+<span class="sd">    See :py:class:`c7n.resources.elb.IsNotLoggingFilter` and</span>
+<span class="sd">    :py:class:`c7n.resources.elb.IsLoggingFilter`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">session_factory</span><span class="p">()</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;elb&quot;</span><span class="p">)</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">describe_load_balancer_attributes</span><span class="p">(</span>
+        <span class="n">LoadBalancerName</span><span class="o">=</span><span class="n">resource</span><span class="p">[</span><span class="s2">&quot;LoadBalancerName&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;LoadBalancerAttributes&quot;</span><span class="p">])</span></div>
+
+
+
+<div class="viewcode-block" id="get_load_balancer">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.get_load_balancer">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_load_balancer</span><span class="p">(</span><span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Depends on :py:meth:`CELFilter.resources`</span>
+
+<span class="sd">    See :py:class:`c7n.resources.appelb.IsNotLoggingFilter` and</span>
+<span class="sd">    :py:class:`c7n.resources.appelb.IsLoggingFilter`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_attribute_value</span><span class="p">(</span><span class="n">v</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Lightweight JSON atomic value convertion to native Python.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">v</span> <span class="o">==</span> <span class="s2">&quot;true&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">v</span> <span class="o">==</span> <span class="s2">&quot;false&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="n">v</span>
+
+    <span class="n">client</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">session_factory</span><span class="p">()</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">&quot;elbv2&quot;</span><span class="p">)</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">describe_load_balancer_attributes</span><span class="p">(</span>
+        <span class="n">LoadBalancerArn</span><span class="o">=</span><span class="n">resource</span><span class="p">[</span><span class="s2">&quot;LoadBalancerArn&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="c1"># print(results)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span>
+        <span class="nb">dict</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">&quot;Key&quot;</span><span class="p">],</span> <span class="n">parse_attribute_value</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">&quot;Value&quot;</span><span class="p">]))</span>
+            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;Attributes&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="shield_protection">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.shield_protection">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">shield_protection</span><span class="p">(</span><span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Depends on the :py:meth:`c7n.resources.shield.IsShieldProtected.process` method.</span>
+<span class="sd">    This needs to be refactored and renamed to avoid collisions with other ``process()`` variants.</span>
+
+<span class="sd">    Applies to most resource types.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">session_factory</span><span class="p">()</span><span class="o">.</span><span class="n">client</span><span class="p">(</span>
+        <span class="s2">&quot;shield&quot;</span><span class="p">,</span> <span class="n">region_name</span><span class="o">=</span><span class="s2">&quot;us-east-1&quot;</span>
+    <span class="p">)</span>
+    <span class="n">protections</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">get_type_protections</span><span class="p">(</span>
+        <span class="n">client</span><span class="p">,</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">get_model</span><span class="p">()</span>
+    <span class="p">)</span>
+    <span class="n">protected_resources</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;ResourceArn&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">protections</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">protected_resources</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="shield_subscription">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.shield_subscription">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">shield_subscription</span><span class="p">(</span><span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Depends on :py:meth:`c7n.resources.account.ShieldEnabled.process` method.</span>
+<span class="sd">    This needs to be refactored and renamed to avoid collisions with other ``process()`` variants.</span>
+
+<span class="sd">    Applies to account resources only.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">subscriptions</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">account_shield_subscriptions</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">subscriptions</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="web_acls">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.web_acls">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">web_acls</span><span class="p">(</span><span class="n">resource</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Depends on :py:meth:`c7n.resources.cloudfront.IsWafEnabled.process` method.</span>
+<span class="sd">    This needs to be refactored and renamed to avoid collisions with other ``process()`` variants.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">wafs</span> <span class="o">=</span> <span class="n">C7N</span><span class="o">.</span><span class="n">filter</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">get_resource_manager</span><span class="p">(</span><span class="s2">&quot;waf&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">resources</span><span class="p">()</span>
+    <span class="n">waf_name_id_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">w</span><span class="p">[</span><span class="s2">&quot;Name&quot;</span><span class="p">]:</span> <span class="n">w</span><span class="p">[</span><span class="s2">&quot;WebACLId&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">wafs</span><span class="p">}</span>
+    <span class="k">return</span> <span class="n">json_to_cel</span><span class="p">(</span><span class="n">waf_name_id_map</span><span class="p">)</span></div>
+
+
+
+<span class="n">DECLARATIONS</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Annotation</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;glob&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;difference&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;intersect&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;normalize&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;parse_cidr&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>  <span class="c1"># Callable[..., CIDR],</span>
+    <span class="s2">&quot;size_parse_cidr&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;unique_size&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>  <span class="c1"># Callable[..., ComparableVersion],</span>
+    <span class="s2">&quot;present&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;absent&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;text_from&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;value_from&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;jmes_path&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;jmes_path_map&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;marked_key&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_metrics&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_related_ids&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;security_group&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;subnet&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;flow_logs&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;vpc&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;subst&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;credentials&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;kms_alias&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;kms_key&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;resource_schedule&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_accounts&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_related_sgs&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_related_subnets&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_related_nat_gateways&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_related_igws&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_related_security_configs&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_related_vpc&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_related_kms_keys&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_vpcs&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_vpces&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_orgids&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_endpoints&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_protocols&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_key_policy&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_resource_policy&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;describe_subscription_filters&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;describe_db_snapshot_attributes&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;arn_split&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;all_images&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;all_snapshots&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;all_launch_configuration_names&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;all_service_roles&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;all_instance_profiles&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;all_dbsubenet_groups&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;all_scan_groups&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_access_log&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;get_load_balancer&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;shield_protection&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;shield_subscription&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="s2">&quot;web_acls&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">,</span>
+    <span class="c1"># &quot;etc.&quot;: celtypes.FunctionType,</span>
+<span class="p">}</span>
+
+<span class="n">ExtFunction</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">]</span>
+
+<span class="n">FUNCTIONS</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ExtFunction</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">f</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">cast</span><span class="p">(</span><span class="n">ExtFunction</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="n">glob</span><span class="p">,</span>
+        <span class="n">difference</span><span class="p">,</span>
+        <span class="n">intersect</span><span class="p">,</span>
+        <span class="n">normalize</span><span class="p">,</span>
+        <span class="n">parse_cidr</span><span class="p">,</span>
+        <span class="n">size_parse_cidr</span><span class="p">,</span>
+        <span class="n">unique_size</span><span class="p">,</span>
+        <span class="n">version</span><span class="p">,</span>
+        <span class="n">present</span><span class="p">,</span>
+        <span class="n">absent</span><span class="p">,</span>
+        <span class="n">text_from</span><span class="p">,</span>
+        <span class="n">value_from</span><span class="p">,</span>
+        <span class="n">jmes_path</span><span class="p">,</span>
+        <span class="n">jmes_path_map</span><span class="p">,</span>
+        <span class="n">key</span><span class="p">,</span>
+        <span class="n">marked_key</span><span class="p">,</span>
+        <span class="n">image</span><span class="p">,</span>
+        <span class="n">get_metrics</span><span class="p">,</span>
+        <span class="n">get_related_ids</span><span class="p">,</span>
+        <span class="n">security_group</span><span class="p">,</span>
+        <span class="n">subnet</span><span class="p">,</span>
+        <span class="n">flow_logs</span><span class="p">,</span>
+        <span class="n">vpc</span><span class="p">,</span>
+        <span class="n">subst</span><span class="p">,</span>
+        <span class="n">credentials</span><span class="p">,</span>
+        <span class="n">kms_alias</span><span class="p">,</span>
+        <span class="n">kms_key</span><span class="p">,</span>
+        <span class="n">resource_schedule</span><span class="p">,</span>
+        <span class="n">get_accounts</span><span class="p">,</span>
+        <span class="n">get_related_sgs</span><span class="p">,</span>
+        <span class="n">get_related_subnets</span><span class="p">,</span>
+        <span class="n">get_related_nat_gateways</span><span class="p">,</span>
+        <span class="n">get_related_igws</span><span class="p">,</span>
+        <span class="n">get_related_security_configs</span><span class="p">,</span>
+        <span class="n">get_related_vpc</span><span class="p">,</span>
+        <span class="n">get_related_kms_keys</span><span class="p">,</span>
+        <span class="n">get_vpcs</span><span class="p">,</span>
+        <span class="n">get_vpces</span><span class="p">,</span>
+        <span class="n">get_orgids</span><span class="p">,</span>
+        <span class="n">get_endpoints</span><span class="p">,</span>
+        <span class="n">get_protocols</span><span class="p">,</span>
+        <span class="n">get_key_policy</span><span class="p">,</span>
+        <span class="n">get_resource_policy</span><span class="p">,</span>
+        <span class="n">describe_subscription_filters</span><span class="p">,</span>
+        <span class="n">describe_db_snapshot_attributes</span><span class="p">,</span>
+        <span class="n">arn_split</span><span class="p">,</span>
+        <span class="n">all_images</span><span class="p">,</span>
+        <span class="n">all_snapshots</span><span class="p">,</span>
+        <span class="n">all_launch_configuration_names</span><span class="p">,</span>
+        <span class="n">all_service_roles</span><span class="p">,</span>
+        <span class="n">all_instance_profiles</span><span class="p">,</span>
+        <span class="n">all_dbsubenet_groups</span><span class="p">,</span>
+        <span class="n">all_scan_groups</span><span class="p">,</span>
+        <span class="n">get_access_log</span><span class="p">,</span>
+        <span class="n">get_load_balancer</span><span class="p">,</span>
+        <span class="n">shield_protection</span><span class="p">,</span>
+        <span class="n">shield_subscription</span><span class="p">,</span>
+        <span class="n">web_acls</span><span class="p">,</span>
+        <span class="c1"># etc.</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="C7N_Interpreted_Runner">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.C7N_Interpreted_Runner">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">C7N_Interpreted_Runner</span><span class="p">(</span><span class="n">InterpretedRunner</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extends the Evaluation to introduce the C7N CELFilter instance into the evaluation.</span>
+
+<span class="sd">    The variable is global to allow the functions to have the simple-looking argument</span>
+<span class="sd">    values that CEL expects. This allows a function in this module to reach outside CEL for</span>
+<span class="sd">    access to C7N&#39;s caches.</span>
+
+<span class="sd">    ..  todo: Refactor to be a mixin to the Runner class hierarchy.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="C7N_Interpreted_Runner.evaluate">
+<a class="viewcode-back" href="../../api.html#celpy.c7nlib.C7N_Interpreted_Runner.evaluate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">Context</span><span class="p">,</span> <span class="nb">filter</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">Evaluator</span><span class="p">(</span>
+            <span class="n">ast</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ast</span><span class="p">,</span>
+            <span class="n">activation</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">new_activation</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="n">C7NContext</span><span class="p">(</span><span class="nb">filter</span><span class="o">=</span><span class="nb">filter</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span></div>
+</div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">CEL in Python</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Documentation Content:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Use of CEL-Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../integration.html">Application Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../structure.html">Architecture and Design Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../c7n_functions.html">C7N Functions Required</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2020, CapitalOne.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

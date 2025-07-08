@@ -134,3 +134,6 @@ type_check/lineprecision.txt
 demo/issue_41.py
 demo/issue_80.py
 setup.sh
+/docs/build/doctrees
+docs/build/html/.buildinfo
+docs/build/html/.buildinfo.bak

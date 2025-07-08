@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Data Structures &#8212; CEL in Python  documentation</title>
+    <title>Architecture and Design &#8212; CEL in Python  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
@@ -14,8 +14,8 @@
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="C7N Functions Required" href="c7n_functions.html" />
-    <link rel="prev" title="CEL-Py API" href="api.html" />
+    <link rel="next" title="API" href="api.html" />
+    <link rel="prev" title="Application Integration" href="integration.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -33,39 +33,321 @@
 
           <div class="body" role="main">
             
-  <section id="data-structures">
-<span id="id1"></span><h1>Data Structures<a class="headerlink" href="#data-structures" title="Link to this heading">¶</a></h1>
-<section id="run-time">
-<h2>Run-Time<a class="headerlink" href="#run-time" title="Link to this heading">¶</a></h2>
-<p>An external client depends on the <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Environment</span></code>.</p>
-<p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Environment</span></code> builds the initial AST and the final runnable “program.”
-The <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Environment</span></code> may also contain a type provider and type adapters.</p>
-<p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Environment</span></code> also builds
-an <a class="reference internal" href="api.html#celpy.evaluation.Activation" title="celpy.evaluation.Activation"><code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.evaluation.Activation</span></code></a> with the variable and function bindings
-and the default package.</p>
-<p>The  <a class="reference internal" href="api.html#celpy.evaluation.Activation" title="celpy.evaluation.Activation"><code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.evaluation.Activation</span></code></a> create a kind of chainmap for name
-resolution. The chain has the following structure:</p>
+  <section id="architecture-and-design">
+<span id="data-structures"></span><h1>Architecture and Design<a class="headerlink" href="#architecture-and-design" title="Link to this heading">¶</a></h1>
+<p>We’ll start with the C4 views:</p>
+<ul>
+<li><p><cite>Context</cite></p></li>
+<li><p><cite>Container</cite> – this isn’t too interesting, but it can help to see this.</p></li>
+<li><p><cite>Components</cite></p>
+<p>This is a collection of various design notes describing some implementation details.</p>
 <ul class="simple">
-<li><p>The end of the chain is the built-in defaults.</p></li>
-<li><p>A layer on top of this can be provided as part of integration into some other app or framework.</p></li>
-<li><p>The next layer is the “current” activation when evaluating a given expression.
-This often has command-line variables.</p></li>
-<li><p>A transient top-most layer is used to create a local variable binding
-for the macro evaluations.</p></li>
+<li><p><a class="reference internal" href="#compile-time">Compile-Time</a></p></li>
+<li><p><a class="reference internal" href="#evaluation-time">Evaluation-Time</a></p></li>
+<li><p><a class="reference internal" href="#cel-types">CEL Types</a></p></li>
+<li><p><a class="reference internal" href="#transpiler-missing-names">Transpiler Missing Names</a></p></li>
+<li><p><a class="reference internal" href="#the-member-dot-production">The member-dot Production</a></p></li>
 </ul>
-<p>The AST is created by Lark from the CEL expression.</p>
-<p>There are two <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Runner</span></code> implementations.</p>
+</li>
+</ul>
+<p>The code view is in the <a class="reference internal" href="api.html#api"><span class="std std-ref">API</span></a> section.</p>
+<section id="context">
+<h2>Context<a class="headerlink" href="#context" title="Link to this heading">¶</a></h2>
+<p>There are two distinct contexts for CEL Python:</p>
 <ul class="simple">
-<li><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.InterpretedRunner</span></code> walks the AST, creating the final result or exception.</p></li>
-<li><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.CompiledRunner</span></code> transforms the AST to remove empty rules. Then emits
-the result as a Python expression. It uses the Python internal <code class="xref py py-func docutils literal notranslate"><span class="pre">compile()</span></code> and <code class="xref py py-func docutils literal notranslate"><span class="pre">eval()</span></code> functions
-to evaluate the expression.</p></li>
+<li><p>The CLI – as a stand-alone application.</p></li>
+<li><p>As an importable module to provide expressions to a DSL.</p></li>
+</ul>
+<p class="plantuml">
+<img src="_images/plantuml-c970d97dc7e0a41eb7666fff5d466440fc8d67cf.png" alt="&#64;startuml
+skinparam actorStyle awesome
+left to right direction
+
+package celpy {
+    package library {
+    usecase lib1 as &quot;extend DSL with expressions&quot;
+    usecase lib2 as &quot;create program&quot;
+    usecase lib3 as &quot;evaluate program in context&quot;
+    lib1 --&gt; lib2
+    lib1 --&gt; lib3
+    }
+
+    package cli {
+    usecase cli1 as &quot;**expr** features
+    ---
+    Use the -n option&quot;
+    usecase cli2 as &quot;**test** features
+    ---
+    Use the -nb options&quot;
+    usecase cli3 as &quot;**jq** features
+    Newline-Delimited or single JSON doc&quot;
+    usecase cli4 as &quot;interactive computation
+    ---
+    use the -i option&quot;
+    }
+
+}
+
+actor app as &quot;some app with a DSL&quot;
+app --&gt; lib1
+
+actor bash as &quot;shell script&quot;
+bash --&gt; cli1
+bash --&gt; cli2
+bash --&gt; cli3
+
+actor user
+user --&gt; cli4
+
+app &lt;|- [c7n]
+&#64;enduml"/>
+</p>
+<p>From the CLI, the <code class="docutils literal notranslate"><span class="pre">celpy</span></code> application has a number of use cases:</p>
+<ul class="simple">
+<li><p>A shell script can use <code class="docutils literal notranslate"><span class="pre">celpy</span></code> as a command to replace other shell commands, including <strong>expr</strong>, <strong>test</strong>, and <strong>jq</strong>.</p></li>
+<li><p>A person can run <code class="docutils literal notranslate"><span class="pre">celpy</span></code> interactively.
+This allows experimentation.
+It also supports exploring very complex JSON documents to understand their structure.</p></li>
+</ul>
+<p>As a library, an application (for example, C7N) can import <code class="docutils literal notranslate"><span class="pre">celpy</span></code> to provide an expression feature for the DSL.
+This provides well-defined semantics, and widely-used syntax for the expression language.
+There’s an explicit separation between building a program and executing the program to allow caching an expression for multiple executions without the overhead of building a Lark parser or compiling the expression.</p>
+</section>
+<section id="container">
+<h2>Container<a class="headerlink" href="#container" title="Link to this heading">¶</a></h2>
+<p>As a CLI, this is part of a shell script. It runs where the script runs.</p>
+<p>As a library, this is improted into the application to extend the DSL.</p>
+<p>There are no services offered or used.</p>
+</section>
+<section id="components">
+<h2>Components<a class="headerlink" href="#components" title="Link to this heading">¶</a></h2>
+<p>The Python code base has a number of modules.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">__init__</span></code> – the <code class="docutils literal notranslate"><span class="pre">celpy</span></code> package as a whole.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">__main__</span></code> – the main applications used when running <code class="docutils literal notranslate"><span class="pre">celpy</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">celparser</span></code>  – a <strong>Facade</strong> for the Lark parser.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">evaluation</span></code> – a <strong>Facade</strong> for run-time evaluation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">celtypes</span></code> – the underlying Python implementations of CEL data structures.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">c7nlib</span></code>– a collection of components the C7N can use to introduce CEL filters.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adapter</span></code> – Some JSON serialization components.</p></li>
+</ul>
+<p>Here’s the conceptual organiation</p>
+<p class="plantuml">
+<img src="_images/plantuml-01f21512c6b94e19efccb4676b518bed63780ddd.png" alt="&#64;startuml
+
+package celpy {
+    component &quot;~__init__&quot; as init
+    component &quot;~__main__&quot; as main
+    component adapter
+    component c7nlib
+    component celparser
+    component celtypes
+    component evaluation
+    component cel.lark
+}
+init --&gt; celtypes
+init --&gt; adapter
+init --&gt; celparser
+init--&gt; evaluation
+
+main --&gt; init
+main --&gt; celparser
+main --&gt; adapter
+main --&gt; evaluation
+
+adapter --&gt; celtypes
+
+c7nlib --&gt; evaluation
+c7nlib --&gt; adapter
+c7nlib --&gt; celtypes
+c7nlib --&gt; init
+
+celparser --&gt; cel.lark
+celparser --&gt; lark
+
+evaluation --&gt; lark
+evaluation --&gt; celtypes
+
+package lark {
+}
+&#64;enduml"/>
+</p>
+<p>While there is a tangle of dependencies, there are three top-level “entry points” for <code class="docutils literal notranslate"><span class="pre">celpy</span></code>.</p>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">__main__</span></code> module is the CLI application.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">c7nlib</span></code> module exposes CEL functionality in a form usable by Cloud Custodian filter definitions.
+This library provides useful components to perform Custodian-related computations.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">__init__</span></code> module is exposes the most useful parts of <code class="docutils literal notranslate"><span class="pre">celpy</span></code> for integration woth another application.</p></li>
+</ul>
+<section id="compile-time">
+<h3>Compile-Time<a class="headerlink" href="#compile-time" title="Link to this heading">¶</a></h3>
+<p>Here are the essential classes used to compile a CEL expression and prepare it for evaluation.</p>
+<p class="plantuml">
+<img src="_images/plantuml-60c95188891b5d1267db67bb61a17e9fd7c08060.png" alt="&#64;startuml
+hide empty members
+
+class Environment {
+    package: str
+    annotations: dict[str, Annotation]
+    compile(text: str) -&gt; lark.Tree
+    program(expr: lark.Tree, functions: dict) -&gt; Runner
+}
+
+class celparser.CELParser{
+    parse(text: str)
+}
+Environment *-- CELParser
+
+class lark.Tree {}
+CELParser --&gt; lark.Tree : &quot;Creates&quot;
+
+abstract class Runner {
+    ast: Tree
+    evaluate(context: Context) -&gt; Value
+}
+Environment --&gt; Runner : &quot;Creates&quot;
+Runner o-- lark.Tree
+Runner o-- &quot;0..m&quot; CELFunction
+
+class InterpretedRunner
+Runner &lt;|-- InterpretedRunner
+
+class evaluation.Evaluator
+InterpretedRunner *-- Evaluator
+
+class CompiledRunner
+Runner &lt;|-- CompiledRunner
+
+class evaluation.Transpiler
+CompiledRunner *-- Transpiler
+
+class evaluation.Context &lt;&lt; (T,orchid) Type&gt;&gt; {
+    key: str
+    value: Result | NameContainer
+}
+Runner o--- &quot;0..m&quot; Context
+
+class CELFunction &lt;&lt;Callable&gt;&gt;
+
+class Annotation &lt;&lt; (T,orchid) Type&gt;&gt;
+Environment o-- &quot;0..m&quot; Annotation
+
+class TypeType
+Annotation &lt;|-- TypeType
+Annotation &lt;|-- CELFunction
+
+&#64;enduml"/>
+</p>
+<p>The fundamental sequence of operations is</p>
+<ol class="arabic simple">
+<li><p>Create an <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Environment</span></code> with any needed <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Annotation</span></code> instances.
+For the most part, these are based on the overall application domain.
+Any type definitions should be subclasses of <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.TypeType</span></code> or a callable function defined by the <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.CELFunction</span></code> type.</p></li>
+<li><p>Use the <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Environment</span></code> to compile the CEL text to create a parse tree.</p></li>
+<li><p>Use the <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Environment</span></code> to create a <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Runner</span></code> instance from the parse tree and any function definitions that override or extend the predefined CEL environment.</p></li>
+<li><p>Evaluate the <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Runner</span></code> with a <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Context</span></code>.
+The <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Context</span></code> provides specific values for variables required for evaluation.
+Generally, each variable should have an <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Annotation</span></code> defined in the <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Environment</span></code>.</p></li>
+</ol>
+<p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Runner</span></code> can be evaluated with any number of distinct <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Context</span></code> values.
+This amortizes the cost of compilation over multiple executions.</p>
+</section>
+<section id="evaluation-time">
+<h3>Evaluation-Time<a class="headerlink" href="#evaluation-time" title="Link to this heading">¶</a></h3>
+<p>Here’s the classes to evaluate a CEL expression.</p>
+<p class="plantuml">
+<img src="_images/plantuml-165a23eb11f806bdd308ffac47a78125152ade58.png" alt="&#64;startuml
+hide empty members
+
+abstract class Runner {
+    ast: Tree
+    evaluate(context: Context) -&gt; Value
+}
+Environment --- Runner : &quot;Created By &lt;&quot;
+Runner o-- &quot;0..m&quot; CELFunction
+Runner o-- Context
+
+class lark.Tree
+Tree --* Runner
+
+class InterpretedRunner &lt;&lt;Adapter&gt;&gt;
+Runner &lt;|-- InterpretedRunner
+
+abstract class lark.Interpreter
+
+class evaluation.Evaluator {
+    activation: Activation
+    functions: dict[str, CELFunction]
+    evaluate() -&gt; Value
+}
+lark.Interpreter &lt;|--- Evaluator
+InterpretedRunner *-- Evaluator
+
+class CompiledRunner  &lt;&lt;Adapter&gt;&gt;
+Runner &lt;|-- CompiledRunner
+
+InterpretedRunner -[hidden]&gt; CompiledRunner
+
+class evaluation.Transpiler {
+    functions: dict[str, CELFunction]
+    transpile()
+    evaluate() -&gt; Value
+}
+CompiledRunner *-- Transpiler
+lark.Interpreter &lt;|--- Transpiler
+
+class evaluation.Activation {
+    annotations: Annotation
+    identifiers: dict[str, Result | CELFunction]
+}
+Runner *-- Activation : &quot;Uses&quot;
+Runner --&gt; Activation : &quot;Creates&quot;
+Activation --&gt; Activation : &quot;based on&quot;
+
+class Annotation &lt;&lt; (T,orchid) Type&gt;&gt;
+Runner *-- &quot;0..m&quot; Annotation
+Annotation --o Activation : Initializes
+CELFunction --o Activation : Initializes
+Context --o Activation : Initializes
+
+&#64;enduml"/>
+</p>
+<p>The evalation of the CEL expression is done via a <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Runner</span></code> object.
+There are two <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Runner</span></code> implementations.</p>
+<ul class="simple">
+<li><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.InterpretedRunner</span></code> walks the AST, creating the final result <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Value</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.CELEvalError</span></code> exception.
+This uses a <a class="reference internal" href="api.html#celpy.evaluation.Activation" title="celpy.evaluation.Activation"><code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.evaluation.Activation</span></code></a> to perform the evaluation.</p></li>
+<li><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.CompiledRunner</span></code> transpiles the AST into a Python sequence of statements.
+The internal <code class="xref py py-func docutils literal notranslate"><span class="pre">compile()</span></code> creates a code object that can then be evaluated with a given  <a class="reference internal" href="api.html#celpy.evaluation.Activation" title="celpy.evaluation.Activation"><code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.evaluation.Activation</span></code></a>
+The internal <code class="xref py py-func docutils literal notranslate"><span class="pre">exec()</span></code> functions performs the evaluation.</p></li>
+</ul>
+<p>The subclasses of <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Runner</span></code> are <strong>Adapter</strong> classes to provide a tidy interface to the somewhat more complex <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Evaluator</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.Transpiler</span></code> objects.
+In the case of the <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.InterpretedRunner</span></code>, evaluation involves creating an <a class="reference internal" href="api.html#celpy.evaluation.Activation" title="celpy.evaluation.Activation"><code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.evaluation.Activation</span></code></a> and visiting the AST.
+Whereas, the <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.CompiledRunner</span></code> must first visit the AST to create code. At evaluation time, it create an <a class="reference internal" href="api.html#celpy.evaluation.Activation" title="celpy.evaluation.Activation"><code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.evaluation.Activation</span></code></a> and uses  <code class="xref py py-func docutils literal notranslate"><span class="pre">exec()</span></code> to compute the final value.</p>
+<p>The <a class="reference internal" href="api.html#celpy.evaluation.Activation" title="celpy.evaluation.Activation"><code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.evaluation.Activation</span></code></a> contains  several things:</p>
+<ul class="simple">
+<li><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">Annotation</span></code> definitions to provide type information for identifiers.</p></li>
+<li><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">CELFunction</span></code> functions that extend or override the built-in functions.</p></li>
+<li><p>The values for identifiers.</p></li>
+</ul>
+<p>The  <a class="reference internal" href="api.html#celpy.evaluation.Activation" title="celpy.evaluation.Activation"><code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.evaluation.Activation</span></code></a> is a kind of chainmap for name resolution.
+The chain has the following structure:</p>
+<ul class="simple">
+<li><p>The end of the chain has the built-in defaults.
+(This is the bottom-most base definition.)</p></li>
+<li><p>A layer on top of this can offer types and functions which are provided to integrate into the containing app or framework.</p></li>
+<li><p>The next layer is the “current” activation when evaluating a given expression.
+For the CLI, this has the command-line variables.
+For other integrations, these are the input values.</p></li>
+<li><p>A transient layer on top of this is used to create a local variable binding for the macro evaluations.
+These can be nested, and introduce the macro variable as a temporary annotation and value binding.</p></li>
 </ul>
 </section>
 <section id="cel-types">
-<h2>CEL Types<a class="headerlink" href="#cel-types" title="Link to this heading">¶</a></h2>
+<h3>CEL Types<a class="headerlink" href="#cel-types" title="Link to this heading">¶</a></h3>
 <p>There are ten extension types that wrap Python built-in types to provide the unique CEL semantics.</p>
 <ul class="simple">
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">celtypes.TypeType</span></code> is a supertype for CEL types.</p></li>
 <li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">celtypes.BoolType</span></code> wraps <code class="docutils literal notranslate"><span class="pre">int</span></code> and creates additional type overload exceptions.</p></li>
 <li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">celtypes.BytesType</span></code> wraps <code class="docutils literal notranslate"><span class="pre">bytes</span></code> it handles conversion from <code class="xref py py-class docutils literal notranslate"><span class="pre">celtypes.StringType</span></code>.</p></li>
 <li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">celtypes.DoubleType</span></code> wraps <code class="docutils literal notranslate"><span class="pre">float</span></code> and creates additional type overload exceptions.</p></li>
@@ -81,7 +363,69 @@ from <code class="docutils literal notranslate"><span class="pre">datetime.datet
 from <code class="docutils literal notranslate"><span class="pre">datetime.timedelta</span></code>, <code class="docutils literal notranslate"><span class="pre">int</span></code>, and <code class="docutils literal notranslate"><span class="pre">str</span></code> values.</p></li>
 </ul>
 <p>Additionally, a <code class="xref py py-class docutils literal notranslate"><span class="pre">celtypes.NullType</span></code> is defined, but does not seem to be needed. It hasn’t been deleted, yet.
-but should be considered deprecated.</p>
+It should be considered deprecated.</p>
+</section>
+</section>
+<section id="transpiler-missing-names">
+<h2>Transpiler Missing Names<a class="headerlink" href="#transpiler-missing-names" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">member_dot</span></code> transpilation  with a missing name will be found at evaluation time via <code class="docutils literal notranslate"><span class="pre">member.get('IDENT')</span></code>. This raises No Such Member in Mapping error.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">primary</span> <span class="pre">::</span> <span class="pre">ident</span></code> evaluation can result in one of the following conditions:</p>
+<blockquote>
+<div><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">ident</span></code> denotes a type definition. The value’s type is <code class="docutils literal notranslate"><span class="pre">TypeType</span></code>.
+The value is a type reference <code class="docutils literal notranslate"><span class="pre">bool</span></code> becomes <code class="docutils literal notranslate"><span class="pre">celpy.celtypes.BoolType</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ident</span></code>  denotes a built-in function. The value’s type is <code class="docutils literal notranslate"><span class="pre">CELFunction</span></code>.
+The value is the Python function reference.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ident</span></code> denotes an annotation, but the value’s type is neither <code class="docutils literal notranslate"><span class="pre">TypeType</span></code> nor <code class="docutils literal notranslate"><span class="pre">CELFunction</span></code>.</p>
+<p>The transpiled value is <code class="docutils literal notranslate"><span class="pre">f&quot;activation.{ident}&quot;</span></code>, assuming it will be a defined variable.</p>
+<p>If, at <code class="docutils literal notranslate"><span class="pre">exec()</span></code> time the name is not in the Activation with a value, a <code class="docutils literal notranslate"><span class="pre">NameError</span></code> exception will be raised that becomes a <code class="docutils literal notranslate"><span class="pre">CELEvalError</span></code> exception.</p>
+</li>
+</ul>
+</div></blockquote>
+</section>
+<section id="the-member-dot-production">
+<h2>The Member-Dot Production<a class="headerlink" href="#the-member-dot-production" title="Link to this heading">¶</a></h2>
+<p>Consider <code class="docutils literal notranslate"><span class="pre">protobuf_message{field:</span> <span class="pre">42}.field</span></code>.
+This is parsed using the following productions.</p>
+<div class="highlight-bnf notranslate"><div class="highlight"><pre><span></span>member         : member_dot | member_dot_arg | member_item | member_object | primary
+member_dot     : member &quot;.&quot; IDENT
+member_object  : member &quot;{&quot; [fieldinits] &quot;}&quot;
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">member_object</span></code> will be a <code class="docutils literal notranslate"><span class="pre">primary</span></code> which can be an <code class="docutils literal notranslate"><span class="pre">ident</span></code>.
+It MUST refer to the Annotation (not the value) because it has <code class="docutils literal notranslate"><span class="pre">fieldinits</span></code>.
+All other choices are (generally) values.
+They can be annotations, which means <code class="docutils literal notranslate"><span class="pre">bool.type()</span></code> works the same as <code class="docutils literal notranslate"><span class="pre">type(bool)</span></code>.</p>
+<p>Here’s <code class="docutils literal notranslate"><span class="pre">primary</span></code> production, which defines the <code class="docutils literal notranslate"><span class="pre">ident</span></code> in the <code class="docutils literal notranslate"><span class="pre">member</span></code> production.</p>
+<div class="highlight-bnf notranslate"><div class="highlight"><pre><span></span>primary        : dot_ident_arg | dot_ident | ident_arg | ident
+               | paren_expr | list_lit | map_lit | literal
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">ident</span></code> is not <strong>always</strong> transpiled as <code class="docutils literal notranslate"><span class="pre">activation.{name}</span></code>.
+Inside <code class="docutils literal notranslate"><span class="pre">member_object</span></code>, it’s <code class="docutils literal notranslate"><span class="pre">activation.resolve_name({name})</span></code>.
+Outside <code class="docutils literal notranslate"><span class="pre">member_object</span></code>, it can be <code class="docutils literal notranslate"><span class="pre">activation.{name}</span></code> because it’s a simple variable.</p>
+<p>It may make sense to rename the <code class="xref py py-meth docutils literal notranslate"><span class="pre">Activation.resolve_name()</span></code> method to <code class="xref py py-meth docutils literal notranslate"><span class="pre">Activation.get()</span></code>.</p>
+<p>This, however, overloads the <code class="docutils literal notranslate"><span class="pre">get()</span></code> method.
+This has type hint consequences.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">member</span></code> can be any of a variety of objects:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">NameContainer(Dict[str,</span> <span class="pre">Referent])</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Activation</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MapType(Dict[Value,</span> <span class="pre">Value])</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MessageType(MapType)</span></code></p></li>
+</ul>
+<p>All of these classes must define a <code class="docutils literal notranslate"><span class="pre">get()</span></code> method.
+The nuance is the <code class="docutils literal notranslate"><span class="pre">NameContainer</span></code> is also a Python <code class="docutils literal notranslate"><span class="pre">dict</span></code> and there’s an
+overload issue between that <code class="docutils literal notranslate"><span class="pre">get()</span></code> and other <code class="docutils literal notranslate"><span class="pre">get()</span></code> definitions.</p>
+</div>
+<p>The Transpilation <strong>currently</strong> leverages a common method named <code class="docutils literal notranslate"><span class="pre">get()</span></code> for all of these types.
+This is a Pythonic approach, but, the overload for the <code class="docutils literal notranslate"><span class="pre">NameContainer</span></code> (a <code class="docutils literal notranslate"><span class="pre">Dict</span></code> subclass) isn’t quite right:
+it doesn’t return a <code class="docutils literal notranslate"><span class="pre">Referent</span></code>, but the value from a <code class="docutils literal notranslate"><span class="pre">Referent</span></code>.</p>
+<p>A slightly smarter approach is to define a <code class="docutils literal notranslate"><span class="pre">get_value(member,</span> <span class="pre">'name')</span></code> function that uses a match/case structure to do the right thing for each type. The problem is, the result is a union of type, value, function, and any of these four containers!</p>
+<p>Another possibility is to leverage the Annotations.
+They <strong>can</strong> provide needed type information to discern which method with specific result type.</p>
 </section>
 </section>
 
@@ -111,18 +455,22 @@ but should be considered deprecated.</p>
     </div>
 </search>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Documentation Content:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Use of CEL-Python</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="integration.html">Application Integration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api.html">CEL-Py API</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Data Structures</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#run-time">Run-Time</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#cel-types">CEL Types</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Architecture and Design</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#context">Context</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#container">Container</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#components">Components</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#transpiler-missing-names">Transpiler Missing Names</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-member-dot-production">The Member-Dot Production</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="c7n_functions.html">C7N Functions Required</a></li>
 </ul>
 
@@ -130,8 +478,8 @@ but should be considered deprecated.</p>
 <h3>Related Topics</h3>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
-      <li>Previous: <a href="api.html" title="previous chapter">CEL-Py API</a></li>
-      <li>Next: <a href="c7n_functions.html" title="next chapter">C7N Functions Required</a></li>
+      <li>Previous: <a href="integration.html" title="previous chapter">Application Integration</a></li>
+      <li>Next: <a href="api.html" title="next chapter">API</a></li>
   </ul></li>
 </ul>
 </div>

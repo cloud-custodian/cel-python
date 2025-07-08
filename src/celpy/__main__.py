@@ -14,85 +14,25 @@
 # See the License for the specific language governing permissions and limitations under the License.
 
 """
-Pure Python implementation of CEL.
+The CLI interface to ``celpy``.
 
-This provides a few jq-like, bc-like, and shell expr-like features.
-
--   ``jq`` uses ``.`` to refer the current document. By setting a package
-    name of ``"jq"`` and placing the JSON object in the package, we achieve
-    similar syntax.
-
--   ``bc`` offers complex function definitions and other programming support.
-    CEL can only evaluate a few bc-like expressions.
-
--   This does everything ``expr`` does, but the syntax is slightly different.
-    The output of comparisons -- by default -- is boolean, where ``expr`` is an integer 1 or 0.
-    Use ``-f 'd'`` to see decimal output instead of Boolean text values.
-
--   This does some of what ``test`` does, without a lot of the sophisticated
-    file system data gathering.
-    Use ``-b`` to set the exit status code from a Boolean result.
-
-TODO: This can also have a REPL, as well as process CSV files.
-
-SYNOPSIS
-========
-
-::
-
-    python -m celpy [--arg name:type=value ...] [--null-input] expr
-
-Options:
-
-:--arg:
-    Provides argument names, types and optional values.
-    If the value is not provided, the name is expected to be an environment
-    variable, and the value of the environment variable is converted and used.
-
-:--null-input:
-    Normally, JSON documents are read from stdin in ndjson format. If no JSON documents are
-    provided, the ``--null-input`` option skips trying to read from stdin.
-
-:expr:
-    A CEL expression to evaluate.
-
-JSON documents are read from stdin in NDJSON format (http://jsonlines.org/, http://ndjson.org/).
-For each JSON document, the expression is evaluated with the document in a default
-package. This allows `.name` to pick items from the document.
-
-By default, the output is JSON serialized. This means strings will be JSON-ified and have quotes.
-
-If a ``--format`` option is provided, this is applied to the resulting object; this can be
-used to strip quotes, or limit precision on double objects, or convert numbers to hexadecimal.
-
-Arguments, Types, and Namespaces
-================================
-
-CEL objects rely on the celtypes definitions.
-
-Because of the close association between CEL and protobuf, some well-known protobuf types
-are also supported.
-
-..  todo:: CLI type environment
-
-    Permit name.name:type=value to create namespace bindings.
-
-Further, type providers can be bound to CEL. This means an extended CEL
-may have additional types beyond those defined by the :py:class:`Activation` class.
-
+This parses the command-line options.
+It also offers an interactive REPL.
 """
 
 import argparse
 import ast
 import cmd
+import datetime
 import json
 import logging
 import logging.config
 import os
 from pathlib import Path
 import re
+import stat as os_stat
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 try:
     import tomllib
@@ -188,7 +128,7 @@ def arg_type_value(text: str) -> Tuple[str, Annotation, celtypes.Value]:
             type_definition = CLI_ARG_TYPES[type_name]
             value = cast(
                 celtypes.Value,
-                type_definition(value_text),  # type: ignore[arg-type, call-arg]
+                type_definition(value_text),  # type: ignore [call-arg]
             )
         except KeyError:
             raise argparse.ArgumentTypeError(
@@ -295,6 +235,73 @@ def get_options(argv: Optional[List[str]] = None) -> argparse.Namespace:
     return options
 
 
+def stat(path: Union[Path, str]) -> Optional[celtypes.MapType]:
+    """This function is added to the CLI to permit file-system interrogation."""
+    try:
+        status = Path(path).stat()
+        data = {
+            "st_atime": celtypes.TimestampType(
+                datetime.datetime.fromtimestamp(status.st_atime)
+            ),
+            "st_ctime": celtypes.TimestampType(
+                datetime.datetime.fromtimestamp(status.st_ctime)
+            ),
+            "st_mtime": celtypes.TimestampType(
+                datetime.datetime.fromtimestamp(status.st_mtime)
+            ),
+            "st_dev": celtypes.IntType(status.st_dev),
+            "st_ino": celtypes.IntType(status.st_ino),
+            "st_nlink": celtypes.IntType(status.st_nlink),
+            "st_size": celtypes.IntType(status.st_size),
+            "group_access": celtypes.BoolType(status.st_gid == os.getegid()),
+            "user_access": celtypes.BoolType(status.st_uid == os.geteuid()),
+        }
+
+        # From mode File type:
+        # - block, character, directory, regular, symbolic link, named pipe, socket
+        # One predicate should be True; we want the code for that key.
+        data["kind"] = celtypes.StringType(
+            {
+                predicate(status.st_mode): code
+                for code, predicate in [
+                    ("b", os_stat.S_ISBLK),
+                    ("c", os_stat.S_ISCHR),
+                    ("d", os_stat.S_ISDIR),
+                    ("f", os_stat.S_ISREG),
+                    ("p", os_stat.S_ISFIFO),
+                    ("l", os_stat.S_ISLNK),
+                    ("s", os_stat.S_ISSOCK),
+                ]
+            }.get(True, "?")
+        )
+
+        # Special bits: uid, gid, sticky
+        data["setuid"] = celtypes.BoolType((os_stat.S_ISUID & status.st_mode) != 0)
+        data["setgid"] = celtypes.BoolType((os_stat.S_ISGID & status.st_mode) != 0)
+        data["sticky"] = celtypes.BoolType((os_stat.S_ISVTX & status.st_mode) != 0)
+
+        # permissions, limited to user-level RWX, nothing more.
+        data["r"] = celtypes.BoolType(os.access(path, os.R_OK))
+        data["w"] = celtypes.BoolType(os.access(path, os.W_OK))
+        data["x"] = celtypes.BoolType(os.access(path, os.X_OK))
+        try:
+            extra = {
+                "st_birthtime": celtypes.TimestampType(
+                    datetime.datetime.fromtimestamp(status.st_birthtime)
+                ),
+                "st_blksize": celtypes.IntType(status.st_blksize),
+                "st_blocks": celtypes.IntType(status.st_blocks),
+                "st_flags": celtypes.IntType(status.st_flags),
+                "st_rdev": celtypes.IntType(status.st_rdev),
+                "st_gen": celtypes.IntType(status.st_gen),
+            }
+        except AttributeError:  # pragma: no cover
+            extra = {}
+        return celtypes.MapType(data | extra)
+    except FileNotFoundError:
+        return None
+
+
 class CEL_REPL(cmd.Cmd):
     prompt = "CEL> "
     intro = "Enter an expression to have it evaluated."
@@ -341,6 +348,7 @@ class CEL_REPL(cmd.Cmd):
 
     do_exit = do_quit
     do_bye = do_quit
+    do_EOF = do_quit
 
     def default(self, args: str) -> None:
         """Evaluate an expression."""
@@ -369,10 +377,10 @@ def process_json_doc(
     """
     try:
         activation[variable] = json.loads(document, cls=CELJSONDecoder)
-        result = prgm.evaluate(activation)
-        display(result)
-        if boolean_to_status and isinstance(result, (celtypes.BoolType, bool)):
-            return 0 if result else 1
+        result_value = prgm.evaluate(activation)
+        display(result_value)
+        if boolean_to_status and isinstance(result_value, (celtypes.BoolType, bool)):
+            return 0 if result_value else 1
         return 0
     except CELEvalError as ex:
         # ``jq`` KeyError problems result in ``None``.
@@ -416,12 +424,12 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if options.format:
 
-        def output_display(result: Result) -> None:
-            print("{0:{format}}".format(result, format=options.format))
+        def output_display(result_value: Result) -> None:
+            print("{0:{format}}".format(result_value, format=options.format))
     else:
 
-        def output_display(result: Result) -> None:
-            print(json.dumps(result, cls=CELJSONEncoder))
+        def output_display(result_value: Result) -> None:
+            print(json.dumps(result_value, cls=CELJSONEncoder))
 
     logger.info("Expr: %r", options.expr)
 
@@ -432,17 +440,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     if options.arg:
         annotations = {name: type for name, type, value in options.arg}
     else:
-        annotations = None
+        annotations = {}
+    annotations["stat"] = celtypes.FunctionType
 
     # If we're creating a named JSON document, we don't provide a default package.
-    # If we're usinga  JSON document to populate a package, we provide the given name.
+    # If we're using a  JSON document to populate a package, we provide the given name.
     env = Environment(
         package=None if options.null_input else options.package,
         annotations=annotations,
     )
     try:
         expr = env.compile(options.expr)
-        prgm = env.program(expr)
+        prgm = env.program(expr, functions={"stat": stat})
     except CELParseError as ex:
         print(
             env.cel_parser.error_text(ex.args[0], ex.line, ex.column), file=sys.stderr
@@ -457,17 +466,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     if options.null_input:
         # Don't read stdin, evaluate with only the activation context.
         try:
-            result = prgm.evaluate(activation)
+            result_value = prgm.evaluate(activation)
             if options.boolean:
-                if isinstance(result, (celtypes.BoolType, bool)):
-                    summary = 0 if result else 1
+                if isinstance(result_value, (celtypes.BoolType, bool)):
+                    summary = 0 if result_value else 1
                 else:
                     logger.warning(
-                        "Expected celtypes.BoolType, got %s = %r", type(result), result
+                        "Expected celtypes.BoolType, got %s = %r",
+                        type(result_value),
+                        result_value,
                     )
                     summary = 2
             else:
-                output_display(result)
+                output_display(result_value)
                 summary = 0
         except CELEvalError as ex:
             print(

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and limitations under the License.
 
 """
-CEL Types: wrappers on Python types to provide CEL semantics.
+Provides wrappers over Python types to provide CEL semantics.
 
 This can be used by a Python module to work with CEL-friendly values and CEL results.
 
@@ -285,18 +285,31 @@ def logical_condition(e: Value, x: Value, y: Value) -> Value:
         >>> logical_condition(
         ... BoolType(False), StringType("Not This"), StringType("that"))
         StringType('that')
+
+    .. TODO:: Consider passing closures instead of Values.
+
+        The function can evaluate e().
+        If it's True, return x().
+        If it's False, return y().
+        Otherwise, it's a CELEvalError, which is the result
     """
     if not isinstance(e, BoolType):
         raise TypeError(f"Unexpected {type(e)} ? {type(x)} : {type(y)}")
-    result = x if e else y
-    logger.debug("logical_condition(%r, %r, %r) = %r", e, x, y, result)
-    return result
+    result_value = x if e else y
+    logger.debug("logical_condition(%r, %r, %r) = %r", e, x, y, result_value)
+    return result_value
 
 
 def logical_and(x: Value, y: Value) -> Value:
     """
     Native Python has a left-to-right rule.
     CEL && is commutative with non-Boolean values, including error objects.
+
+    .. TODO:: Consider passing closures instead of Values.
+
+        The function can evaluate x().
+        If it's False, then return False.
+        Otherwise, it's True or a CELEvalError, return y().
     """
     if not isinstance(x, BoolType) and not isinstance(y, BoolType):
         raise TypeError(f"{type(x)} {x!r} and {type(y)} {y!r}")
@@ -316,20 +329,23 @@ def logical_and(x: Value, y: Value) -> Value:
 
 def logical_not(x: Value) -> Value:
     """
-    Native python `not` isn't fully exposed for CEL types.
+    A function for native python `not`.
+
+    This could almost be `logical_or = evaluation.boolean(operator.not_)`,
+    but the definition would expose Python's notion of "truthiness", which isn't appropriate for CEL.
     """
     if isinstance(x, BoolType):
-        result = BoolType(not x)
+        result_value = BoolType(not x)
     else:
         raise TypeError(f"not {type(x)}")
-    logger.debug("logical_not(%r) = %r", x, result)
-    return result
+    logger.debug("logical_not(%r) = %r", x, result_value)
+    return result_value
 
 
 def logical_or(x: Value, y: Value) -> Value:
     """
-    Native Python has a left-to-right rule: (True or y) is True, (False or y) is y.
-    CEL || is commutative with non-Boolean values, including errors.
+    Native Python has a left-to-right rule: ``(True or y)`` is True, ``(False or y)`` is y.
+    CEL ``||`` is commutative with non-Boolean values, including errors.
     ``(x || false)`` is ``x``, and ``(false || y)`` is ``y``.
 
     Example 1::
@@ -344,7 +360,13 @@ def logical_or(x: Value, y: Value) -> Value:
 
     is a "True"
 
-    If the operand(s) are not BoolType, we'll create an TypeError that will become a CELEvalError.
+    If the operand(s) are not ``BoolType``, we'll create an ``TypeError`` that will become a ``CELEvalError``.
+
+    .. TODO:: Consider passing closures instead of Values.
+
+        The function can evaluate x().
+        If it's True, then return True.
+        Otherwise, it's False or a CELEvalError, return y().
     """
     if not isinstance(x, BoolType) and not isinstance(y, BoolType):
         raise TypeError(f"{type(x)} {x!r} or {type(y)} {y!r}")
@@ -364,9 +386,9 @@ def logical_or(x: Value, y: Value) -> Value:
 
 class BoolType(int):
     """
-    Native Python permits unary operators on Booleans.
+    Native Python permits all unary operators to work on ``bool`` objects.
 
-    For CEL, We need to prevent -false from working.
+    For CEL, we need to prevent the CEL expression ``-false`` from working.
     """
 
     def __new__(cls: Type["BoolType"], source: Any) -> "BoolType":
@@ -410,7 +432,7 @@ class BytesType(bytes):
         elif isinstance(source, MessageType):
             return super().__new__(
                 cls,
-                cast(bytes, source.get(StringType("value"))),  # type: ignore [attr-defined]
+                cast(bytes, source.get(StringType("value"))),
             )
         elif isinstance(source, Iterable):
             return super().__new__(cls, cast(Iterable[int], source))
@@ -490,9 +512,9 @@ def int64(operator: IntOperator) -> IntOperator:
 
     @wraps(operator)
     def clamped_operator(*args: Any, **kwargs: Any) -> int:
-        result: int = operator(*args, **kwargs)
-        if -(2**63) <= result < 2**63:
-            return result
+        result_value: int = operator(*args, **kwargs)
+        if -(2**63) <= result_value < 2**63:
+            return result_value
         raise ValueError("overflow")
 
     return cast(IntOperator, clamped_operator)
@@ -650,9 +672,9 @@ def uint64(operator: IntOperator) -> IntOperator:
 
     @wraps(operator)
     def clamped_operator(*args: Any, **kwargs: Any) -> int:
-        result = operator(*args, **kwargs)
-        if 0 <= result < 2**64:
-            return result
+        result_value = operator(*args, **kwargs)
+        if 0 <= result_value < 2**64:
+            return result_value
         raise ValueError("overflow")
 
     return cast(IntOperator, clamped_operator)
@@ -825,14 +847,14 @@ class ListType(List[Value]):
             except TypeError as ex:
                 return cast(BoolType, ex)  # Instead of Union[BoolType, TypeError]
 
-        result = len(self) == len(other) and reduce(  # noqa: W503
+        result_value = len(self) == len(other) and reduce(
             logical_and,  # type: ignore [arg-type]
             (equal(item_s, item_o) for item_s, item_o in zip(self, other)),
             BoolType(True),  # type: ignore [arg-type]
         )
-        if isinstance(result, TypeError):
-            raise result
-        return bool(result)
+        if isinstance(result_value, TypeError):
+            raise result_value
+        return bool(result_value)
 
     def __ne__(self, other: Any) -> bool:
         if not isinstance(other, (list, ListType)):
@@ -844,14 +866,17 @@ class ListType(List[Value]):
             except TypeError as ex:
                 return cast(BoolType, ex)  # Instead of Union[BoolType, TypeError]
 
-        result = len(self) != len(other) or reduce(  # noqa: W503
+        result_value = len(self) != len(other) or reduce(
             logical_or,  # type: ignore [arg-type]
             (not_equal(item_s, item_o) for item_s, item_o in zip(self, other)),
             BoolType(False),  # type: ignore [arg-type]
         )
-        if isinstance(result, TypeError):
-            raise result
-        return bool(result)
+        if isinstance(result_value, TypeError):
+            raise result_value
+        return bool(result_value)
+
+    def contains(self, item: Value) -> BoolType:
+        return BoolType(item in self)
 
 
 BaseMapTypes = Union[Mapping[Any, Any], Sequence[Tuple[Any, Any]], None]
@@ -880,7 +905,10 @@ class MapType(Dict[Value, Value]):
         if items is None:
             pass
         elif isinstance(items, Sequence):
+            # Must Be Unique
             for name, value in items:
+                if name in self:
+                    raise ValueError(f"Duplicate key {name!r}")
                 self[name] = value
         elif isinstance(items, Mapping):
             for name, value in items.items():
@@ -908,14 +936,14 @@ class MapType(Dict[Value, Value]):
 
         keys_s = self.keys()
         keys_o = other.keys()
-        result = keys_s == keys_o and reduce(  # noqa: W503
+        result_value = keys_s == keys_o and reduce(
             logical_and,  # type: ignore [arg-type]
             (equal(self[k], other[k]) for k in keys_s),
             BoolType(True),  # type: ignore [arg-type]
         )
-        if isinstance(result, TypeError):
-            raise result
-        return bool(result)
+        if isinstance(result_value, TypeError):
+            raise result_value
+        return bool(result_value)
 
     def __ne__(self, other: Any) -> bool:
         if not isinstance(other, (Mapping, MapType)):
@@ -936,19 +964,33 @@ class MapType(Dict[Value, Value]):
 
         keys_s = self.keys()
         keys_o = other.keys()
-        result = keys_s != keys_o or reduce(  # noqa: W503
+        result_value = keys_s != keys_o or reduce(
             logical_or,  # type: ignore [arg-type]
             (not_equal(self[k], other[k]) for k in keys_s),
             BoolType(False),  # type: ignore [arg-type]
         )
-        if isinstance(result, TypeError):
-            raise result
-        return bool(result)
+        if isinstance(result_value, TypeError):
+            raise result_value
+        return bool(result_value)
+
+    def get(self, key: Any, default: Optional[Any] = None) -> Value:
+        """There is no default provision in CEL, that's a Python feature."""
+        if not MapType.valid_key_type(key):
+            raise TypeError(f"unsupported key type: {type(key)}")
+        if key in self:
+            return super().get(key)
+        elif default is not None:
+            return cast(Value, default)
+        else:
+            raise KeyError(key)
 
     @staticmethod
     def valid_key_type(key: Any) -> bool:
         """Valid CEL key types. Plus native str for tokens in the source when evaluating ``e.f``"""
         return isinstance(key, (IntType, UintType, BoolType, StringType, str))
+
+    def contains(self, item: Value) -> BoolType:
+        return BoolType(item in self)
 
 
 class NullType:
@@ -992,6 +1034,9 @@ class StringType(str):
 
     def __hash__(self) -> int:
         return super().__hash__()
+
+    def contains(self, item: Value) -> BoolType:
+        return BoolType(cast(StringType, item) in self)
 
 
 class TimestampType(datetime.datetime):
@@ -1079,7 +1124,7 @@ class TimestampType(datetime.datetime):
             return ts
 
         elif isinstance(source, str):
-            # Use dateutil to try a variety of text formats.
+            # Use ``pendulum`` to try a variety of text formats.
             parsed_datetime = cast(datetime.datetime, pendulum.parse(source))
             return super().__new__(
                 cls,
@@ -1107,17 +1152,17 @@ class TimestampType(datetime.datetime):
 
     def __add__(self, other: Any) -> "TimestampType":
         """Timestamp + Duration -> Timestamp"""
-        result = super().__add__(other)
-        if result == NotImplemented:
+        result_value = super().__add__(other)
+        if result_value == NotImplemented:
             return NotImplemented
-        return TimestampType(result)
+        return TimestampType(result_value)
 
     def __radd__(self, other: Any) -> "TimestampType":
         """Duration + Timestamp -> Timestamp"""
-        result = super().__radd__(other)
-        if result == NotImplemented:
+        result_value = super().__radd__(other)
+        if result_value == NotImplemented:
             return NotImplemented
-        return TimestampType(result)
+        return TimestampType(result_value)
 
     # For more information, check the typeshed definition
     # https://github.com/python/typeshed/blob/master/stdlib/2and3/datetime.pyi
@@ -1131,17 +1176,17 @@ class TimestampType(datetime.datetime):
     def __sub__(
         self, other: Union["TimestampType", "DurationType"]
     ) -> Union["TimestampType", "DurationType"]:
-        result = super().__sub__(other)
-        if result == NotImplemented:
-            return cast(DurationType, result)
-        if isinstance(result, datetime.timedelta):
-            return DurationType(result)
-        return TimestampType(result)
+        result_value = super().__sub__(other)
+        if result_value == NotImplemented:
+            return cast(DurationType, result_value)
+        if isinstance(result_value, datetime.timedelta):
+            return DurationType(result_value)
+        return TimestampType(result_value)
 
     @classmethod
     def tz_name_lookup(cls, tz_name: str) -> Optional[datetime.tzinfo]:
         """
-        The :py:func:`dateutil.tz.gettz` may be extended with additional aliases.
+        The ``pendulum`` parsing may be extended with additional aliases.
 
         ..  TODO: Permit an extension into the timezone lookup.
             Tweak ``celpy.celtypes.TimestampType.TZ_ALIASES``.
@@ -1332,13 +1377,13 @@ class DurationType(datetime.timedelta):
         A duration + timestamp is not implemented by the timedelta superclass;
         it is handled by the datetime superclass that implementes timestamp + duration.
         """
-        result = super().__add__(other)
-        if result == NotImplemented:
-            return cast(DurationType, result)
+        result_value = super().__add__(other)
+        if result_value == NotImplemented:
+            return cast(DurationType, result_value)
         # This is handled by TimestampType; this is here for completeness, but isn't used.
-        if isinstance(result, (datetime.datetime, TimestampType)):
-            return TimestampType(result)  # pragma: no cover
-        return DurationType(result)
+        if isinstance(result_value, (datetime.datetime, TimestampType)):
+            return TimestampType(result_value)  # pragma: no cover
+        return DurationType(result_value)
 
     def __radd__(self, other: Any) -> "DurationType":  # pragma: no cover
         """
@@ -1346,13 +1391,13 @@ class DurationType(datetime.timedelta):
 
         Most cases are handled by TimeStamp.
         """
-        result = super().__radd__(other)
-        if result == NotImplemented:
-            return cast(DurationType, result)
+        result_value = super().__radd__(other)
+        if result_value == NotImplemented:
+            return cast(DurationType, result_value)
         # This is handled by TimestampType; this is here for completeness, but isn't used.
-        if isinstance(result, (datetime.datetime, TimestampType)):
-            return TimestampType(result)
-        return DurationType(result)
+        if isinstance(result_value, (datetime.datetime, TimestampType)):
+            return TimestampType(result_value)
+        return DurationType(result_value)
 
     def getHours(self, tz_name: Optional[str] = None) -> IntType:
         assert tz_name is None
@@ -1422,83 +1467,14 @@ class MessageType(MapType):
         else:
             super().__init__({StringType(k): v for k, v in fields.items()})
 
-    # def get(self, field: Any, default: Optional[Value] = None) -> Value:
-    #     """
-    #     Alternative implementation with descent to locate a deeply-buried field.
-    #     It seemed like this was the defined behavior. It turns it, it isn't.
-    #     The code is here in case we're wrong and it really is the defined behavior.
-    #
-    #     Note. There is no default provision in CEL.
-    #     """
-    #     if field in self:
-    #         return super().get(field)
-    #
-    #     def descend(message: MessageType, field: Value) -> MessageType:
-    #         if field in message:
-    #             return message
-    #         for k in message.keys():
-    #             found = descend(message[k], field)
-    #             if found is not None:
-    #                 return found
-    #         return None
-    #
-    #     sub_message = descend(self, field)
-    #     if sub_message is None:
-    #         return default
-    #     return sub_message.get(field)
 
-
-class TypeType:
+class TypeType(type):
     """
-    Annotation used to mark protobuf type objects.
-    We map these to CELTypes so that type name testing works.
+    This is primarily used as a function to extract type from an object or a type.
+    For consistence, we define it as a type so other types can extend it.
     """
 
-    type_name_mapping = {
-        "google.protobuf.Duration": DurationType,
-        "google.protobuf.Timestamp": TimestampType,
-        "google.protobuf.Int32Value": IntType,
-        "google.protobuf.Int64Value": IntType,
-        "google.protobuf.UInt32Value": UintType,
-        "google.protobuf.UInt64Value": UintType,
-        "google.protobuf.FloatValue": DoubleType,
-        "google.protobuf.DoubleValue": DoubleType,
-        "google.protobuf.Value": MessageType,
-        "google.protubuf.Any": MessageType,  # Weird.
-        "google.protobuf.Any": MessageType,
-        "list_type": ListType,
-        "map_type": MapType,
-        "map": MapType,
-        "list": ListType,
-        "string": StringType,
-        "bytes": BytesType,
-        "bool": BoolType,
-        "int": IntType,
-        "uint": UintType,
-        "double": DoubleType,
-        "null_type": type(None),
-        "STRING": StringType,
-        "BOOL": BoolType,
-        "INT64": IntType,
-        "UINT64": UintType,
-        "INT32": IntType,
-        "UINT32": UintType,
-        "BYTES": BytesType,
-        "DOUBLE": DoubleType,
-    }
-
-    def __init__(self, value: Any = "") -> None:
-        if isinstance(value, str) and value in self.type_name_mapping:
-            self.type_reference = self.type_name_mapping[value]
-        elif isinstance(value, str):
-            try:
-                self.type_reference = eval(value)
-            except (NameError, SyntaxError):
-                raise TypeError(f"Unknown type {value!r}")
-        else:
-            self.type_reference = value.__class__
-
-    def __eq__(self, other: Any) -> bool:
-        return (
-            other == self.type_reference or isinstance(other, self.type_reference)  # noqa: W503
-        )
+    def __new__(typ, instance: Any) -> type:
+        if type(instance) is type:
+            return typ
+        return type(instance)

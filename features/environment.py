@@ -3,6 +3,7 @@ Environment definition for Behave acceptance test suite.
 
 """
 from functools import partial
+import os
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -10,15 +11,23 @@ import celpy.c7nlib
 
 
 def mock_text_from(context, url):
-    """Mock for :py:func:`celpy.c7nlib.text_from` that fetches the result from the context"""
+    """
+    Mock for :py:func:`celpy.c7nlib.text_from` that replaces a URL-based request
+    with a value provided as part of the test context.
+    """
     return context.value_from_data.get(url)
 
 
 def before_scenario(context, scenario):
     """
-    Be sure there's a place to store test scenario data.
+    Be sure there's a place to store test scenario files.
     Also. Inject an implementation of the low-level :py:func:`celpy.c7nlib.text_from` function
     that reads from data provided here.
+
+    Check for command-line or environment option to pick the Runner to be used.
+
+    Use ``-D runner=interpreted`` or ``compiled``
+    Or set environment variable ``CEL_RUNNER=interpreted`` or ``compiled``
     """
     # context.data used by the CEL conformance test suite converted from textproto.
     context.data = {}
@@ -27,6 +36,19 @@ def before_scenario(context, scenario):
     context.data['bindings'] = {}   # name: value association
     context.data['container'] = ""  # If set, can associate a type binding from local proto files.
     context.data['json'] = []
+
+    RUNNERS = {"interpreted": celpy.InterpretedRunner, "compiled": celpy.CompiledRunner}
+    try:
+        context.data['runner'] = RUNNERS[os.environ.get("CEL_RUNNER", "interpreted")]
+    except KeyError:
+        print(f"CEL_RUNNER= must be from {RUNNERS.keys()}")
+        raise
+    if "runner" in context.config.userdata:
+        try:
+            context.data['runner'] = RUNNERS[context.config.userdata["runner"]]
+        except KeyError:
+            print(f"-D runner= must be from {RUNNERS.keys()}")
+            raise
 
     # context.cel used by the integration test suite.
     context.cel = {}

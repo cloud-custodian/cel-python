@@ -128,11 +128,11 @@ can then be applied to argument values.
     >>> ast = env.compile(cel_source)
     >>> prgm = env.program(ast)
 
-    >>> activation = {
+    >>> context = {
     ...     "account": celpy.json_to_cel({"balance": 500, "overdraftProtection": False}),
     ...     "transaction": celpy.json_to_cel({"withdrawal": 600})
     ... }
-    >>> result = prgm.evaluate(activation)
+    >>> result = prgm.evaluate(context)
     >>> result
     BoolType(False)
 
@@ -153,9 +153,14 @@ https://github.com/google/cel-cpp/blob/master/parser/Cel.g4
 
 https://github.com/google/cel-go/blob/master/parser/gen/CEL.g4
 
+The documentation includes PlantUML diagrams.
+The Sphinx ``conf.py`` provides the location for the PlantUML local JAR file if one is used.
+Currently, it expects ``docs/plantuml-asl-1.2025.3.jar``.
+The JAR is not provided in this repository, get one from https://plantuml.com.
+If you install a different version, update the ``conf.py`` to refer to the JAR file you've downloaded.
+
 Notes
 =====
-
 
 CEL provides a number of runtime errors that are mapped to Python exceptions.
 
@@ -169,6 +174,79 @@ a message similar to the CEL error message, as well as an underlying Python exce
 In principle CEL can pre-check types.
 However, see https://github.com/google/cel-spec/blob/master/doc/langdef.md#gradual-type-checking.
 Rather than try to pre-check types, we'll rely on Python's implementation.
+
+
+Example 2
+=========
+
+Here's an example with some details::
+
+    >>> import celpy
+
+    # A list of type names and class bindings used to create an environment.
+    >>> types = []
+    >>> env = celpy.Environment(types)
+
+    # Parse the code to create the CEL AST.
+    >>> ast = env.compile("355. / 113.")
+
+    # Use the AST and any overriding functions to create an executable program.
+    >>> functions = {}
+    >>> prgm = env.program(ast, functions)
+
+    # Variable bindings.
+    >>> activation = {}
+
+    # Final evaluation.
+    >>> try:
+    ...    result = prgm.evaluate(activation)
+    ...    error = None
+    ... except CELEvalError as ex:
+    ...    result = None
+    ...    error = ex.args[0]
+
+    >>> result  # doctest: +ELLIPSIS
+    DoubleType(3.14159...)
+
+Example 3
+=========
+
+See https://github.com/google/cel-go/blob/master/examples/simple_test.go
+
+The model Go we're sticking close to::
+
+    d := cel.Declarations(decls.NewVar("name", decls.String))
+    env, err := cel.NewEnv(d)
+    if err != nil {
+        log.Fatalf("environment creation error: %v\\n", err)
+    }
+    ast, iss := env.Compile(`"Hello world! I'm " + name + "."`)
+    // Check iss for compilation errors.
+    if iss.Err() != nil {
+        log.Fatalln(iss.Err())
+    }
+    prg, err := env.Program(ast)
+    if err != nil {
+        log.Fatalln(err)
+    }
+    out, _, err := prg.Eval(map[string]interface{}{
+        "name": "CEL",
+    })
+    if err != nil {
+        log.Fatalln(err)
+    }
+    fmt.Println(out)
+    // Output:Hello world! I'm CEL.
+
+Here's the Pythonic approach, using concept patterned after the Go implementation::
+
+    >>> from celpy import *
+    >>> decls = {"name": celtypes.StringType}
+    >>> env = Environment(annotations=decls)
+    >>> ast = env.compile('"Hello world! I\'m " + name + "."')
+    >>> out = env.program(ast).evaluate({"name": "CEL"})
+    >>> print(out)
+    Hello world! I'm CEL.
 
 
 Contributing

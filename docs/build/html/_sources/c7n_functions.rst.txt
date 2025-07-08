@@ -5,15 +5,13 @@ C7N Functions Required
 ######################
 
 
-This survey of C7N filter clauses is based on source code and
-on an analysis of working policies. The required functions
-are grouped into four clusters, depending on the presence of absence of
-the "op" operator clause, and the number of resource types using the feature.
+This survey of C7N filter clauses is based on source code and on an analysis of working policies.
+The required functions are grouped into four clusters, depending on the presence of absence of the "op" operator clause, and the number of resource types using the feature.
 Within each group, they are ranked in order of popularity.
 
 For each individual type of filter clause, we provide the following details:
 
--   The C7N sechema definition.
+-   The C7N schema definition.
 
 -   The resource types where the filter type is used.
 
@@ -43,7 +41,7 @@ interface.
 1.  Separate from C7N. The CEL processing is outside C7N, and capable of standing alone.
     CEL is focused on Protobuf (and JSON) objects.
     The interface to C7N is via the :mod:`c7nlib` library of functions. These do **not** depend
-    on imports from the C7N project, but rely on a `CELFilter` class offering specific methods.
+    on imports from the C7N project, but rely on a ``CELFilter`` class offering specific methods.
     Access to C7N objects and their associated methods is limited to the features exposed
     through the function library and the expected class definition.
 

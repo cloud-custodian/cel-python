@@ -351,8 +351,8 @@ functions = {
     "none": lambda optional, : None
 }
 
-def simple_performance():
-    env = celpy.Environment()
+def simple_performance(runner_class: type[celpy.Runner] | None = None) -> None:
+    env = celpy.Environment(runner_class=runner_class)
 
     number = 100
     compile = timeit.timeit(
@@ -364,8 +364,8 @@ def simple_performance():
             'CEL_EXPRESSION_ORIGINAL_NO_OPTIONAL': CEL_EXPRESSION_ORIGINAL_NO_OPTIONAL
         },
         number=number
-    ) / number
-    print(f"Compile:  {1_000 * compile:9.4f} ms")
+    )
+    print(f"Compile:  {1_000 * compile / number:9.4f} ms")
 
     ast = env.compile(CEL_EXPRESSION_ORIGINAL_NO_OPTIONAL)
 
@@ -380,8 +380,8 @@ def simple_performance():
             'functions': functions
         },
         number=number
-    ) / number
-    print(f"Prepare:  {1_000 * prepare:9.4f} ms")
+    )
+    print(f"Prepare:  {1_000 * prepare / number:9.4f} ms")
 
     program = env.program(ast, functions=functions)
 
@@ -398,8 +398,8 @@ def simple_performance():
         """),
         globals={'celpy': celpy},
         number=number
-    ) / number
-    print(f"Convert:  {1_000 * convert:9.4f} ms")
+    )
+    print(f"Convert:  {1_000 * convert / number:9.4f} ms")
 
     cel_context = {
         "class_a": celpy.json_to_cel({"property_a": "something"}),
@@ -419,8 +419,8 @@ def simple_performance():
             'cel_context': cel_context
         },
         number=number
-    ) / number
-    print(f"Evaluate: {1_000 * evaluation:9.4f} ms")
+    )
+    print(f"Evaluate: {1_000 * evaluation / number:9.4f} ms")
 
     print()
 
@@ -450,7 +450,18 @@ def detailed_profile():
     ps.print_stats()
 
 def main():
-    simple_performance()
+    print("# Performance")
+    print()
+    print("## Interpreter")
+    print()
+    simple_performance(celpy.InterpretedRunner)
+    print()
+    print("## Transpiler")
+    print()
+    simple_performance(celpy.CompiledRunner)
+    print()
+    print("# Profile")
+    print()
     detailed_profile()
 
 if __name__ == "__main__":

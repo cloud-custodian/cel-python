@@ -14,19 +14,19 @@
 # See the License for the specific language governing permissions and limitations under the License.
 
 """
-CEL Parser.
+A **Facade** around the CEL parser.
 
-See  https://github.com/google/cel-spec/blob/master/doc/langdef.md
+The Parser is an instance of the :py:class:`lark.Lark` class.
 
-https://github.com/google/cel-cpp/blob/master/parser/Cel.g4
+The grammar is in the  ``cel.lark`` file.
 
-https://github.com/google/cel-go/blob/master/parser/gen/CEL.g4
+For more information on CEL syntax, see the following:
 
-Builds a parser from the supplied cel.lark grammar.
+-   https://github.com/google/cel-spec/blob/master/doc/langdef.md
 
-..  todo:: Consider embedding the ``cel.lark`` file as a triple-quoted literal.
+-   https://github.com/google/cel-cpp/blob/master/parser/Cel.g4
 
-    This means fixing a LOT of \\'s. But it also eliminates a data file from the installation.
+-   https://github.com/google/cel-go/blob/master/parser/gen/CEL.g4
 
 Example::
 
@@ -71,6 +71,8 @@ from lark.exceptions import LexError, ParseError, UnexpectedCharacters, Unexpect
 
 
 class CELParseError(Exception):
+    """A syntax error in the CEL expression."""
+
     def __init__(
         self, *args: Any, line: Optional[int] = None, column: Optional[int] = None
     ) -> None:
@@ -80,11 +82,29 @@ class CELParseError(Exception):
 
 
 class CELParser:
-    """Wrapper for the CEL parser and the syntax error messages."""
+    """
+    Creates a Lark parser with the required options.
+
+    ..  important:: **Singleton**
+
+        There is one CEL_PARSER instance created by this class.
+        This is an optimization for environments like C7N where numerous
+        CEL expressions may parsed.
+
+        ::
+
+            CELParse.CEL_PARSER = None
+
+        Is required to create another parser instance.
+        This is commonly required in test environments.
+
+    This is also an **Adapter** for the CEL parser to provide pleasant
+    syntax error messages.
+    """
 
     CEL_PARSER: Optional[Lark] = None
 
-    def __init__(self) -> None:
+    def __init__(self, tree_class: type = lark.Tree) -> None:
         if CELParser.CEL_PARSER is None:
             CEL_grammar = (Path(__file__).parent / "cel.lark").read_text()
             CELParser.CEL_PARSER = Lark(
@@ -97,6 +117,7 @@ class CELParser:
                 propagate_positions=True,
                 maybe_placeholders=False,
                 priority="invert",
+                tree_class=tree_class,
             )
 
     @staticmethod

@@ -29,7 +29,7 @@ import zlib
 from types import SimpleNamespace
 from unittest.mock import Mock, call, sentinel
 
-from pytest import *
+import pytest
 
 import celpy
 import celpy.adapter
@@ -167,7 +167,7 @@ value_from_examples = [
     ),
 ]
 
-@fixture(params=value_from_examples)
+@pytest.fixture(params=value_from_examples)
 def mock_urllib_request(monkeypatch, request):
     suffix, encoding, raw_bytes, expected = request.param
     urllib_request = Mock(
@@ -197,7 +197,7 @@ def test_value_from(mock_urllib_request):
 
 
 def test_value_from_bad_format():
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         celpy.c7nlib.value_from(sentinel.URL, format="nope")
 
 
@@ -207,7 +207,7 @@ jmes_path_examples = [
     ({"foo": {"bar": [{"name": "one"}, {"name": "two"}]}}, "foo.bar[*].name", ["one", "two"]),
 ]
 
-@fixture(params=jmes_path_examples)
+@pytest.fixture(params=jmes_path_examples)
 def doc_path_expected(request):
     json_doc, path, expected = request.param
     return (
@@ -223,7 +223,7 @@ def test_jmes_path(doc_path_expected):
     assert expected == actual
 
 
-@fixture(params=jmes_path_examples)
+@pytest.fixture(params=jmes_path_examples)
 def doclist_path_expected(request):
     json_doc, path, expected = request.param
     return (
@@ -335,17 +335,12 @@ def test_arn_split():
     assert celpy.c7nlib.arn_split(f3, "resource-type") == "resource-type-3"
     assert celpy.c7nlib.arn_split(f3, "resource-id") == "resource-id-3"
 
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         celpy.c7nlib.arn_split("http://server.name:port/path/to/resource", "partition")
 
 
-@fixture
-def celfilter_instance():
-    """
-    The mocked CELFilter instance for all of the c7nlib integration tests.
-
-    This CELFilter class demonstrates *all* the features required for the refactored C7N.
-    """
+@pytest.fixture
+def mock_manager():
     datapoints = [
         {"Average": str(sentinel.average)}
     ]
@@ -466,7 +461,7 @@ def celfilter_instance():
         "rds": rds_resource_manager,
         "waf": waf_resource_manager,
     }
-    mock_manager = Mock(
+    manager = Mock(
         name="mock_manager",
         session_factory=Mock(return_value=mock_session),
         get_model=Mock(return_value=Mock(dimension="InstanceId", id="InstanceId", service="ec2")),
@@ -479,7 +474,13 @@ def celfilter_instance():
         ),
         data={"resource": "ec2"}
     )
+    return locals()
 
+@pytest.fixture
+def mock_filter_class():
+    """
+    This CELFilter class demonstrates *all* the features required for the refactored C7N.
+    """
     mock_parser = Mock(
         name="Mock c7n.filters.offhours.ScheduleParser instance",
         parse=Mock(
@@ -583,12 +584,18 @@ def celfilter_instance():
             assert self.data["type"].lower() == "cel"
             self.expr = self.data["expr"]
             self.parser = mock_parser
+    return CELFilter
 
+@pytest.fixture
+def celfilter_instance(mock_filter_class, mock_manager):
+    """
+    The mocked CELFilter instance for all of the c7nlib integration tests.
+    """
     # A place-holder used only for initialization.
     mock_policy_filter_source = {"type": "cel", "expr": "1+1==2"}
 
     # The mock for the ``CELFilter`` instance C7N must provide.
-    the_filter = CELFilter(mock_policy_filter_source, mock_manager)
+    the_filter = mock_filter_class(mock_policy_filter_source, mock_manager['manager'])
 
     return locals()
 
@@ -603,7 +610,7 @@ def test_image_age_good(celfilter_instance):
     assert doc.get(celpy.celtypes.StringType('CreationDate')) == celpy.celtypes.TimestampType("2020-09-10T11:12:13Z")
 
 
-def test_image_age_missing(celfilter_instance):
+def test_image_age_missing(celfilter_instance, mock_manager):
     mock_filter = celfilter_instance['the_filter']
     mock_filter.get_instance_image=Mock(return_value=None)
     resource = celpy.celtypes.MapType({})
@@ -614,9 +621,9 @@ def test_image_age_missing(celfilter_instance):
     assert doc.get(celpy.celtypes.StringType('CreationDate')) == celpy.celtypes.TimestampType("2000-01-01T01:01:01.000Z")
 
 
-def test_get_raw_metrics(celfilter_instance):
+def test_get_raw_metrics(celfilter_instance, mock_manager):
     mock_filter = celfilter_instance['the_filter']
-    datapoints = celfilter_instance['datapoints']
+    datapoints = mock_manager['datapoints']
     now = celpy.celtypes.TimestampType("2000-01-01T01:01:01.000Z")
     resource = celpy.celtypes.MapType({})
     request = celpy.celtypes.MapType(
@@ -644,14 +651,14 @@ def test_get_raw_metrics(celfilter_instance):
     assert doc == celpy.json_to_cel(datapoints)
 
 
-def test_get_metrics(celfilter_instance):
+def test_get_metrics(celfilter_instance, mock_manager):
     """
     Two approaches possible. (1) mock :func:`get_raw_metrics`. (2) provide mocks to support
     :func:`get_raw_metrics`.  We use approach 2 in case the implmentation of `get_metrics`
     is changed.
     """
     mock_filter = celfilter_instance['the_filter']
-    datapoints = celfilter_instance['datapoints']
+    datapoints = mock_manager['datapoints']
 
     now = celpy.celtypes.TimestampType("2000-01-01T01:01:01.000Z")
     resource = celpy.celtypes.MapType({"InstanceId": "i-123456789012"})
@@ -983,6 +990,28 @@ def test_C7N_interpreted_runner(celfilter_instance):
     # Did it work?
     assert cel_result
 
+def test_C7N_extension_function(mock_filter_class, mock_manager, caplog):
+    mock_policy_filter_source = {"type": "cel", "expr": '"PRE-this".glob("PRE-*")'}
+
+    # The mock for the ``CELFilter`` instance C7N must provide.
+    the_filter = mock_filter_class(mock_policy_filter_source,
+                                   mock_manager['manager'])
+
+    cel_env = celpy.Environment(runner_class=celpy.c7nlib.C7N_Interpreted_Runner)
+    cel_ast = cel_env.compile(the_filter.expr)
+
+    # This will be implemented in ``CELFilter.process()`` or ``CELFilter.__call__()``.
+    cel_prgm = cel_env.program(cel_ast, functions=celpy.c7nlib.FUNCTIONS)
+    cel_activation = {
+        "resource": celpy.celtypes.MapType({}),
+        "now": celpy.celtypes.TimestampType("2020-09-10T11:12:13Z"),
+    }
+    with celpy.c7nlib.C7NContext(filter=Mock()):
+        cel_result = cel_prgm.evaluate(cel_activation, filter=the_filter)
+
+    # Did it work?
+    assert cel_result
+
 
 def test_C7N_CELFilter_image(celfilter_instance):
     mock_filter = celfilter_instance['the_filter']
@@ -994,7 +1023,7 @@ def test_C7N_CELFilter_image(celfilter_instance):
     assert mock_filter.get_instance_image.mock_calls == [call(ec2_doc)]
 
 
-def test_C7N_CELFilter_get_raw_metrics(celfilter_instance):
+def test_C7N_CELFilter_get_raw_metrics(celfilter_instance, mock_manager):
     mock_filter = celfilter_instance['the_filter']
     metrics_doc = {
             "Namespace": "AWS/EC2",
@@ -1018,12 +1047,12 @@ def test_C7N_CELFilter_get_raw_metrics(celfilter_instance):
         Period=metrics_doc["Period"],
         Dimensions=metrics_doc["Dimensions"],
     )
-    cloudwatch_client = celfilter_instance['cloudwatch_client']
+    cloudwatch_client = mock_manager['cloudwatch_client']
     print(f"cloudwatch_client {cloudwatch_client}")
     assert cloudwatch_client.mock_calls == [call.get_metric_statistics(**expected_request)]
 
 
-def test_C7N_CELFilter_get_metrics(celfilter_instance):
+def test_C7N_CELFilter_get_metrics(celfilter_instance, mock_manager):
     mock_filter = celfilter_instance['the_filter']
     ec2_doc = {"ResourceType": "ec2", "InstanceId": "i-123456789"}
     request = {
@@ -1034,7 +1063,7 @@ def test_C7N_CELFilter_get_metrics(celfilter_instance):
         metrics = celpy.c7nlib.get_metrics(ec2_doc, request)
     assert metrics == [str(sentinel.average)]
 
-    cloudwatch_client = celfilter_instance['cloudwatch_client']
+    cloudwatch_client = mock_manager['cloudwatch_client']
     expected_request = dict(
         Namespace=celpy.celtypes.StringType("ec2"),
         MetricName=request["MetricName"],
@@ -1134,7 +1163,7 @@ def test_C7N_CELFilter_subnet(celfilter_instance):
     assert mock_filter.get_related.mock_calls == [call([ec2_doc])]
 
 
-def test_C7N_CELFilter_flow_logs(celfilter_instance):
+def test_C7N_CELFilter_flow_logs(celfilter_instance, mock_manager):
     mock_filter = celfilter_instance['the_filter']
     ec2_doc = {"ResourceType": "ec2", "InstanceId": "i-123456789"}
     with celpy.c7nlib.C7NContext(filter=mock_filter):
@@ -1149,7 +1178,7 @@ def test_C7N_CELFilter_flow_logs(celfilter_instance):
             )
         ]
     )
-    ec2_client = celfilter_instance['ec2_client']
+    ec2_client = mock_manager['ec2_client']
     assert ec2_client.describe_flow_logs.mock_calls == [call()]
 
 def test_C7N_CELFilter_vpc(celfilter_instance):
@@ -1226,7 +1255,7 @@ def test_C7N_CELFilter_all_snapshots(celfilter_instance):
     assert mock_filter._pull_ami_snapshots.mock_calls == [call()]
 
 
-def test_C7N_CELFilter_all_launch_configuration_names(celfilter_instance):
+def test_C7N_CELFilter_all_launch_configuration_names(celfilter_instance, mock_manager):
     mock_filter = celfilter_instance['the_filter']
     asg_doc = {"ResourceType": "asg", "InstanceId": "i-123456789"}
     with celpy.c7nlib.C7NContext(filter=mock_filter):
@@ -1235,7 +1264,7 @@ def test_C7N_CELFilter_all_launch_configuration_names(celfilter_instance):
         [celpy.celtypes.StringType(str(sentinel.asg_launch_config_name))]
     )
     assert mock_filter.manager.get_resource_manager.mock_calls == [call('asg')]
-    assert celfilter_instance['asg_resource_manager'].resources.mock_calls == [call()]
+    assert mock_manager['asg_resource_manager'].resources.mock_calls == [call()]
 
 
 def test_C7N_CELFilter_all_service_roles(celfilter_instance):
@@ -1260,7 +1289,7 @@ def test_C7N_CELFilter_all_instance_profiles(celfilter_instance):
     assert mock_filter.instance_profile_usage.mock_calls == [call()]
 
 
-def test_C7N_CELFilter_all_dbsubenet_groups(celfilter_instance):
+def test_C7N_CELFilter_all_dbsubenet_groups(celfilter_instance, mock_manager):
     mock_filter = celfilter_instance['the_filter']
     rds_doc = {"ResourceType": "rds-subnet-group", "InstanceId": "i-123456789"}
     with celpy.c7nlib.C7NContext(filter=mock_filter):
@@ -1269,7 +1298,7 @@ def test_C7N_CELFilter_all_dbsubenet_groups(celfilter_instance):
         [celpy.celtypes.StringType(str(sentinel.rds_subnet_group_name))]
     )
     assert mock_filter.manager.get_resource_manager.mock_calls == [call('rds')]
-    assert celfilter_instance['rds_resource_manager'].resources.mock_calls == [call()]
+    assert mock_manager['rds_resource_manager'].resources.mock_calls == [call()]
 
 
 def test_C7N_CELFilter_all_scan_groups(celfilter_instance):
@@ -1283,7 +1312,7 @@ def test_C7N_CELFilter_all_scan_groups(celfilter_instance):
     assert mock_filter.scan_groups.mock_calls == [call()]
 
 
-def test_C7N_CELFilter_get_access_log(celfilter_instance):
+def test_C7N_CELFilter_get_access_log(celfilter_instance, mock_manager):
     mock_filter = celfilter_instance['the_filter']
     elb_doc = {"ResourceType": "elb", "LoadBalancerName": "i-123456789"}
     with celpy.c7nlib.C7NContext(filter=mock_filter):
@@ -1296,11 +1325,11 @@ def test_C7N_CELFilter_get_access_log(celfilter_instance):
     assert mock_filter.manager.session_factory.return_value.client.mock_calls == [
         call('elb')
     ]
-    assert celfilter_instance['elb_client'].describe_load_balancer_attributes.mock_calls == [
+    assert mock_manager['elb_client'].describe_load_balancer_attributes.mock_calls == [
         call(LoadBalancerName='i-123456789')
     ]
 
-def test_C7N_CELFilter_get_load_balancer(celfilter_instance):
+def test_C7N_CELFilter_get_load_balancer(celfilter_instance, mock_manager):
     mock_filter = celfilter_instance['the_filter']
     elb_doc = {"ResourceType": "app-elb", "LoadBalancerArn": "arn:us-east-1:app-elb:123456789:etc"}
     with celpy.c7nlib.C7NContext(filter=mock_filter):
@@ -1314,14 +1343,14 @@ def test_C7N_CELFilter_get_load_balancer(celfilter_instance):
     assert mock_filter.manager.session_factory.return_value.client.mock_calls == [
         call('elbv2')
     ]
-    assert celfilter_instance['elbv2_client'].describe_load_balancer_attributes.mock_calls == [
+    assert mock_manager['elbv2_client'].describe_load_balancer_attributes.mock_calls == [
         call(LoadBalancerArn='arn:us-east-1:app-elb:123456789:etc')
     ]
 
 
-def test_C7N_CELFilter_get_raw_health_events(celfilter_instance):
+def test_C7N_CELFilter_get_raw_health_events(celfilter_instance, mock_manager):
     mock_filter = celfilter_instance['the_filter']
-    health_events = celfilter_instance['health_events']
+    health_events = mock_manager['health_events']
     request = celpy.celtypes.MapType(
         {
             celpy.celtypes.StringType("services"):
@@ -1343,9 +1372,9 @@ def test_C7N_CELFilter_get_raw_health_events(celfilter_instance):
     assert doc == celpy.json_to_cel(health_events)
 
 
-def test_C7N_CELFilter_get_health_events(celfilter_instance):
+def test_C7N_CELFilter_get_health_events(celfilter_instance, mock_manager):
     mock_filter = celfilter_instance['the_filter']
-    health_events = celfilter_instance['health_events']
+    health_events = mock_manager['health_events']
     directory_doc = {"ResourceType": "directory", "arn": "arn:us-east-1:app-elb:123456789:etc"}
     with celpy.c7nlib.C7NContext(filter=mock_filter):
         health_events = celpy.c7nlib.get_health_events(directory_doc)
@@ -1353,7 +1382,7 @@ def test_C7N_CELFilter_get_health_events(celfilter_instance):
     assert mock_filter.manager.session_factory.return_value.client.mock_calls == [
         call('health', region_name='us-east-1')
     ]
-    assert celfilter_instance['health_client'].describe_events.mock_calls == [
+    assert mock_manager['health_client'].describe_events.mock_calls == [
         call(
             filter={
                 'services': ['EC2'],
@@ -1364,7 +1393,7 @@ def test_C7N_CELFilter_get_health_events(celfilter_instance):
     ]
 
 
-def test_C7N_CELFilter_shield_protection(celfilter_instance):
+def test_C7N_CELFilter_shield_protection(celfilter_instance, mock_manager):
     mock_filter = celfilter_instance['the_filter']
     elb_doc = {"ResourceType": "elb", "arn": "arn:us-east-1:app-elb:123456789:etc"}
     with celpy.c7nlib.C7NContext(filter=mock_filter):
@@ -1374,7 +1403,7 @@ def test_C7N_CELFilter_shield_protection(celfilter_instance):
         call('shield', region_name='us-east-1')
     ]
     assert mock_filter.get_type_protections.mock_calls == [
-        call(celfilter_instance['shield_client'], mock_filter.manager.get_model())
+        call(mock_manager['shield_client'], mock_filter.manager.get_model())
     ]
 
 
@@ -1389,7 +1418,7 @@ def test_C7N_CELFilter_shield_subscription(celfilter_instance):
     ]
 
 
-def test_C7N_CELFilter_web_acls(celfilter_instance):
+def test_C7N_CELFilter_web_acls(celfilter_instance, mock_manager):
     mock_filter = celfilter_instance['the_filter']
     distribution_doc = {"ResourceType": "distribution", "arn": "arn:us-east-1:app-elb:123456789:etc"}
     with celpy.c7nlib.C7NContext(filter=mock_filter):
@@ -1400,6 +1429,6 @@ def test_C7N_CELFilter_web_acls(celfilter_instance):
     assert mock_filter.manager.get_resource_manager.mock_calls == [
         call("waf")
     ]
-    assert celfilter_instance['waf_resource_manager'].resources.mock_calls == [
+    assert mock_manager['waf_resource_manager'].resources.mock_calls == [
         call()
     ]

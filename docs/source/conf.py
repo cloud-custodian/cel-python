@@ -16,7 +16,7 @@
 # import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
-
+from pathlib import Path
 
 # -- Project information -----------------------------------------------------
 
@@ -34,6 +34,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
     'sphinx.ext.todo',
+    'sphinxcontrib.plantuml',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -66,3 +67,8 @@ autodoc_default_options = {
     'special-members': True,
     'exclude-members': '__weakref__,__module__,__dict__,__annotations__,__slots__'
 }
+
+# -- Options for PlantUML
+
+DOCS = Path.cwd().parent
+plantuml = f'java -jar {DOCS/"plantuml-asl-1.2025.3.jar"!s}'

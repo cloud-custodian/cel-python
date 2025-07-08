@@ -99,20 +99,23 @@ Looking for the following kinds of lines created by the initial Go conversion.
 Each of these requires revising the literal value into a Python-friendly form.
 
 """
+import abc
 import argparse
 import contextlib
+from dataclasses import dataclass, field
+from functools import partial
+import inspect
 import logging
 import math
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
 import traceback
-from dataclasses import dataclass, field
-from functools import partial
-from pathlib import Path
-from typing import (Any, Dict, Iterable, Iterator, List, Match, NamedTuple,
-                    Optional, Set, Tuple, Type, Union)
+from typing import (
+    Any, Dict, Iterable, Iterator, List, Match, NamedTuple,
+    Optional, Set, Tuple, Type, Union)
 
 logger = logging.getLogger("pb2g")
 
@@ -417,62 +420,129 @@ def parse_serialized_value(tokens: Tokens) -> ParseTree:
         value = lookahead
         return Primitive(name, value)
 
-# Placeholders for CEL types.
-# We could use
-# from celpy.celtypes import *
+# Mocks that -- when serialized -- look like CEL types.
+# We could use `from celpy.celtypes import *`.
+# This approach divorces us from cel-python.
 
-class CelType(NamedTuple):
-    """Placeholder for many primitive CEL types"""
-    source: Any
+class TypeType(NamedTuple):
+    """ABC of CEL Type Hierarchy."""
+    source: Union[Any, None] = None
+    seconds: Union[float, None] = None
+    nanos: Union[float, None] = None
 
-class UintType(CelType): pass
-class StringType(CelType): pass
-class NullType(CelType): pass
-class IntType(CelType): pass
-class BoolType(CelType): pass
+    @classmethod
+    def cel_name(cls) -> str:
+        return f"celpy.celtypes.{cls.__name__}"
 
-class BytesType(NamedTuple):
+    def __repr__(self) -> str:
+        if self.source is None:
+            return f"{self.cel_name()}()"
+        else:
+            return f"{self.cel_name()}(source={self.source!a})"
+
+class NoneType(TypeType):
+    @classmethod
+    def cel_name(cls) -> str:
+        return f"NoneType"
+
+class PrimitiveType(TypeType):
+    def __repr__(self) -> str:
+        return f"{self.cel_name()}(source={self.source!a})"
+
+class UintType(PrimitiveType): pass
+class StringType(PrimitiveType): pass
+class NullType(PrimitiveType): pass
+class IntType(PrimitiveType): pass
+class BoolType(PrimitiveType): pass
+
+class BytesType(PrimitiveType):
     source: bytes
 
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(source={self.source!a})"
-
-class DoubleType(NamedTuple):
-    source: float
-
+class DoubleType(PrimitiveType):
     def __repr__(self) -> str:
         if math.isinf(self.source):
-            return f"{self.__class__.__name__}(source='{self.source}')"
+            return f"{self.cel_name()}(source='{self.source}')"
         else:
-            return f"{self.__class__.__name__}(source={self.source})"
+            return f"{self.cel_name()}(source={self.source})"
 
-class DurationType(NamedTuple):
+class DurationType(TypeType):
     seconds: float
     nanos: float
 
-class TimestampType(NamedTuple):
-    source: Any
+    def __repr__(self) -> str:
+        return f"{self.cel_name()}(seconds={self.seconds:.0f}, nanos={self.nanos:.0f})"
+
+class TimestampType(PrimitiveType):
+    pass
 
 class ListType(List[Any]):
     """Built from Values objects."""
-    pass
+    @classmethod
+    def cel_name(cls) -> str:
+        return f"celpy.celtypes.{cls.__name__}"
 
 class MapType(Dict[str, Any]):
     """Built from  Entries objects."""
+    @classmethod
+    def cel_name(cls) -> str:
+        return f"celpy.celtypes.{cls.__name__}"
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
 
 class MessageType(Dict[str, Any]):
     """Built from Fields objects."""
-    pass
-
-class TypeType(NamedTuple):
-    value: Any
+    @classmethod
+    def cel_name(cls) -> str:
+        return f"celpy.celtypes.{cls.__name__}"
 
 class CELEvalError(Exception):
     def __init__(self, *args: Any) -> None:
         super().__init__(*args)
-    # def repr(self):
+
+
+# From Protobuf definitions, these are the CEL types implement them.
+TYPE_NAMES = {
+    "google.protobuf.Any": MessageType,
+    "google.protubuf.Any": MessageType,  # Note spelling anomaly.
+    "google.protobuf.BoolValue": BoolType,
+    "google.protobuf.BytesValue": BytesType,
+    "google.protobuf.DoubleValue": DoubleType,
+    "google.protobuf.Duration": DurationType,
+    "google.protobuf.FloatValue": DoubleType,
+    "google.protobuf.Int32Value": IntType,
+    "google.protobuf.Int64Value": IntType,
+    "google.protobuf.ListValue": ListType,
+    "google.protobuf.StringValue": StringType,
+    "google.protobuf.Struct": MessageType,
+    "google.protobuf.Timestamp": TimestampType,
+    "google.protobuf.UInt32Value": UintType,
+    "google.protobuf.UInt64Value": UintType,
+    "google.protobuf.Value": MessageType,
+    "type": TypeType,
+    "list_type": ListType,
+    "map_type": MapType,
+    "map": MapType,
+    "list": ListType,
+    "string": StringType,
+    "bytes": BytesType,
+    "bool": BoolType,
+    "int": IntType,
+    "uint": UintType,
+    "double": DoubleType,
+    "null_type": NoneType,
+    "STRING": StringType,
+    "BOOL": BoolType,
+    "INT64": IntType,
+    "UINT64": UintType,
+    "INT32": IntType,
+    "UINT32": UintType,
+    "BYTES": BytesType,
+    "DOUBLE": DoubleType,
+}
+
+def type_value(value: str) -> type:
+    return TYPE_NAMES[value]
 
 # CEL testing types. This is part of the unit test framework.
 
@@ -539,13 +609,13 @@ primitive_types = {
     'int64_value': lambda p: IntType(detokenize(p.value_text)),
     'null_value': lambda p: None,
     'string_value': lambda p: StringType(detokenize(p.value_text)),
-    'type_value': lambda p: TypeType(detokenize(p.value_text)),
+    'type_value': lambda p: type_value(detokenize(p.value_text)),  # TypeType(detokenize(p.value_text)),
     'uint64_value': lambda p: UintType(detokenize(p.value_text)),
     'number_value': lambda p: DoubleType(detokenize(p.value_text)),
     'value': lambda p: detokenize(p.value_text),
 }
 
-def map_builder(*items: ParseTree) -> CelType:
+def map_builder(*items: ParseTree) -> TypeType:
     """Builds MapType objects from the ``entries`` clauses."""
     logger.debug(f"  map_builder({items!r})")
     entries = {}
@@ -557,7 +627,7 @@ def map_builder(*items: ParseTree) -> CelType:
         entries[key] = value
     return MapType(entries)
 
-def list_builder(*items: ParseTree) -> CelType:
+def list_builder(*items: ParseTree) -> TypeType:
     """Builds ListType objects from the ``values`` clauses."""
     logger.debug(f"  list_builder({items!r})")
     values = []
@@ -568,7 +638,7 @@ def list_builder(*items: ParseTree) -> CelType:
         values.append(value)
     return ListType(values)
 
-def struct_builder(*items: ParseTree) -> CelType:
+def struct_builder(*items: ParseTree) -> TypeType:
     """
     Builds MessageType objects from the ``fields`` clauses.
     The ``Any`` special case is taken as a type cast and ignored.
@@ -595,7 +665,7 @@ def struct_builder(*items: ParseTree) -> CelType:
         fields[key] = value
     return MessageType(fields)
 
-def duration_builder(*items: ParseTree) -> CelType:
+def duration_builder(*items: ParseTree) -> TypeType:
     """Building duration from ``seconds`` and ``nanos``
     ::
 
@@ -608,7 +678,7 @@ def duration_builder(*items: ParseTree) -> CelType:
         fields[field_source.type_name.value] = value
     return DurationType(**fields)
 
-def timestamp_builder(*items: ParseTree) -> CelType:
+def timestamp_builder(*items: ParseTree) -> TypeType:
     """Building timestamp from ``seconds``
     ::
 
@@ -622,7 +692,7 @@ def timestamp_builder(*items: ParseTree) -> CelType:
         fields[field_source.type_name.value] = value
     return TimestampType(**fields)
 
-def primitive_builder(celtype: Type[CelType], *items: ParseTree) -> CelType:
+def primitive_builder(celtype: Type[TypeType], *items: ParseTree) -> TypeType:
     """Building from some primitive, usually a ``value``.
     """
     # debug_call_stack()  # Useful for debugging.
@@ -630,7 +700,7 @@ def primitive_builder(celtype: Type[CelType], *items: ParseTree) -> CelType:
     item = items[0]
     return celtype(detokenize(item.value_text))
 
-def any_builder(*items: ParseTree) -> CelType:
+def any_builder(*items: ParseTree) -> TypeType:
     """
     Clandestine object_value can be hidden inside an Any object.
 
@@ -679,7 +749,7 @@ extension_types = {
 }
 
 
-def object_builder(*items: ParseTree) -> CelType:
+def object_builder(*items: ParseTree) -> TypeType:
     """
     Build an ``object_value {}`` instance. These are more complex because -- generally -- they're
     protobuf message instances with many individual fields.
@@ -754,7 +824,7 @@ def object_builder(*items: ParseTree) -> CelType:
         raise ValueError(f"What is this? object_builder({items!r})")
 
 
-def error_builder(*items: ParseTree) -> CelType:
+def error_builder(*items: ParseTree) -> TypeType:
     """
     Build an error result.
     """
@@ -762,7 +832,7 @@ def error_builder(*items: ParseTree) -> CelType:
     return CELEvalError(error)
 
 
-def type_builder(*items: ParseTree) -> CelType:
+def type_builder(*items: ParseTree) -> TypeType:
     """
     Build a type name for the environment.
     We do not traverse the entire protobuf structure.
@@ -770,10 +840,12 @@ def type_builder(*items: ParseTree) -> CelType:
     item = items[0]
     logger.debug(f"  type_builder({item!r})")
     if isinstance(item, Primitive):
-        return TypeType(detokenize(item.value_text))
+        # Wrong... return TypeType(detokenize(item.value_text))
+        return type_value(detokenize(item.value_text))
     else:
         # TODO: Descend into the type structure
-        return TypeType(item.type_name.value)
+        # Wrong... return TypeType(item.type_name.value)
+        return type_value(item.type_name.value)
 
 
 # Top-level values seen in the output Go serialization of an object.
@@ -794,7 +866,7 @@ structure_types = {
 }
 
 
-def structure_builder(structure: ParseTree) -> CelType:
+def structure_builder(structure: ParseTree) -> TypeType:
     """
     Top-level generic builder of CEL objects from the serialized Go object.
     """
@@ -813,120 +885,184 @@ def structure_builder(structure: ParseTree) -> CelType:
     else:
         raise ValueError(f"What is this? structure_builder({structure!r})")
 
+class Gherkinizer(abc.ABC):
+    """Abstract Base Class for Gherkinization."""
 
-def gherkinize(gherkinizer_path: Path, source_path: Optional[Path], target_path: Optional[Path]) -> None:
-    """
-    Convert from textproto to Gherkin that contains Go value serializations.
+    @abc.abstractmethod
+    def convert(self, source_path: Optional[Path], target_path: Optional[Path]) -> None:
+        ...
 
-    Requires GO on the Path.
+class LocalGherkinzer(Gherkinizer):
+    GHERKINIZER = Path.cwd() / "tools" / "mkgherkin.go"
 
-    ::
+    def convert(self, source_path: Optional[Path], target_path: Optional[Path]) -> None:
+        """
+        Convert from textproto to interim Gherkin that contains Go value serializations.
 
-        go mod init mkgherkin
-        go mod tidy
+        Requires GO on the ``PATH``.
 
-    ::
+        Build the app:
+        ..  code-block:: bash
 
-        export PATH="/usr/local/go/bin:/usr/local/bin:$PATH"
-        export GOPATH="~/go"
-    """
-    logger.info(f"With {gherkinizer_path}")
-    if source_path:
-        logger.info(f"gherkinize {source_path.name} -> {target_path.name}")
+            % go mod init mkgherkin
+            % go mod tidy
 
-    env = {
-        "PATH": f"/usr/local/go/bin:/usr/local/bin:{os.environ['PATH']}",
-        "GOPATH": str(Path.home()/"go"),
-        "HOME": str(Path.home()),
-    }
-    command = ["go", "run", gherkinizer_path.stem]
-    if source_path:
-        command.append(str(source_path.absolute()))
+        Run the app:
+        ..  code-block:: bash
 
-    output_context = target_path.open('w') if target_path else contextlib.nullcontext(None)
-    try:
-        with output_context as interim:
-            subprocess.run(
-                command,
-                env=env,
-                cwd=gherkinizer_path.parent,
-                stdout=interim,
-                check=True)
-    except subprocess.CalledProcessError as ex:
-        print(
-            f"{' '.join(command)} failed; "
-            f"perhaps `go mod init {gherkinizer_path.stem}; go get` is required."
-        )
-        raise
+            % export PATH="/usr/local/go/bin:/usr/local/bin:$PATH"
+            % export GOPATH="~/go"
+            % mkgherkin.go  name.textproto >name.interim
+        """
+        logger.info(f"With local {self.GHERKINIZER}")
+        if source_path and target_path:
+            logger.info(f"gherkinize {source_path.name} -> {target_path.name}")
+        elif source_path:
+            logger.info(f"gherkinize {source_path.name} -> STDOUT")
+
+        env = {
+            "PATH": f"/usr/local/go/bin:/usr/local/bin:{os.environ['PATH']}",
+            "GOPATH": str(Path.home()/"go"),
+            "HOME": str(Path.home()),
+        }
+        command = ["go", "run", self.GHERKINIZER.stem]
+
+        if source_path:
+            command.append(str(source_path.absolute()))
+
+        output_context = target_path.open('w') if target_path else contextlib.nullcontext(None)
+        try:
+            with output_context as interim:
+                subprocess.run(
+                    command,
+                    env=env,
+                    stdout=interim,
+                    check=True)
+        except subprocess.CalledProcessError as ex:
+            print(
+                f"{' '.join(command)} failed; "
+                f"perhaps `go mod init {self.GHERKINIZER.stem}; go get` is required."
+            )
+            raise
+
+class DockerGherkinzer(Gherkinizer):
+    def convert(self, source_path: Optional[Path], target_path: Optional[Path]) -> None:
+        """
+        Convert from textproto to interim Gherkin that contains Go value serializations.
+
+        Requires ``docker`` on the ``PATH``.
+
+        See ``tools/Dockerfile``.
+
+        Build the docker image:
+        ..  code-block:: bash
+
+                % docker pull golang
+                % docker build -t mkgherkin .
+
+        Run the docker image:
+        ..  code-block:: bash
+
+                % docker run --rm --name mkgherkin -v .:/usr/cel-python/textproto mkgherkin name.textproto >name.interim
+        """
+        logger.info("With 'mkgherkin' Docker image")
+        if source_path and target_path:
+            logger.info(f"gherkinize {source_path.name} -> {target_path.name}")
+        elif source_path:
+            logger.info(f"gherkinize {source_path.name} -> STDOUT")
+
+        command = ["docker", "run", "--rm", "--name", "mkgherkin", "-v", ".:/usr/cel-python/textproto", "mkgherkin"]
+        if source_path:
+            command.append(str(source_path.name))
+
+        try:
+            output_context = (
+                target_path.open('w') if target_path else contextlib.nullcontext(None)
+            )
+            with output_context as interim:
+                subprocess.run(
+                    command,
+                    stdout=interim,
+                    check=True)
+        except subprocess.CalledProcessError as ex:
+            print(
+                f"{' '.join(command)} failed; "
+                f"`docker` and mkgherkin docker image are required."
+            )
+            raise
+
+def expand_cel(feature_text: str) -> None:
+    """Revises CEL from Go notation to Python notation."""
+    given_bindings_pat = re.compile(r'\s*Given bindings parameter "(.*?)" is\s+(.*)')
+    given_type_env_pat = re.compile(r'\s*Given type_env parameter "(.*?)" is\s+&\{(.*)\}')
+    when_expr_pat = re.compile(r'\s*When CEL expression "(.*)" is evaluated')
+    then_value_pat = re.compile(r"\s*Then value is\s+(.*)")
+    then_error_pat = re.compile(r"\s*Then eval_error is\s+(.*)")
+
+    for line in feature_text.splitlines():
+        given_binding_line = given_bindings_pat.match(line)
+        given_type_env_line = given_type_env_pat.match(line)
+        when_expr_line = when_expr_pat.match(line)
+        then_value_line = then_value_pat.match(line)
+        then_error_line = then_error_pat.match(line)
+        if given_binding_line:
+            # Replace the value with a proper CEL object
+            variable, value = given_binding_line.groups()
+            replacement = structure_builder(parse_serialized_value(Tokens(value)))
+            print(f'   #     {value}')
+            print(f'   Given bindings parameter "{variable}" is {replacement}')
+        elif given_type_env_line:
+            # Replace the value with a CEL-friendly variant on the type name
+            variable, type_spec = given_type_env_line.groups()
+            replacement = structure_builder(parse_serialized_value(Tokens(type_spec)))
+            print(f'   #     {type_spec}')
+            print(f'   Given type_env parameter "{variable}" is {replacement.cel_name()}')
+        elif then_value_line:
+            # Replace the value with a proper CEL object
+            value = then_value_line.group(1)
+            replacement = structure_builder(parse_serialized_value(Tokens(value)))
+            print(f'    #    {value}')
+            if type(replacement) == type:
+                print(f'    Then value is {replacement.cel_name()}')
+            else:
+                print(f'    Then value is {replacement!r}')
+        elif then_error_line:
+            # Replace the error with a more useful CEL-like.
+            value = then_error_line.group(1)
+            replacement_exception = structure_builder(parse_serialized_value(Tokens(value)))
+            print(f'    #    {value}')
+            print(f'    Then eval_error is {replacement_exception.args[0]!r}')
+        elif when_expr_line:
+            # Clean up escaped quotes within the CEL expr.
+            value = when_expr_line.group(1)
+            replacement = ''.join(
+                expand_str_escape(m.group()) for m in STR_ESCAPES.finditer(value))
+            if '"' in replacement:
+                print(f"    When CEL expression '{replacement}' is evaluated")
+            else:
+                print(f'    When CEL expression "{replacement}" is evaluated')
+        else:
+            # it's already perfect
+            print(line)
 
 def celify(source_path: Path, target_path: Optional[Path]) -> None:
     """
-    Rewrite Gherkin that contains Go value serializations into Gherkin with CEL serializations.
+    Rewrite interim Gherkin that contains Go value serializations into final Gherkin with CEL serializations.
 
-    This reads the intermediate Gherkin, looking for specific clauses with serialized values:
+    This reads the interim Gherkin, looking for specific clauses with serialized values:
 
     -   Given bindings parameter ... is ...
     -   Given type_env parameter ... is ...
     -   When CEL expression "..." is evaluated
     -   Then value is ...
 
-    Both of these contain Go values which are parsed and rebuilt as CEL objects.
-    The resulting Gherkin is written to stdout, which may be redirected to a file.
+    These contain Go values which are parsed and rebuilt as CEL objects.
+    The resulting Gherkin is written to a given Path, or stdout if not Path is given.
     """
     if target_path:
         logger.info(f"celify {source_path.name} -> {target_path.name}")
     else:
         logger.info(f"celify {source_path.name}")
-
-    def expand_cel(feature_text: str):
-        bindings_pat = re.compile(r'\s*Given bindings parameter "(.*?)" is\s+(.*)')
-        type_env_pat = re.compile(r'\s*Given type_env parameter "(.*?)" is\s+&\{(.*)\}')
-        when_expr_pat = re.compile(r'\s*When CEL expression "(.*)" is evaluated')
-        then_value_pat = re.compile(r"\s*Then value is\s+(.*)")
-        then_error_pat = re.compile(r"\s*Then eval_error is\s+(.*)")
-
-        for line in feature_text.splitlines():
-            binding_line = bindings_pat.match(line)
-            type_env_line = type_env_pat.match(line)
-            when_expr_line = when_expr_pat.match(line)
-            then_value_line = then_value_pat.match(line)
-            then_error_line = then_error_pat.match(line)
-            if binding_line:
-                # Replace the value with a proper CEL object
-                variable, value = binding_line.groups()
-                replacement = structure_builder(parse_serialized_value(Tokens(value)))
-                print(f'   #     {value}')
-                print(f'   Given bindings parameter "{variable}" is {replacement}')
-            elif type_env_line:
-                # Replace the value with a CEL-friendly variant on the type name
-                variable, type_spec = type_env_line.groups()
-                replacement = structure_builder(parse_serialized_value(Tokens(type_spec)))
-                print(f'   #     {type_spec}')
-                print(f'   Given type_env parameter "{variable}" is {replacement}')
-            elif then_value_line:
-                # Replace the value with a proper CEL object
-                value = then_value_line.group(1)
-                replacement = structure_builder(parse_serialized_value(Tokens(value)))
-                print(f'    #    {value}')
-                print(f'    Then value is {replacement!r}')
-            elif then_error_line:
-                # Replace the error with a more useful CEL-like.
-                value = then_error_line.group(1)
-                replacement_exception = structure_builder(parse_serialized_value(Tokens(value)))
-                print(f'    #    {value}')
-                print(f'    Then eval_error is {replacement_exception.args[0]!r}')
-            elif when_expr_line:
-                # Clean up escaped quotes within the CEL expr.
-                value = when_expr_line.group(1)
-                replacement = ''.join(
-                    expand_str_escape(m.group()) for m in STR_ESCAPES.finditer(value))
-                if '"' in replacement:
-                    print(f"    When CEL expression '{replacement}' is evaluated")
-                else:
-                    print(f'    When CEL expression "{replacement}" is evaluated')
-            else:
-                # it's already perfect
-                print(line)
 
     feature_text = source_path.read_text()
     if target_path:
@@ -941,9 +1077,9 @@ def celify(source_path: Path, target_path: Optional[Path]) -> None:
 def get_options(argv: List[str] = sys.argv[1:]) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '-g', '--gherkinizer', action='store', type=Path,
-        help="Location of the mkgherkin.go module",
-        default=Path(__file__).parent / "mkgherkin.go")
+        '-g', '--gherkinizer',
+        choices=["docker", "local"],
+        default="docker")
     parser.add_argument(
         '-v', '--verbose',
         dest="log_level",
@@ -969,14 +1105,16 @@ if __name__ == "__main__":
     options = get_options()
     logging.getLogger().setLevel(options.log_level)
 
-    mkgherkin = options.gherkinizer
+    if options.gherkinizer.lower() == "docker":
+        gherkinzer = DockerGherkinzer()
+    else:
+        gherkinzer = LocalGherkinzer()
 
     if not options.source:
-        gherkinize(mkgherkin, None, None)
+        gherkinzer.convert(None, None)
         sys.exit()
 
     source = options.source
-    interim = (Path.cwd()/f"{source.stem}_go").with_suffix(".gherkin")
-    gherkinize(mkgherkin, source, interim)
+    interim = source.with_suffix(".interim")
+    gherkinzer.convert(source, interim)
     celify(interim, options.output)
-    interim.unlink()

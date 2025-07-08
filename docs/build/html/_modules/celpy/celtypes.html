@@ -47,7 +47,7 @@
 <span class="c1"># See the License for the specific language governing permissions and limitations under the License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">CEL Types: wrappers on Python types to provide CEL semantics.</span>
+<span class="sd">Provides wrappers over Python types to provide CEL semantics.</span>
 
 <span class="sd">This can be used by a Python module to work with CEL-friendly values and CEL results.</span>
 
@@ -323,12 +323,19 @@
 <span class="sd">        &gt;&gt;&gt; logical_condition(</span>
 <span class="sd">        ... BoolType(False), StringType(&quot;Not This&quot;), StringType(&quot;that&quot;))</span>
 <span class="sd">        StringType(&#39;that&#39;)</span>
+
+<span class="sd">    .. TODO:: Consider passing closures instead of Values.</span>
+
+<span class="sd">        The function can evaluate e().</span>
+<span class="sd">        If it&#39;s True, return x().</span>
+<span class="sd">        If it&#39;s False, return y().</span>
+<span class="sd">        Otherwise, it&#39;s a CELEvalError, which is the result</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">BoolType</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2"> ? </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="n">result</span> <span class="o">=</span> <span class="n">x</span> <span class="k">if</span> <span class="n">e</span> <span class="k">else</span> <span class="n">y</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;logical_condition(</span><span class="si">%r</span><span class="s2">, </span><span class="si">%r</span><span class="s2">, </span><span class="si">%r</span><span class="s2">) = </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">result</span></div>
+    <span class="n">result_value</span> <span class="o">=</span> <span class="n">x</span> <span class="k">if</span> <span class="n">e</span> <span class="k">else</span> <span class="n">y</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;logical_condition(</span><span class="si">%r</span><span class="s2">, </span><span class="si">%r</span><span class="s2">, </span><span class="si">%r</span><span class="s2">) = </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">result_value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result_value</span></div>
 
 
 
@@ -338,6 +345,12 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Native Python has a left-to-right rule.</span>
 <span class="sd">    CEL &amp;&amp; is commutative with non-Boolean values, including error objects.</span>
+
+<span class="sd">    .. TODO:: Consider passing closures instead of Values.</span>
+
+<span class="sd">        The function can evaluate x().</span>
+<span class="sd">        If it&#39;s False, then return False.</span>
+<span class="sd">        Otherwise, it&#39;s True or a CELEvalError, return y().</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">BoolType</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">BoolType</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">x</span><span class="si">!r}</span><span class="s2"> and </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">y</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -360,14 +373,17 @@
 <a class="viewcode-back" href="../../api.html#celpy.celtypes.logical_not">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">logical_not</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Value</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Native python `not` isn&#39;t fully exposed for CEL types.</span>
+<span class="sd">    A function for native python `not`.</span>
+
+<span class="sd">    This could almost be `logical_or = evaluation.boolean(operator.not_)`,</span>
+<span class="sd">    but the definition would expose Python&#39;s notion of &quot;truthiness&quot;, which isn&#39;t appropriate for CEL.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">BoolType</span><span class="p">):</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">BoolType</span><span class="p">(</span><span class="ow">not</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">result_value</span> <span class="o">=</span> <span class="n">BoolType</span><span class="p">(</span><span class="ow">not</span> <span class="n">x</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;not </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;logical_not(</span><span class="si">%r</span><span class="s2">) = </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">result</span></div>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;logical_not(</span><span class="si">%r</span><span class="s2">) = </span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">result_value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result_value</span></div>
 
 
 
@@ -375,8 +391,8 @@
 <a class="viewcode-back" href="../../api.html#celpy.celtypes.logical_or">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">logical_or</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Value</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">Value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Value</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Native Python has a left-to-right rule: (True or y) is True, (False or y) is y.</span>
-<span class="sd">    CEL || is commutative with non-Boolean values, including errors.</span>
+<span class="sd">    Native Python has a left-to-right rule: ``(True or y)`` is True, ``(False or y)`` is y.</span>
+<span class="sd">    CEL ``||`` is commutative with non-Boolean values, including errors.</span>
 <span class="sd">    ``(x || false)`` is ``x``, and ``(false || y)`` is ``y``.</span>
 
 <span class="sd">    Example 1::</span>
@@ -391,7 +407,13 @@
 
 <span class="sd">    is a &quot;True&quot;</span>
 
-<span class="sd">    If the operand(s) are not BoolType, we&#39;ll create an TypeError that will become a CELEvalError.</span>
+<span class="sd">    If the operand(s) are not ``BoolType``, we&#39;ll create an ``TypeError`` that will become a ``CELEvalError``.</span>
+
+<span class="sd">    .. TODO:: Consider passing closures instead of Values.</span>
+
+<span class="sd">        The function can evaluate x().</span>
+<span class="sd">        If it&#39;s True, then return True.</span>
+<span class="sd">        Otherwise, it&#39;s False or a CELEvalError, return y().</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">BoolType</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">BoolType</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">x</span><span class="si">!r}</span><span class="s2"> or </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">y</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -414,9 +436,9 @@
 <a class="viewcode-back" href="../../api.html#celpy.celtypes.BoolType">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">BoolType</span><span class="p">(</span><span class="nb">int</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Native Python permits unary operators on Booleans.</span>
+<span class="sd">    Native Python permits all unary operators to work on ``bool`` objects.</span>
 
-<span class="sd">    For CEL, We need to prevent -false from working.</span>
+<span class="sd">    For CEL, we need to prevent the CEL expression ``-false`` from working.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="BoolType.__new__">
@@ -480,7 +502,7 @@
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">MessageType</span><span class="p">):</span>
             <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span>
                 <span class="bp">cls</span><span class="p">,</span>
-                <span class="n">cast</span><span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="n">source</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">StringType</span><span class="p">(</span><span class="s2">&quot;value&quot;</span><span class="p">))),</span>  <span class="c1"># type: ignore [attr-defined]</span>
+                <span class="n">cast</span><span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="n">source</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">StringType</span><span class="p">(</span><span class="s2">&quot;value&quot;</span><span class="p">))),</span>
             <span class="p">)</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">):</span>
             <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">cast</span><span class="p">(</span><span class="n">Iterable</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">source</span><span class="p">))</span>
@@ -603,9 +625,9 @@
 
     <span class="nd">@wraps</span><span class="p">(</span><span class="n">operator</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">clamped_operator</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="n">result</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">operator</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-        <span class="k">if</span> <span class="o">-</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">63</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">result</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="o">**</span><span class="mi">63</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">result</span>
+        <span class="n">result_value</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">operator</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="o">-</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">63</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">result_value</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="o">**</span><span class="mi">63</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">result_value</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;overflow&quot;</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">IntOperator</span><span class="p">,</span> <span class="n">clamped_operator</span><span class="p">)</span></div>
@@ -832,9 +854,9 @@
 
     <span class="nd">@wraps</span><span class="p">(</span><span class="n">operator</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">clamped_operator</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">operator</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-        <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">result</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="o">**</span><span class="mi">64</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">result</span>
+        <span class="n">result_value</span> <span class="o">=</span> <span class="n">operator</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">result_value</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="o">**</span><span class="mi">64</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">result_value</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;overflow&quot;</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">IntOperator</span><span class="p">,</span> <span class="n">clamped_operator</span><span class="p">)</span></div>
@@ -1081,14 +1103,14 @@
             <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">BoolType</span><span class="p">,</span> <span class="n">ex</span><span class="p">)</span>  <span class="c1"># Instead of Union[BoolType, TypeError]</span>
 
-        <span class="n">result</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">and</span> <span class="n">reduce</span><span class="p">(</span>  <span class="c1"># noqa: W503</span>
+        <span class="n">result_value</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">and</span> <span class="n">reduce</span><span class="p">(</span>
             <span class="n">logical_and</span><span class="p">,</span>  <span class="c1"># type: ignore [arg-type]</span>
             <span class="p">(</span><span class="n">equal</span><span class="p">(</span><span class="n">item_s</span><span class="p">,</span> <span class="n">item_o</span><span class="p">)</span> <span class="k">for</span> <span class="n">item_s</span><span class="p">,</span> <span class="n">item_o</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)),</span>
             <span class="n">BoolType</span><span class="p">(</span><span class="kc">True</span><span class="p">),</span>  <span class="c1"># type: ignore [arg-type]</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">result</span>
-        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result_value</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">result_value</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="ListType.__ne__">
@@ -1103,14 +1125,20 @@
             <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">BoolType</span><span class="p">,</span> <span class="n">ex</span><span class="p">)</span>  <span class="c1"># Instead of Union[BoolType, TypeError]</span>
 
-        <span class="n">result</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">or</span> <span class="n">reduce</span><span class="p">(</span>  <span class="c1"># noqa: W503</span>
+        <span class="n">result_value</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">or</span> <span class="n">reduce</span><span class="p">(</span>
             <span class="n">logical_or</span><span class="p">,</span>  <span class="c1"># type: ignore [arg-type]</span>
             <span class="p">(</span><span class="n">not_equal</span><span class="p">(</span><span class="n">item_s</span><span class="p">,</span> <span class="n">item_o</span><span class="p">)</span> <span class="k">for</span> <span class="n">item_s</span><span class="p">,</span> <span class="n">item_o</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)),</span>
             <span class="n">BoolType</span><span class="p">(</span><span class="kc">False</span><span class="p">),</span>  <span class="c1"># type: ignore [arg-type]</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">result</span>
-        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result_value</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">result_value</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ListType.contains">
+<a class="viewcode-back" href="../../api.html#celpy.celtypes.ListType.contains">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">Value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BoolType</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">BoolType</span><span class="p">(</span><span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">)</span></div>
 </div>
 
 
@@ -1145,7 +1173,10 @@
         <span class="k">if</span> <span class="n">items</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">pass</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">items</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">):</span>
+            <span class="c1"># Must Be Unique</span>
             <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Duplicate key </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="bp">self</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">items</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
             <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">items</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -1182,14 +1213,14 @@
 
         <span class="n">keys_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
         <span class="n">keys_o</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">keys_s</span> <span class="o">==</span> <span class="n">keys_o</span> <span class="ow">and</span> <span class="n">reduce</span><span class="p">(</span>  <span class="c1"># noqa: W503</span>
+        <span class="n">result_value</span> <span class="o">=</span> <span class="n">keys_s</span> <span class="o">==</span> <span class="n">keys_o</span> <span class="ow">and</span> <span class="n">reduce</span><span class="p">(</span>
             <span class="n">logical_and</span><span class="p">,</span>  <span class="c1"># type: ignore [arg-type]</span>
             <span class="p">(</span><span class="n">equal</span><span class="p">(</span><span class="bp">self</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">other</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys_s</span><span class="p">),</span>
             <span class="n">BoolType</span><span class="p">(</span><span class="kc">True</span><span class="p">),</span>  <span class="c1"># type: ignore [arg-type]</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">result</span>
-        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result_value</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">result_value</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="MapType.__ne__">
@@ -1213,14 +1244,28 @@
 
         <span class="n">keys_s</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
         <span class="n">keys_o</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">keys_s</span> <span class="o">!=</span> <span class="n">keys_o</span> <span class="ow">or</span> <span class="n">reduce</span><span class="p">(</span>  <span class="c1"># noqa: W503</span>
+        <span class="n">result_value</span> <span class="o">=</span> <span class="n">keys_s</span> <span class="o">!=</span> <span class="n">keys_o</span> <span class="ow">or</span> <span class="n">reduce</span><span class="p">(</span>
             <span class="n">logical_or</span><span class="p">,</span>  <span class="c1"># type: ignore [arg-type]</span>
             <span class="p">(</span><span class="n">not_equal</span><span class="p">(</span><span class="bp">self</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">other</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys_s</span><span class="p">),</span>
             <span class="n">BoolType</span><span class="p">(</span><span class="kc">False</span><span class="p">),</span>  <span class="c1"># type: ignore [arg-type]</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">result</span>
-        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result_value</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">result_value</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MapType.get">
+<a class="viewcode-back" href="../../api.html#celpy.celtypes.MapType.get">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Value</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;There is no default provision in CEL, that&#39;s a Python feature.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">MapType</span><span class="o">.</span><span class="n">valid_key_type</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unsupported key type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Value</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="n">key</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="MapType.valid_key_type">
@@ -1229,6 +1274,12 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">valid_key_type</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Valid CEL key types. Plus native str for tokens in the source when evaluating ``e.f``&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">(</span><span class="n">IntType</span><span class="p">,</span> <span class="n">UintType</span><span class="p">,</span> <span class="n">BoolType</span><span class="p">,</span> <span class="n">StringType</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="MapType.contains">
+<a class="viewcode-back" href="../../api.html#celpy.celtypes.MapType.contains">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">Value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BoolType</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">BoolType</span><span class="p">(</span><span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">)</span></div>
 </div>
 
 
@@ -1299,6 +1350,12 @@
 <a class="viewcode-back" href="../../api.html#celpy.celtypes.StringType.__hash__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__hash__</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="StringType.contains">
+<a class="viewcode-back" href="../../api.html#celpy.celtypes.StringType.contains">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">:</span> <span class="n">Value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BoolType</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">BoolType</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">StringType</span><span class="p">,</span> <span class="n">item</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">)</span></div>
 </div>
 
 
@@ -1392,7 +1449,7 @@
             <span class="k">return</span> <span class="n">ts</span>
 
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="c1"># Use dateutil to try a variety of text formats.</span>
+            <span class="c1"># Use ``pendulum`` to try a variety of text formats.</span>
             <span class="n">parsed_datetime</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">,</span> <span class="n">pendulum</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">source</span><span class="p">))</span>
             <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span>
                 <span class="bp">cls</span><span class="p">,</span>
@@ -1429,20 +1486,20 @@
 <a class="viewcode-back" href="../../api.html#celpy.celtypes.TimestampType.__add__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;TimestampType&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Timestamp + Duration -&gt; Timestamp&quot;&quot;&quot;</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">result</span> <span class="o">==</span> <span class="bp">NotImplemented</span><span class="p">:</span>
+        <span class="n">result_value</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">result_value</span> <span class="o">==</span> <span class="bp">NotImplemented</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">NotImplemented</span>
-        <span class="k">return</span> <span class="n">TimestampType</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">TimestampType</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="TimestampType.__radd__">
 <a class="viewcode-back" href="../../api.html#celpy.celtypes.TimestampType.__radd__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;TimestampType&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Duration + Timestamp -&gt; Timestamp&quot;&quot;&quot;</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__radd__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">result</span> <span class="o">==</span> <span class="bp">NotImplemented</span><span class="p">:</span>
+        <span class="n">result_value</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__radd__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">result_value</span> <span class="o">==</span> <span class="bp">NotImplemented</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">NotImplemented</span>
-        <span class="k">return</span> <span class="n">TimestampType</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">TimestampType</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span></div>
 
 
     <span class="c1"># For more information, check the typeshed definition</span>
@@ -1459,12 +1516,12 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__sub__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="s2">&quot;TimestampType&quot;</span><span class="p">,</span> <span class="s2">&quot;DurationType&quot;</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="s2">&quot;TimestampType&quot;</span><span class="p">,</span> <span class="s2">&quot;DurationType&quot;</span><span class="p">]:</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__sub__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">result</span> <span class="o">==</span> <span class="bp">NotImplemented</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">DurationType</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">DurationType</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">TimestampType</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+        <span class="n">result_value</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__sub__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">result_value</span> <span class="o">==</span> <span class="bp">NotImplemented</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">DurationType</span><span class="p">,</span> <span class="n">result_value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result_value</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">DurationType</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">TimestampType</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="TimestampType.tz_name_lookup">
@@ -1472,7 +1529,7 @@
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">tz_name_lookup</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">tz_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="o">.</span><span class="n">tzinfo</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        The :py:func:`dateutil.tz.gettz` may be extended with additional aliases.</span>
+<span class="sd">        The ``pendulum`` parsing may be extended with additional aliases.</span>
 
 <span class="sd">        ..  TODO: Permit an extension into the timezone lookup.</span>
 <span class="sd">            Tweak ``celpy.celtypes.TimestampType.TZ_ALIASES``.</span>
@@ -1714,13 +1771,13 @@
 <span class="sd">        A duration + timestamp is not implemented by the timedelta superclass;</span>
 <span class="sd">        it is handled by the datetime superclass that implementes timestamp + duration.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">result</span> <span class="o">==</span> <span class="bp">NotImplemented</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">DurationType</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+        <span class="n">result_value</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">result_value</span> <span class="o">==</span> <span class="bp">NotImplemented</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">DurationType</span><span class="p">,</span> <span class="n">result_value</span><span class="p">)</span>
         <span class="c1"># This is handled by TimestampType; this is here for completeness, but isn&#39;t used.</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">,</span> <span class="n">TimestampType</span><span class="p">)):</span>
-            <span class="k">return</span> <span class="n">TimestampType</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
-        <span class="k">return</span> <span class="n">DurationType</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result_value</span><span class="p">,</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">,</span> <span class="n">TimestampType</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">TimestampType</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">return</span> <span class="n">DurationType</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="DurationType.__radd__">
@@ -1731,13 +1788,13 @@
 
 <span class="sd">        Most cases are handled by TimeStamp.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__radd__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">result</span> <span class="o">==</span> <span class="bp">NotImplemented</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">DurationType</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+        <span class="n">result_value</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__radd__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">result_value</span> <span class="o">==</span> <span class="bp">NotImplemented</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">DurationType</span><span class="p">,</span> <span class="n">result_value</span><span class="p">)</span>
         <span class="c1"># This is handled by TimestampType; this is here for completeness, but isn&#39;t used.</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">,</span> <span class="n">TimestampType</span><span class="p">)):</span>
-            <span class="k">return</span> <span class="n">TimestampType</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">DurationType</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result_value</span><span class="p">,</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">,</span> <span class="n">TimestampType</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">TimestampType</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">DurationType</span><span class="p">(</span><span class="n">result_value</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="DurationType.getHours">
@@ -1836,93 +1893,21 @@
 </div>
 
 
-    <span class="c1"># def get(self, field: Any, default: Optional[Value] = None) -&gt; Value:</span>
-    <span class="c1">#     &quot;&quot;&quot;</span>
-    <span class="c1">#     Alternative implementation with descent to locate a deeply-buried field.</span>
-    <span class="c1">#     It seemed like this was the defined behavior. It turns it, it isn&#39;t.</span>
-    <span class="c1">#     The code is here in case we&#39;re wrong and it really is the defined behavior.</span>
-    <span class="c1">#</span>
-    <span class="c1">#     Note. There is no default provision in CEL.</span>
-    <span class="c1">#     &quot;&quot;&quot;</span>
-    <span class="c1">#     if field in self:</span>
-    <span class="c1">#         return super().get(field)</span>
-    <span class="c1">#</span>
-    <span class="c1">#     def descend(message: MessageType, field: Value) -&gt; MessageType:</span>
-    <span class="c1">#         if field in message:</span>
-    <span class="c1">#             return message</span>
-    <span class="c1">#         for k in message.keys():</span>
-    <span class="c1">#             found = descend(message[k], field)</span>
-    <span class="c1">#             if found is not None:</span>
-    <span class="c1">#                 return found</span>
-    <span class="c1">#         return None</span>
-    <span class="c1">#</span>
-    <span class="c1">#     sub_message = descend(self, field)</span>
-    <span class="c1">#     if sub_message is None:</span>
-    <span class="c1">#         return default</span>
-    <span class="c1">#     return sub_message.get(field)</span>
-
 
 <div class="viewcode-block" id="TypeType">
 <a class="viewcode-back" href="../../api.html#celpy.celtypes.TypeType">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">TypeType</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TypeType</span><span class="p">(</span><span class="nb">type</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Annotation used to mark protobuf type objects.</span>
-<span class="sd">    We map these to CELTypes so that type name testing works.</span>
+<span class="sd">    This is primarily used as a function to extract type from an object or a type.</span>
+<span class="sd">    For consistence, we define it as a type so other types can extend it.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">type_name_mapping</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;google.protobuf.Duration&quot;</span><span class="p">:</span> <span class="n">DurationType</span><span class="p">,</span>
-        <span class="s2">&quot;google.protobuf.Timestamp&quot;</span><span class="p">:</span> <span class="n">TimestampType</span><span class="p">,</span>
-        <span class="s2">&quot;google.protobuf.Int32Value&quot;</span><span class="p">:</span> <span class="n">IntType</span><span class="p">,</span>
-        <span class="s2">&quot;google.protobuf.Int64Value&quot;</span><span class="p">:</span> <span class="n">IntType</span><span class="p">,</span>
-        <span class="s2">&quot;google.protobuf.UInt32Value&quot;</span><span class="p">:</span> <span class="n">UintType</span><span class="p">,</span>
-        <span class="s2">&quot;google.protobuf.UInt64Value&quot;</span><span class="p">:</span> <span class="n">UintType</span><span class="p">,</span>
-        <span class="s2">&quot;google.protobuf.FloatValue&quot;</span><span class="p">:</span> <span class="n">DoubleType</span><span class="p">,</span>
-        <span class="s2">&quot;google.protobuf.DoubleValue&quot;</span><span class="p">:</span> <span class="n">DoubleType</span><span class="p">,</span>
-        <span class="s2">&quot;google.protobuf.Value&quot;</span><span class="p">:</span> <span class="n">MessageType</span><span class="p">,</span>
-        <span class="s2">&quot;google.protubuf.Any&quot;</span><span class="p">:</span> <span class="n">MessageType</span><span class="p">,</span>  <span class="c1"># Weird.</span>
-        <span class="s2">&quot;google.protobuf.Any&quot;</span><span class="p">:</span> <span class="n">MessageType</span><span class="p">,</span>
-        <span class="s2">&quot;list_type&quot;</span><span class="p">:</span> <span class="n">ListType</span><span class="p">,</span>
-        <span class="s2">&quot;map_type&quot;</span><span class="p">:</span> <span class="n">MapType</span><span class="p">,</span>
-        <span class="s2">&quot;map&quot;</span><span class="p">:</span> <span class="n">MapType</span><span class="p">,</span>
-        <span class="s2">&quot;list&quot;</span><span class="p">:</span> <span class="n">ListType</span><span class="p">,</span>
-        <span class="s2">&quot;string&quot;</span><span class="p">:</span> <span class="n">StringType</span><span class="p">,</span>
-        <span class="s2">&quot;bytes&quot;</span><span class="p">:</span> <span class="n">BytesType</span><span class="p">,</span>
-        <span class="s2">&quot;bool&quot;</span><span class="p">:</span> <span class="n">BoolType</span><span class="p">,</span>
-        <span class="s2">&quot;int&quot;</span><span class="p">:</span> <span class="n">IntType</span><span class="p">,</span>
-        <span class="s2">&quot;uint&quot;</span><span class="p">:</span> <span class="n">UintType</span><span class="p">,</span>
-        <span class="s2">&quot;double&quot;</span><span class="p">:</span> <span class="n">DoubleType</span><span class="p">,</span>
-        <span class="s2">&quot;null_type&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-        <span class="s2">&quot;STRING&quot;</span><span class="p">:</span> <span class="n">StringType</span><span class="p">,</span>
-        <span class="s2">&quot;BOOL&quot;</span><span class="p">:</span> <span class="n">BoolType</span><span class="p">,</span>
-        <span class="s2">&quot;INT64&quot;</span><span class="p">:</span> <span class="n">IntType</span><span class="p">,</span>
-        <span class="s2">&quot;UINT64&quot;</span><span class="p">:</span> <span class="n">UintType</span><span class="p">,</span>
-        <span class="s2">&quot;INT32&quot;</span><span class="p">:</span> <span class="n">IntType</span><span class="p">,</span>
-        <span class="s2">&quot;UINT32&quot;</span><span class="p">:</span> <span class="n">UintType</span><span class="p">,</span>
-        <span class="s2">&quot;BYTES&quot;</span><span class="p">:</span> <span class="n">BytesType</span><span class="p">,</span>
-        <span class="s2">&quot;DOUBLE&quot;</span><span class="p">:</span> <span class="n">DoubleType</span><span class="p">,</span>
-    <span class="p">}</span>
-
-<div class="viewcode-block" id="TypeType.__init__">
-<a class="viewcode-back" href="../../api.html#celpy.celtypes.TypeType.__init__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_name_mapping</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">type_reference</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_name_mapping</span><span class="p">[</span><span class="n">value</span><span class="p">]</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">type_reference</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-            <span class="k">except</span> <span class="p">(</span><span class="ne">NameError</span><span class="p">,</span> <span class="ne">SyntaxError</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown type </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">type_reference</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="vm">__class__</span></div>
-
-
-<div class="viewcode-block" id="TypeType.__eq__">
-<a class="viewcode-back" href="../../api.html#celpy.celtypes.TypeType.__eq__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="k">return</span> <span class="p">(</span>
-            <span class="n">other</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_reference</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_reference</span><span class="p">)</span>  <span class="c1"># noqa: W503</span>
-        <span class="p">)</span></div>
+<div class="viewcode-block" id="TypeType.__new__">
+<a class="viewcode-back" href="../../api.html#celpy.celtypes.TypeType.__new__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="n">typ</span><span class="p">,</span> <span class="n">instance</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">instance</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">type</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">typ</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="n">instance</span><span class="p">)</span></div>
 </div>
 
 </pre></div>
@@ -1952,14 +1937,15 @@
     </div>
 </search>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Documentation Content:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Use of CEL-Python</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../integration.html">Application Integration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../api.html">CEL-Py API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../structure.html">Data Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../structure.html">Architecture and Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Development Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../c7n_functions.html">C7N Functions Required</a></li>
 </ul>
 

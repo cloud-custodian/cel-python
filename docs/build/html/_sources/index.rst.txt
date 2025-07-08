@@ -25,25 +25,32 @@ Pure Python implementation of Google Common Expression Language, https://opensou
 This implementation has minimal dependencies, runs quickly, and can be embedded into Python-based applications.
 Specifically, one intent is to be part of Cloud Custodian (C7N) as part of the security policy filter.
 
-Interested in the API? There are three interesting topics:
-
--   :ref:`integration`
--   :ref:`api`
--   :ref:`data_structures`
-
-The integration into another application isn't a trivial ``import``.
-
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Documentation Content:
 
    installation
    cli
    configuration
    integration
-   api
    structure
+   api
+   development
    c7n_functions
+
+Integration Overview
+====================
+
+Interested in the API for using this package? There are three key topics:
+
+-   :ref:`integration`
+-   :ref:`api`
+-   :ref:`data_structures`
+
+The integration into another application is often a bit more than an ``import``.
+This is because it involves combining CEL into another DSL.
+
+The current implementation includes Cloud Custodian (C7N) integration.
 
 
 Indices and tables

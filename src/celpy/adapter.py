@@ -12,15 +12,16 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
+
 """
-Type Adapter to convert Python-native types into CEL structures.
+Converts some Python-native types into CEL structures.
 
-Currently, Atomic Python objects have direct use of types in :mod:`celpy.celtypes`.
+Currently, atomic Python objects have direct use of types in :mod:`celpy.celtypes`.
 
-Non-Atomic Python objects are characterized by JSON and Protobuf
-objects. This module has functions to convert JSON objects to CEL.
+Non-atomic Python objects are characterized by JSON and Protobuf messages.
+This module has functions to convert JSON objects to CEL.
 
-The protobuf decoder is TBD.
+A proper protobuf decoder is TBD.
 
 A more sophisticated type injection capability may be needed to permit
 additional types or extensions to :mod:`celpy.celtypes`.

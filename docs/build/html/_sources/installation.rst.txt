@@ -30,6 +30,7 @@ The optional RE2 package significantly speeds up regular expression matching.
 
     python -m pip install cel-python[re2]
 
+
 ..  warning::
 
     In the case where the platform is "darwin" and the architecture is "arm64" and python is "3.13",

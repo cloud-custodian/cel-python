@@ -34,20 +34,9 @@
           <div class="body" role="main">
             
   <section id="configuration">
-<h1>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">¶</a></h1>
-<p>The CLI application can bind argument values from the environment.
-The command-line provides variable names and type information.
-The OS environment provides string values.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">x</span><span class="o">=</span><span class="m">6</span>
-<span class="nb">export</span><span class="w"> </span><span class="nv">y</span><span class="o">=</span><span class="m">7</span>
-celpy<span class="w"> </span>-n<span class="w"> </span>--arg<span class="w"> </span>x:int<span class="w"> </span>--arg<span class="w"> </span>y:int<span class="w"> </span><span class="s1">&#39;x*y&#39;</span>
-<span class="m">42</span>
-</pre></div>
-</div>
-<p>While this example uses the OS environment,
-it isn’t the usual sense of <em>configuration</em>.
-The only configuration options available for the command-line application are the logging configuration.</p>
-<p>If a <code class="docutils literal notranslate"><span class="pre">celpy.toml</span></code> file exists in the local directory or the user’s <code class="docutils literal notranslate"><span class="pre">HOME</span></code> directory, this will be used to provide logging configuration for the <code class="docutils literal notranslate"><span class="pre">celpy</span></code> application.</p>
+<span id="id1"></span><h1>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">¶</a></h1>
+<p>The <strong>celpy</strong> package uses a configuration file to set the logging options.
+If a <code class="docutils literal notranslate"><span class="pre">celpy.toml</span></code> file exists in the local directory or the user’s <code class="docutils literal notranslate"><span class="pre">HOME</span></code> directory, this will be used to provide logging configuration for the <code class="docutils literal notranslate"><span class="pre">celpy</span></code> application.</p>
 <p>This file must have a <code class="docutils literal notranslate"><span class="pre">logging</span></code> paragraph.
 This paragraph can contain the parameters for logging configuration.</p>
 <div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[logging]</span>
@@ -63,12 +52,31 @@ This paragraph can contain the parameters for logging configuration.</p>
 <span class="w">    </span><span class="n">formatter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;console&quot;</span>
 </pre></div>
 </div>
+<p>This provides minimal log output, showing only warnings, errors, and fatal error messages.
+The <code class="docutils literal notranslate"><span class="pre">root.level</span></code> needs to be “INFO” or “DEBUG” to see more output.
+Setting a specific logger’s level to “DEBUG” will raise the logging level for a specific component.</p>
+<p>All of the <strong>celpy</strong> loggers have names starting with <code class="docutils literal notranslate"><span class="pre">celpy.</span></code>.
+This permits integration with other application without polluting those logs with <strong>celpy</strong> output.</p>
 <p>To enable very detailed debugging, do the following:</p>
 <ul class="simple">
 <li><p>Set the <code class="docutils literal notranslate"><span class="pre">CEL_TRACE</span></code> environment variable to some non-empty value, like <code class="docutils literal notranslate"><span class="pre">&quot;true&quot;</span></code>.
 This enables a <code class="docutils literal notranslate"><span class="pre">&#64;trace</span></code> decorator on some evaluation methods.</p></li>
-<li><p>In a <code class="docutils literal notranslate"><span class="pre">[logging.loggers.celpy.Evaluator]</span></code> paragraph, set <code class="docutils literal notranslate"><span class="pre">level</span> <span class="pre">=</span> <span class="pre">&quot;DEBUG&quot;</span></code>.</p></li>
-<li><p>Set the <code class="docutils literal notranslate"><span class="pre">[logging]</span></code> paragraph, set <code class="docutils literal notranslate"><span class="pre">root.level</span> <span class="pre">=</span> <span class="pre">&quot;DEBUG&quot;</span></code>.</p></li>
+<li><p>Add a <code class="docutils literal notranslate"><span class="pre">[logging.loggers.celpy.Evaluator]</span></code> paragraph, with <code class="docutils literal notranslate"><span class="pre">level</span> <span class="pre">=</span> <span class="pre">&quot;DEBUG&quot;</span></code>.
+This can be done for any of the <code class="docutils literal notranslate"><span class="pre">celpy</span></code> components with loggers.</p></li>
+<li><p>In the <code class="docutils literal notranslate"><span class="pre">[logging]</span></code> paragraph, set <code class="docutils literal notranslate"><span class="pre">root.level</span> <span class="pre">=</span> <span class="pre">&quot;DEBUG&quot;</span></code>.</p></li>
+</ul>
+<p>Loggers include the following:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">celpy</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">celpy.Runner</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">celpy.Environment</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">celpy.repl</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">celpy.c7nlib</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">celpy.celtypes</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">celpy.evaluation</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">celpy.NameContainer</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">celpy.Evaluator</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">celpy.Transpiler</span></code></p></li>
 </ul>
 </section>
 
@@ -98,14 +106,15 @@ This enables a <code class="docutils literal notranslate"><span class="pre">&#64
     </div>
 </search>
 <script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Documentation Content:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Use of CEL-Python</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="integration.html">Application Integration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api.html">CEL-Py API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="structure.html">Data Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="structure.html">Architecture and Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="c7n_functions.html">C7N Functions Required</a></li>
 </ul>
 
