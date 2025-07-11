@@ -169,7 +169,7 @@ def test_operator_in():
     assert isinstance(operator_in(celtypes.IntType(-1), container_2), CELEvalError)
 
 
-@pytest.mark.skipif(not celpy.evaluation._USE_RE2, reason="Not using RE2")
+@pytest.mark.skipif("re2" not in celpy.evaluation.function_matches.__globals__, reason="Not using RE2")
 def test_function_matches_re2():
     empty_string = celtypes.StringType("")
     # re-specific patterns which behave differently than re2
@@ -177,7 +177,7 @@ def test_function_matches_re2():
     assert isinstance(function_matches(empty_string, "^\\Z"), CELEvalError)
 
 
-@pytest.mark.skipif(celpy.evaluation._USE_RE2, reason="Using RE2")
+@pytest.mark.skipif("re2" in celpy.evaluation.function_matches.__globals__, reason="Using RE2")
 def test_function_matches_re():
     empty_string = celtypes.StringType("")
     # re2-specific patterns which behave differently than standard re

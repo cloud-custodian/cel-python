@@ -84,13 +84,11 @@ import lark.visitors
 import celpy.celtypes
 from celpy.celparser import tree_dump
 
-_USE_RE2 = False  # Used by the test suite.
 try:
     import re2
 
-    _USE_RE2 = True  # Used by the test suite.
-
     def function_matches(text: str, pattern: str) -> "Result":
+        """Implementation of the ``match()`` function using ``re2``"""
         try:
             m = re2.search(pattern, text)
         except re2.error as ex:
@@ -99,8 +97,12 @@ try:
         return celpy.celtypes.BoolType(m is not None)
 
 except ImportError:  # pragma: no cover
+    # There is a build issue with python_version=='3.13' and sys_platform=='darwin'
+    # See https://github.com/google/re2/issues/516
+    # We fall back to using re, which passes the essential tests
 
     def function_matches(text: str, pattern: str) -> "Result":
+        """Alternative implementation of the ``match()`` function for systems where ``re2`` can't be installed."""
         try:
             m = re.search(pattern, text)
         except re.error as ex:
