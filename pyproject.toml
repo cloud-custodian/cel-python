@@ -33,16 +33,12 @@ dependencies = [
     "pendulum>=3.1.0",
     "pyyaml>=6.0.2",
     "jmespath>=1.0.1",
+    "google-re2>=1.1.20240702 ; python_version!='3.13' or sys_platform!='darwin' or platform_machine!='arm64'",
     "tomli >= 1.1.0 ; python_version < '3.11'",
 ]
 
 [project.scripts]
 cel-python = "cel_python:main"
-
-[project.optional-dependencies]
-re2 = [
-    "google-re2",
-]
 
 [build-system]
 requires = ["hatchling"]

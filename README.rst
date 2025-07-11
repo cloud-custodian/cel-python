@@ -42,22 +42,19 @@ re2
 ---
 
 CEL specifies that regular expressions use re2 syntax,
-https://github.com/google/re2/wiki/Syntax. To keep its dependencies minimal and
-this implementation easily embeddable, cel-python uses the Python standard
-library ``re`` syntax by default. If a ``re2`` package is installed or the
-``re2`` extra is provided, cel-python will use ``re2`` syntax instead.
+https://github.com/google/re2/wiki/Syntax.
+As of the 0.4.0 release, the Google-RE2 module is part of the CEL distribution.
 
-::
-
-    python -m pip install cel-python[re2]
-
-.. warning:: Apple Silicon
+.. warning:: Apple Silicon and Python 3.13
 
     See https://github.com/google/re2/issues/453,
     https://github.com/google/re2/issues/346,
     https://github.com/google/re2/issues/516
 
-    As of the 0.4.0 release, the google-re2 package does not build for Python 3.13 on the "darwin" platform with the "arm64" architecture.
+    Google-RE2 does not build for Python 3.13 on the "darwin" platform with the "arm64" architecture.
+    Currently, there is no pre-built binary for Python 3.13.
+
+    The built-in ``re`` is used as a fall-back, and does work for all but a few edge cases.
 
 Command Line
 ============
