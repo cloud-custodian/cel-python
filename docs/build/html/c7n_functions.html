@@ -14,7 +14,7 @@
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="API" href="api.html" />
+    <link rel="prev" title="Development Tools" href="development.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -230,14 +230,14 @@ This will be a CEL mapping object built from JSON source data.</p>
 </dd>
 </dl>
 </li>
-<li><p>C7N Extension functions can rely on a global <code class="docutils literal notranslate"><span class="pre">C7N</span></code> object. This is the <code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.c7nlib.C7NContext</span></code> instance
+<li><p>C7N Extension functions can rely on a global <code class="docutils literal notranslate"><span class="pre">C7N</span></code> object. This is the <a class="reference internal" href="api.html#celpy.c7nlib.C7NContext" title="celpy.c7nlib.C7NContext"><code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.c7nlib.C7NContext</span></code></a> instance
 used to manage C7N CEL Execution. It generally has one attribute, <code class="docutils literal notranslate"><span class="pre">filter</span></code> which is the
 current <code class="docutils literal notranslate"><span class="pre">CELFilter</span></code> instance.</p></li>
 </ol>
 </section>
 <section id="c7n-context-object">
 <h2><a class="toc-backref" href="#id3" role="doc-backlink">C7N Context Object</a><a class="headerlink" href="#c7n-context-object" title="Link to this heading">¶</a></h2>
-<p>A global <code class="docutils literal notranslate"><span class="pre">C7N</span></code> object in the <code class="xref py py-mod docutils literal notranslate"><span class="pre">celpy.c7nlib</span></code> module contains a reference to the current <code class="docutils literal notranslate"><span class="pre">CELFilter</span></code> instance.
+<p>A global <code class="docutils literal notranslate"><span class="pre">C7N</span></code> object in the <a class="reference internal" href="api.html#module-celpy.c7nlib" title="celpy.c7nlib"><code class="xref py py-mod docutils literal notranslate"><span class="pre">celpy.c7nlib</span></code></a> module contains a reference to the current <code class="docutils literal notranslate"><span class="pre">CELFilter</span></code> instance.
 This has a single attribite.</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">C7N.filter</span></code> is the current <code class="xref py py-class docutils literal notranslate"><span class="pre">CELFilter</span></code> instance.
@@ -302,7 +302,7 @@ In this case, the <code class="xref py py-class docutils literal notranslate"><s
 The <code class="xref py py-class docutils literal notranslate"><span class="pre">CELFilter</span></code> needs to have the  <code class="xref py py-class docutils literal notranslate"><span class="pre">InstanceImageBase</span></code> mixin available to gather
 the required data for the CEL operation.</p>
 <p>This is a subclass of Subclass of c7n.filters.core.Filter.
-See the <code class="xref py py-mod docutils literal notranslate"><span class="pre">celpy.c7nlib</span></code> module for additional information on this interface.</p>
+See the <a class="reference internal" href="api.html#module-celpy.c7nlib" title="celpy.c7nlib"><code class="xref py py-mod docutils literal notranslate"><span class="pre">celpy.c7nlib</span></code></a> module for additional information on this interface.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">InstanceImageMixin</span><span class="p">:</span>
     <span class="c1"># from :py:class:`InstanceImageBase` refactoring</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_instance_image</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -825,7 +825,7 @@ the keys are the headers and the values are the remaining columns).</p></li>
 </dl>
 <p>Text files are expected to be line delimited values.</p>
 <p>While CEL doesn’t directly use JMESPath, it has some similarities.
-We can use a <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.jmes_path()</span></code> function to explicitly handle C7N JMESPath.
+We can use a <a class="reference internal" href="api.html#celpy.c7nlib.jmes_path" title="celpy.c7nlib.jmes_path"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.jmes_path()</span></code></a> function to explicitly handle C7N JMESPath.
 We can also use the existing <code class="docutils literal notranslate"><span class="pre">map()</span></code> macro for simpler cases, like
 extracting a column from a CSV.</p>
 <p>C7N Examples:</p>
@@ -1638,12 +1638,12 @@ mismatch, and additional required dimension.</p>
 <p>There are two parts to this.</p>
 <ol class="arabic simple">
 <li><p>Getting raw metric statistics from the cloud provider.
-The <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_raw_metrics()</span></code> is refactored
-from the <code class="docutils literal notranslate"><span class="pre">Metrics</span></code> filter into <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_raw_metrics()</span></code> function.</p></li>
+The <a class="reference internal" href="api.html#celpy.c7nlib.get_raw_metrics" title="celpy.c7nlib.get_raw_metrics"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_raw_metrics()</span></code></a> is refactored
+from the <code class="docutils literal notranslate"><span class="pre">Metrics</span></code> filter into <a class="reference internal" href="api.html#celpy.c7nlib.get_raw_metrics" title="celpy.c7nlib.get_raw_metrics"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_raw_metrics()</span></code></a> function.</p></li>
 <li><p>Getting metric statistics for a specific resource.
-The <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_metrics()</span></code> function takes parameters for period, start, end,
+The <a class="reference internal" href="api.html#celpy.c7nlib.get_metrics" title="celpy.c7nlib.get_metrics"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_metrics()</span></code></a> function takes parameters for period, start, end,
 and the statistics value to compute. The dimension comes from the Resource.
-This uses <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_raw_metrics()</span></code>.</p></li>
+This uses <a class="reference internal" href="api.html#celpy.c7nlib.get_raw_metrics" title="celpy.c7nlib.get_raw_metrics"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_raw_metrics()</span></code></a>.</p></li>
 </ol>
 <p>Generally, C7N requests in bunches of 50 per client connection.
 A worker pool processes the batches to keep from overwhelming AWS with
@@ -2128,7 +2128,7 @@ name.</p>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">security-group</span></code> filter looks at a related resource. This is similar to the way <code class="docutils literal notranslate"><span class="pre">image-age</span></code>
 looks at an associated resource. The linkage varies slightly among resource types.</p>
-<p>The <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.security_group()</span></code> and <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_related_ids()</span></code> functions
+<p>The <a class="reference internal" href="api.html#celpy.c7nlib.security_group" title="celpy.c7nlib.security_group"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.security_group()</span></code></a> and <a class="reference internal" href="api.html#celpy.c7nlib.get_related_ids" title="celpy.c7nlib.get_related_ids"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_related_ids()</span></code></a> functions
 fetch the related resource.
 This can then be examined to check group name, group id, or tags.</p>
 <p>This requires two extension functions:</p>
@@ -2405,7 +2405,7 @@ This can then be examined to check group name, group id, or tags.</p>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">subnet</span></code> filter looks at a related resource. This is similar to the way <code class="docutils literal notranslate"><span class="pre">security-group</span></code>
 looks at an associated resource. The linkage varies slightly among resource types.</p>
-<p>See the <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.subnet()</span></code> function fetches the related resource.
+<p>See the <a class="reference internal" href="api.html#celpy.c7nlib.subnet" title="celpy.c7nlib.subnet"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.subnet()</span></code></a> function fetches the related resource.
 This can then be examined to check group name, group id, or tags.</p>
 <p>This requires one extension function:</p>
 <ul class="simple">
@@ -2510,7 +2510,7 @@ particular configuration.</p>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">flow-logs</span></code> fklter looks at a related resource. This is similar to the way <code class="docutils literal notranslate"><span class="pre">security-group</span></code> and <code class="docutils literal notranslate"><span class="pre">subnet</span></code> work.
 This looks at an associated resource. The linkage varies slightly among resource types.</p>
-<p>See the <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.flow_logs()</span></code> function to fetch the related resource.
+<p>See the <a class="reference internal" href="api.html#celpy.c7nlib.flow_logs" title="celpy.c7nlib.flow_logs"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.flow_logs()</span></code></a> function to fetch the related resource.
 This can then be examined to check group name, group id, or tags.</p>
 <p>This requires one extension function:</p>
 <ul class="simple">
@@ -2766,7 +2766,7 @@ The filter generally translates to something like the following:</p>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">vpc</span></code> filter looks at a related resource. This is similar to the way <code class="docutils literal notranslate"><span class="pre">security-group</span></code> and <code class="docutils literal notranslate"><span class="pre">subnet</span></code> work.
 This looks at an associated resource. The linkage varies slightly among resource types.</p>
-<p>See the <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.vpc()</span></code> function to fetch the related resource.
+<p>See the <a class="reference internal" href="api.html#celpy.c7nlib.vpc" title="celpy.c7nlib.vpc"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.vpc()</span></code></a> function to fetch the related resource.
 This can then be examined to check group name, group id, or tags.</p>
 <p>This requires one extension function:</p>
 <ul class="simple">
@@ -2838,7 +2838,7 @@ This can then be examined to check group name, group id, or tags.</p>
 </pre></div>
 </div>
 <p>There are two examples of <code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">credential</span></code> filters. These look at the credentials associated with IAM roles.
-See the <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.credentials()</span></code> function to fetch the related resource.</p>
+See the <a class="reference internal" href="api.html#celpy.c7nlib.credentials" title="celpy.c7nlib.credentials"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.credentials()</span></code></a> function to fetch the related resource.</p>
 <p>This requires two extension functions:</p>
 <ul class="simple">
 <li><p><code class="xref py py-func docutils literal notranslate"><span class="pre">c7nlib.subst()</span></code></p></li>
@@ -2963,7 +2963,7 @@ See the <code class="xref py py-func docutils literal notranslate"><span class="
 </pre></div>
 </div>
 <p>Like the <code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">image-age</span></code>, the <code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">image</span></code> filter looks at the related Image resource.
-See the <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.image()</span></code> function to fetch the related resource, the ImageName
+See the <a class="reference internal" href="api.html#celpy.c7nlib.image" title="celpy.c7nlib.image"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.image()</span></code></a> function to fetch the related resource, the ImageName
 and CreationDate are available in the related resource.</p>
 <p>Note the complex regex: <code class="docutils literal notranslate"><span class="pre">(?!WIN.*)</span></code>. This does not translated trivially to CEL: a manual
 revision to this filter is strongly suggested, something like this:</p>
@@ -3029,7 +3029,7 @@ revision to this filter is strongly suggested, something like this:</p>
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">kms-alias</span></code> filter looks at related information.
-See the <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.kms_alias()</span></code> function to fetch the related resource</p>
+See the <a class="reference internal" href="api.html#celpy.c7nlib.kms_alias" title="celpy.c7nlib.kms_alias"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.kms_alias()</span></code></a> function to fetch the related resource</p>
 <p>This requires one extension function:</p>
 <ul class="simple">
 <li><p><code class="xref py py-func docutils literal notranslate"><span class="pre">c7nlib.kms_alias()</span></code> which depends on <code class="xref py py-meth docutils literal notranslate"><span class="pre">CELFilter.get_matching_aliases()</span></code>.</p></li>
@@ -3104,7 +3104,7 @@ of the kms key by using ‘c7n:AliasName’</p>
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">kms-alias</span></code> filter looks at related information.
-See the <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.kms_key()</span></code> function to fetch the related resource</p>
+See the <a class="reference internal" href="api.html#celpy.c7nlib.kms_key" title="celpy.c7nlib.kms_key"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.kms_key()</span></code></a> function to fetch the related resource</p>
 <p>This requires one extension function:</p>
 <ul class="simple">
 <li><p><code class="xref py py-func docutils literal notranslate"><span class="pre">c7nlib.kms_key()</span></code> which depends on <code class="xref py py-meth docutils literal notranslate"><span class="pre">CELFilter.get_related()</span></code></p></li>
@@ -4568,11 +4568,11 @@ are mixins, they cannot reuse names like <code class="docutils literal notransla
 <p>There are two parts to this.</p>
 <ol class="arabic simple">
 <li><p>Getting raw health-events from the cloud provider.
-The <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_raw_health_events()</span></code> is refactored
-from the <code class="docutils literal notranslate"><span class="pre">HealthEventFilter</span></code> filter into <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_raw_health_events()</span></code> function.</p></li>
+The <a class="reference internal" href="api.html#celpy.c7nlib.get_raw_health_events" title="celpy.c7nlib.get_raw_health_events"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_raw_health_events()</span></code></a> is refactored
+from the <code class="docutils literal notranslate"><span class="pre">HealthEventFilter</span></code> filter into <a class="reference internal" href="api.html#celpy.c7nlib.get_raw_health_events" title="celpy.c7nlib.get_raw_health_events"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_raw_health_events()</span></code></a> function.</p></li>
 <li><p>Getting health events for a specific resource.
-The <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_health_events()</span></code> function builds a filter unique to the resource.
-This uses <code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_raw_health_events()</span></code>.</p></li>
+The <a class="reference internal" href="api.html#celpy.c7nlib.get_health_events" title="celpy.c7nlib.get_health_events"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_health_events()</span></code></a> function builds a filter unique to the resource.
+This uses <a class="reference internal" href="api.html#celpy.c7nlib.get_raw_health_events" title="celpy.c7nlib.get_raw_health_events"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.c7nlib.get_raw_health_events()</span></code></a>.</p></li>
 </ol>
 <p>Generally, C7N requests in bunches of 10 per client connection.
 A worker pool processes the batches to keep from overwhelming AWS with
@@ -9962,8 +9962,9 @@ route table is checked.</p>
 <li class="toctree-l1"><a class="reference internal" href="cli.html">CLI Use of CEL-Python</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="integration.html">Application Integration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="structure.html">Architecture and Design Notes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="structure.html">Architecture and Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development Tools</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">C7N Functions Required</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#design-principles">Design Principles</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#c7n-context-object">C7N Context Object</a></li>
@@ -9983,7 +9984,7 @@ route table is checked.</p>
 <h3>Related Topics</h3>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
-      <li>Previous: <a href="api.html" title="previous chapter">API</a></li>
+      <li>Previous: <a href="development.html" title="previous chapter">Development Tools</a></li>
   </ul></li>
 </ul>
 </div>

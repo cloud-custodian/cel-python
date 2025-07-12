@@ -47,7 +47,7 @@
 <span class="c1"># See the License for the specific language governing permissions and limitations under the License.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Converts some Python-native types into CEL structures.</span>
+<span class="sd">Adapters to convert some Python-native types into CEL structures.</span>
 
 <span class="sd">Currently, atomic Python objects have direct use of types in :mod:`celpy.celtypes`.</span>
 
@@ -155,9 +155,30 @@
 <div class="viewcode-block" id="json_to_cel">
 <a class="viewcode-back" href="../../api.html#celpy.adapter.json_to_cel">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">json_to_cel</span><span class="p">(</span><span class="n">document</span><span class="p">:</span> <span class="n">JSON</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">Value</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert parsed JSON object from Python to CEL to the extent possible.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Converts parsed JSON object from Python to CEL to the extent possible.</span>
 
-<span class="sd">    It&#39;s difficult to distinguish strings which should be timestamps or durations.</span>
+<span class="sd">    Note that it&#39;s difficult to distinguish strings which should be timestamps or durations.</span>
+<span class="sd">    Using the :py:mod:`json` package ``objecthook`` can help do these conversions.</span>
+
+<span class="sd">    ..  csv-table::</span>
+<span class="sd">        :header: python, CEL</span>
+
+<span class="sd">        bool, :py:class:`celpy.celtypes.BoolType`</span>
+<span class="sd">        float, :py:class:`celpy.celtypes.DoubleType`</span>
+<span class="sd">        int, :py:class:`celpy.celtypes.IntType`</span>
+<span class="sd">        str, :py:class:`celpy.celtypes.StringType`</span>
+<span class="sd">        None, None</span>
+<span class="sd">        &quot;tuple, list&quot;, :py:class:`celpy.celtypes.ListType`</span>
+<span class="sd">        dict, :py:class:`celpy.celtypes.MapType`</span>
+<span class="sd">        datetime.datetime, :py:class:`celpy.celtypes.TimestampType`</span>
+<span class="sd">        datetime.timedelta, :py:class:`celpy.celtypes.DurationType`</span>
+
+<span class="sd">    :param document: A JSON document.</span>
+<span class="sd">    :returns: :py:class:`celpy.celtypes.Value`.</span>
+<span class="sd">    :raises: internal :exc:`ValueError` or :exc:`TypeError` for failed conversions.</span>
+
+<span class="sd">    Example:</span>
 
 <span class="sd">    ::</span>
 
@@ -227,8 +248,9 @@
 <li class="toctree-l1"><a class="reference internal" href="../../cli.html">CLI Use of CEL-Python</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../integration.html">Application Integration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../structure.html">Architecture and Design Notes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../structure.html">Architecture and Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../development.html">Development Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../c7n_functions.html">C7N Functions Required</a></li>
 </ul>
 

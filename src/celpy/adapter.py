@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and limitations under the License.
 
 """
-Converts some Python-native types into CEL structures.
+Adapters to convert some Python-native types into CEL structures.
 
 Currently, atomic Python objects have direct use of types in :mod:`celpy.celtypes`.
 
@@ -102,9 +102,30 @@ class CELJSONDecoder(json.JSONDecoder):
 
 
 def json_to_cel(document: JSON) -> celtypes.Value:
-    """Convert parsed JSON object from Python to CEL to the extent possible.
+    """
+    Converts parsed JSON object from Python to CEL to the extent possible.
 
-    It's difficult to distinguish strings which should be timestamps or durations.
+    Note that it's difficult to distinguish strings which should be timestamps or durations.
+    Using the :py:mod:`json` package ``objecthook`` can help do these conversions.
+
+    ..  csv-table::
+        :header: python, CEL
+
+        bool, :py:class:`celpy.celtypes.BoolType`
+        float, :py:class:`celpy.celtypes.DoubleType`
+        int, :py:class:`celpy.celtypes.IntType`
+        str, :py:class:`celpy.celtypes.StringType`
+        None, None
+        "tuple, list", :py:class:`celpy.celtypes.ListType`
+        dict, :py:class:`celpy.celtypes.MapType`
+        datetime.datetime, :py:class:`celpy.celtypes.TimestampType`
+        datetime.timedelta, :py:class:`celpy.celtypes.DurationType`
+
+    :param document: A JSON document.
+    :returns: :py:class:`celpy.celtypes.Value`.
+    :raises: internal :exc:`ValueError` or :exc:`TypeError` for failed conversions.
+
+    Example:
 
     ::
 

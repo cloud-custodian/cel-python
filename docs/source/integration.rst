@@ -10,17 +10,19 @@ Application Integration
 
 We'll look at integration of CEL into another application from four perspectives:
 
-1.  We'll look at the essential base case for integration into another application.
-    This will use an ``Activation`` to provide values for variables.
+1.  We'll start with `Integration Essentials`_. This is the base case for integration into another application.
 
-2.  A more sophisticated integration involves extending the environment with custom functions.
-    This can provide a well-defined interface between CEL expressions and application functionality.
+2.  In `Function Bindings`_, we'll look at a more sophisticated integration. This extends the environment with custom functions.
+    This can provide a well-defined interface between CEL expressions and your application's functionality.
 
-3.  Some additional examples from the Go implementation show how extend the environment using new types.
+3.  `More Examples from the Go implementation`_ shows how extend the environment using new types.
+    Python's use of duck typing removes some of the complexity of the Go implementation.
 
-4.  There are a few exception and error-handling cases that are part of working with Python types.
+4.  There are a few exception and error-handling cases covered in `Exceptions and Errors`_.
 
-5.  Finally, we'll look at how CEL can be integrated into Cloud Custodian (C7N).
+5.  The `Cloud Custodian (C7N) Integration`_ is rather complicated because the C7N is covers quite a large number of distinct data types.
+
+5.  Finally, `External API`_ will review some elements of the API that are part of the integration interface.
 
 Integration Essentials
 ======================
@@ -309,8 +311,8 @@ The ``shake_hands()`` function is essentially the same as the ``greet()`` functi
 For more examples of how to use CEL from Go, see
 https://github.com/google/cel-go/tree/master/cel/cel_test.go
 
-More Examples from Go implementation
-=====================================
+More Examples from the Go implementation
+=========================================
 
 See https://github.com/google/cel-go/blob/master/README.md for five more examples.
 
@@ -584,3 +586,54 @@ The breakdown of ``filter`` rules in the C7N policy schema has the following cou
     "('Singleton', 'No-Op')",47,"Used for exactly one resource type, does not expose resource details"
 
 (This is based on cloud-custodian-0.8.40.0, newer versions may have slighyly different numbers.)
+
+External API
+=============
+
+The key external components are the following:
+
+-   :py:class:`celpy.__init__.Environment`
+
+    This has two methods of interest:
+
+    -   :py:meth:`celpy.__init__.Environment.compile`
+
+    -   :py:meth:`celpy.__init__.Environment.program`
+
+-   :py:class:`celpy.__init__.Runner`
+
+    This has one method of interest:
+
+    -   :py:meth:`celpy.__init__.Runner.evaluate`.
+
+-   :py:func:`celpy.adapter.json_to_cel`
+
+    This is used to convert native Python JSON documents to the appropriate CEL types.
+
+..  uml::
+
+    @startuml
+        class YourApp
+
+        package celpy {
+            class Environment {
+                compile()
+                program()
+            }
+            abstract class Runner {
+                evaluate(context)
+            }
+            Environment -> Runner
+
+            class CompiledRunner
+            class InterpretedRunner
+
+            Runner <|-- CompiledRunner
+            Runner <|-- InterpretedRunner
+        }
+
+        YourApp *--> Environment : "Creates"
+
+        YourApp *--> Runner : "Evaluates"
+
+    @enduml

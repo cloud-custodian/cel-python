@@ -28,7 +28,7 @@ We'll start with the C4 views:
 
     -   `The member-dot Production`_
 
-The code view is in the :ref:`api` section.
+The code view is in the :ref:`api.reference` section.
 
 Context
 =======

@@ -79,20 +79,24 @@ Expression = lark.Tree
 class Runner(abc.ABC):
     """Abstract runner for a compiled CEL program.
 
-    The :py:class:`Environment` creates a :py:class:`Runner` to permit
+    The :py:class:`Environment` creates :py:class:`Runner` objects to permit
     saving a ready-tp-evaluate, compiled CEL expression.
     A :py:class:`Runner` will evaluate the AST in the context of a specific activation
     with the provided variable values.
 
-    A :py:class:`Runner` class provides
-    the ``tree_node_class`` attribute to define the type for tree nodes.
-    This class information is used by the :py:class:`Environment` to tailor the ``Lark`` instance created.
-    The class named by the ``tree_node_class`` can include specialized AST features
-    needed by a :py:class:`Runner` instance.
+    The py:meth:`Runner.evaluate` method is used to evaluate a CEL expression with a new data context.
+
+    As an implementation detail, note that
+    each :py:class:`Runner` subclass definition includes
+    the ``tree_node_class`` attribute.
+    This attribute defines the type for Tree nodes that must be created by the :py:mod:`lark` parser.
+    This class information provided to the :py:class:`Environment` to tailor the :py:mod:`lark` parser.
+    The class named often includes specialized AST features
+    needed by the :py:class:`Runner` subclss.
 
     ..  todo:: For a better fit with Go language expectations
 
-        Consider addoing type adapter and type provider registries.
+        Consider adding type adapter and type provider registries.
         This would permit distinct sources of protobuf message types.
     """
 
@@ -121,6 +125,8 @@ class Runner(abc.ABC):
         """
         Builds a new, working :py:class:`Activation` using the :py:class:`Environment` as defaults.
         A Context will later be layered onto this for evaluation.
+
+        This is used internally during evaluation.
         """
         base_activation = Activation(
             package=self.environment.package,
@@ -134,9 +140,13 @@ class Runner(abc.ABC):
         """
         Given variable definitions in the :py:class:`celpy.evaluation.Context`, evaluate the given AST and return the resulting value.
 
-        Generally, this should raise an :exc:`CELEvalError` for most kinds of ordinary problems.
-        It may raise an :exc:`CELUnsupportedError` for future features that aren't fully implemented.
+        Generally, this should raise an :exc:`celpy.evaluation.CELEvalError` for most kinds of ordinary problems.
+        It may raise an :exc:`celpy.evaluation.CELUnsupportedError` for future features that aren't fully implemented.
         Any Python exception reflects a serious problem.
+
+        :param activation: a :py:class:`celpy.evaluation.Context` object with variable values to use for this evaluation.
+        :returns: the computed value
+        :raises: :exc:`celpy.evaluation.CELEvalError` or :exc:`celpy.evaluation.CELUnsupportedError` for problems encounterd.
         """
         ...
 
@@ -234,11 +244,30 @@ googleapis = {
 class Environment:
     """
     Contains the current evaluation context.
-    The :py:meth:`Environment.compile` method
+
+    CEL integration starts by creating an :py:class:`Environment` object.
+    This can be initialized with three optional values:
+
+    -   A package name used to resolve variable names.
+        This is not generally required, but is sometimes helpful to provide an explicit namespace for variables.
+
+    -   Type annotations for variables.
+        This helps perform type conversions on external data.
+
+    -   The class of runner to use. By default an :py:class:`InterpretedRunner` is used.
+        The alternative is the :py:class:`CompiledRunner`.
+        Detailed performance benchmarks are still pending.
+        Detailed logging is available from the interpreted runner, to help debug external function bindings.
+
+    Once the environment has been created, the :py:meth:`Environment.compile` method
     compiles CEL text to create an AST.
+    This can be helpful for an application that needs to prepare error messages based on the AST.
+    An application can also optimize or transform the AST.
 
     The :py:meth:`Environment.program` method
-    packages the AST into a program ready for evaluation.
+    packages the AST into a :py:class:`Runnable` ready for evaluation.
+    At this time, external functions are bound to the CEL expression.
+    The  :py:class:`Runnable` can be evaluated repeatedly with multiple inputs, avoiding the overheads of compiling for each input value.
 
     ..  todo:: For a better fit with Go language expectations
 
@@ -285,7 +314,20 @@ class Environment:
         return f"{self.__class__.__name__}({self.package}, {self.annotations}, {self.runner_class})"
 
     def compile(self, text: str) -> Expression:
-        """Compile the CEL source. This can raise syntax error exceptions."""
+        """
+        Compiles the CEL source.
+
+        Processing starts here by building an AST structure from the CEL text.
+        The AST is exposed for the rare case where an application needs to transform it or analyze it.
+        Generally, it's best to treat the AST object as opaque, and provide it to the :py:meth:`program` method.
+
+        This can raise syntax error exceptions.
+        The exceptions contain line and character position information to help create easy-to-use error outputs.
+
+        :param text: The CEL text to evaluate.
+        :returns: A :py:class:`lark.Tree` object describing the CEL expression.
+        :raises: :py:class:`celpy.celparser.CELParseError` exceptions for syntax errors.
+        """
         ast = self.cel_parser.parse(text)
         return ast
 
@@ -294,6 +336,9 @@ class Environment:
     ) -> Runner:
         """
         Transforms the AST into an executable :py:class:`Runner` object.
+        This will bind the given functions into the runnable object.
+
+        The resulting object has a :py:meth:`Runner.evaluate` method that applies the CEL structure to input data to compute the final result.
 
         :param expr: The parse tree from :py:meth:`compile`.
         :param functions: Any additional functions to be used by this CEL expression.
