@@ -284,17 +284,14 @@
             <span class="s2">&quot;st_atime&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">TimestampType</span><span class="p">(</span>
                 <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_atime</span><span class="p">)</span>
             <span class="p">),</span>
-            <span class="s2">&quot;st_birthtime&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">TimestampType</span><span class="p">(</span>
-                <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_birthtime</span><span class="p">)</span>
-            <span class="p">),</span>
             <span class="s2">&quot;st_ctime&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">TimestampType</span><span class="p">(</span>
                 <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_ctime</span><span class="p">)</span>
             <span class="p">),</span>
-            <span class="s2">&quot;st_dev&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_dev</span><span class="p">),</span>
-            <span class="s2">&quot;st_ino&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_ino</span><span class="p">),</span>
             <span class="s2">&quot;st_mtime&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">TimestampType</span><span class="p">(</span>
                 <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">)</span>
             <span class="p">),</span>
+            <span class="s2">&quot;st_dev&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_dev</span><span class="p">),</span>
+            <span class="s2">&quot;st_ino&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_ino</span><span class="p">),</span>
             <span class="s2">&quot;st_nlink&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_nlink</span><span class="p">),</span>
             <span class="s2">&quot;st_size&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_size</span><span class="p">),</span>
             <span class="s2">&quot;group_access&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_gid</span> <span class="o">==</span> <span class="n">os</span><span class="o">.</span><span class="n">getegid</span><span class="p">()),</span>
@@ -330,13 +327,16 @@
         <span class="n">data</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">BoolType</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">access</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">X_OK</span><span class="p">))</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">extra</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;st_birthtime&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">TimestampType</span><span class="p">(</span>
+                    <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_birthtime</span><span class="p">)</span>
+                <span class="p">),</span>
                 <span class="s2">&quot;st_blksize&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_blksize</span><span class="p">),</span>
                 <span class="s2">&quot;st_blocks&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_blocks</span><span class="p">),</span>
                 <span class="s2">&quot;st_flags&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_flags</span><span class="p">),</span>
                 <span class="s2">&quot;st_rdev&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_rdev</span><span class="p">),</span>
                 <span class="s2">&quot;st_gen&quot;</span><span class="p">:</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">IntType</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">st_gen</span><span class="p">),</span>
             <span class="p">}</span>
-        <span class="k">except</span> <span class="ne">NameError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
             <span class="n">extra</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">return</span> <span class="n">celtypes</span><span class="o">.</span><span class="n">MapType</span><span class="p">(</span><span class="n">data</span> <span class="o">|</span> <span class="n">extra</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
@@ -650,7 +650,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../integration.html">Application Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../structure.html">Architecture and Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../development.html">Development Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../c7n_functions.html">C7N Functions Required</a></li>
 </ul>

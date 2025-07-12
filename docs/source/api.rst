@@ -2,13 +2,13 @@
     # Copyright 2020 The Cloud Custodian Authors.
     # SPDX-License-Identifier: Apache-2.0
 
-..  _`api`:
+..  _`api.reference`:
 
-###########
-API
-###########
+#############
+API Reference
+#############
 
-Details of the CEL-Python implementation and the API to the various components.
+Detailed reference material for the CEL-Python implementation.
 
 The following modules are described here:
 

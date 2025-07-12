@@ -114,20 +114,24 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">Runner</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract runner for a compiled CEL program.</span>
 
-<span class="sd">    The :py:class:`Environment` creates a :py:class:`Runner` to permit</span>
+<span class="sd">    The :py:class:`Environment` creates :py:class:`Runner` objects to permit</span>
 <span class="sd">    saving a ready-tp-evaluate, compiled CEL expression.</span>
 <span class="sd">    A :py:class:`Runner` will evaluate the AST in the context of a specific activation</span>
 <span class="sd">    with the provided variable values.</span>
 
-<span class="sd">    A :py:class:`Runner` class provides</span>
-<span class="sd">    the ``tree_node_class`` attribute to define the type for tree nodes.</span>
-<span class="sd">    This class information is used by the :py:class:`Environment` to tailor the ``Lark`` instance created.</span>
-<span class="sd">    The class named by the ``tree_node_class`` can include specialized AST features</span>
-<span class="sd">    needed by a :py:class:`Runner` instance.</span>
+<span class="sd">    The py:meth:`Runner.evaluate` method is used to evaluate a CEL expression with a new data context.</span>
+
+<span class="sd">    As an implementation detail, note that</span>
+<span class="sd">    each :py:class:`Runner` subclass definition includes</span>
+<span class="sd">    the ``tree_node_class`` attribute.</span>
+<span class="sd">    This attribute defines the type for Tree nodes that must be created by the :py:mod:`lark` parser.</span>
+<span class="sd">    This class information provided to the :py:class:`Environment` to tailor the :py:mod:`lark` parser.</span>
+<span class="sd">    The class named often includes specialized AST features</span>
+<span class="sd">    needed by the :py:class:`Runner` subclss.</span>
 
 <span class="sd">    ..  todo:: For a better fit with Go language expectations</span>
 
-<span class="sd">        Consider addoing type adapter and type provider registries.</span>
+<span class="sd">        Consider adding type adapter and type provider registries.</span>
 <span class="sd">        This would permit distinct sources of protobuf message types.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -164,6 +168,8 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Builds a new, working :py:class:`Activation` using the :py:class:`Environment` as defaults.</span>
 <span class="sd">        A Context will later be layered onto this for evaluation.</span>
+
+<span class="sd">        This is used internally during evaluation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">base_activation</span> <span class="o">=</span> <span class="n">Activation</span><span class="p">(</span>
             <span class="n">package</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="o">.</span><span class="n">package</span><span class="p">,</span>
@@ -180,9 +186,13 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Given variable definitions in the :py:class:`celpy.evaluation.Context`, evaluate the given AST and return the resulting value.</span>
 
-<span class="sd">        Generally, this should raise an :exc:`CELEvalError` for most kinds of ordinary problems.</span>
-<span class="sd">        It may raise an :exc:`CELUnsupportedError` for future features that aren&#39;t fully implemented.</span>
+<span class="sd">        Generally, this should raise an :exc:`celpy.evaluation.CELEvalError` for most kinds of ordinary problems.</span>
+<span class="sd">        It may raise an :exc:`celpy.evaluation.CELUnsupportedError` for future features that aren&#39;t fully implemented.</span>
 <span class="sd">        Any Python exception reflects a serious problem.</span>
+
+<span class="sd">        :param activation: a :py:class:`celpy.evaluation.Context` object with variable values to use for this evaluation.</span>
+<span class="sd">        :returns: the computed value</span>
+<span class="sd">        :raises: :exc:`celpy.evaluation.CELEvalError` or :exc:`celpy.evaluation.CELUnsupportedError` for problems encounterd.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="o">...</span></div>
 </div>
@@ -305,11 +315,30 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">Environment</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Contains the current evaluation context.</span>
-<span class="sd">    The :py:meth:`Environment.compile` method</span>
+
+<span class="sd">    CEL integration starts by creating an :py:class:`Environment` object.</span>
+<span class="sd">    This can be initialized with three optional values:</span>
+
+<span class="sd">    -   A package name used to resolve variable names.</span>
+<span class="sd">        This is not generally required, but is sometimes helpful to provide an explicit namespace for variables.</span>
+
+<span class="sd">    -   Type annotations for variables.</span>
+<span class="sd">        This helps perform type conversions on external data.</span>
+
+<span class="sd">    -   The class of runner to use. By default an :py:class:`InterpretedRunner` is used.</span>
+<span class="sd">        The alternative is the :py:class:`CompiledRunner`.</span>
+<span class="sd">        Detailed performance benchmarks are still pending.</span>
+<span class="sd">        Detailed logging is available from the interpreted runner, to help debug external function bindings.</span>
+
+<span class="sd">    Once the environment has been created, the :py:meth:`Environment.compile` method</span>
 <span class="sd">    compiles CEL text to create an AST.</span>
+<span class="sd">    This can be helpful for an application that needs to prepare error messages based on the AST.</span>
+<span class="sd">    An application can also optimize or transform the AST.</span>
 
 <span class="sd">    The :py:meth:`Environment.program` method</span>
-<span class="sd">    packages the AST into a program ready for evaluation.</span>
+<span class="sd">    packages the AST into a :py:class:`Runnable` ready for evaluation.</span>
+<span class="sd">    At this time, external functions are bound to the CEL expression.</span>
+<span class="sd">    The  :py:class:`Runnable` can be evaluated repeatedly with multiple inputs, avoiding the overheads of compiling for each input value.</span>
 
 <span class="sd">    ..  todo:: For a better fit with Go language expectations</span>
 
@@ -364,7 +393,20 @@
 <div class="viewcode-block" id="Environment.compile">
 <a class="viewcode-back" href="../../api.html#celpy.__init__.Environment.compile">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">compile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Expression</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compile the CEL source. This can raise syntax error exceptions.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compiles the CEL source.</span>
+
+<span class="sd">        Processing starts here by building an AST structure from the CEL text.</span>
+<span class="sd">        The AST is exposed for the rare case where an application needs to transform it or analyze it.</span>
+<span class="sd">        Generally, it&#39;s best to treat the AST object as opaque, and provide it to the :py:meth:`program` method.</span>
+
+<span class="sd">        This can raise syntax error exceptions.</span>
+<span class="sd">        The exceptions contain line and character position information to help create easy-to-use error outputs.</span>
+
+<span class="sd">        :param text: The CEL text to evaluate.</span>
+<span class="sd">        :returns: A :py:class:`lark.Tree` object describing the CEL expression.</span>
+<span class="sd">        :raises: :py:class:`celpy.celparser.CELParseError` exceptions for syntax errors.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">ast</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cel_parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">ast</span></div>
 
@@ -376,6 +418,9 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Runner</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Transforms the AST into an executable :py:class:`Runner` object.</span>
+<span class="sd">        This will bind the given functions into the runnable object.</span>
+
+<span class="sd">        The resulting object has a :py:meth:`Runner.evaluate` method that applies the CEL structure to input data to compute the final result.</span>
 
 <span class="sd">        :param expr: The parse tree from :py:meth:`compile`.</span>
 <span class="sd">        :param functions: Any additional functions to be used by this CEL expression.</span>
@@ -422,7 +467,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../integration.html">Application Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../structure.html">Architecture and Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../development.html">Development Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../c7n_functions.html">C7N Functions Required</a></li>
 </ul>

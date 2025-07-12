@@ -44,7 +44,7 @@ Integration Overview
 Interested in the API for using this package? There are three key topics:
 
 -   :ref:`integration`
--   :ref:`api`
+-   :ref:`api.reference`
 -   :ref:`data_structures`
 
 The integration into another application is often a bit more than an ``import``.

@@ -37,13 +37,16 @@
 <span id="integration"></span><h1>Application Integration<a class="headerlink" href="#application-integration" title="Link to this heading">¶</a></h1>
 <p>We’ll look at integration of CEL into another application from four perspectives:</p>
 <ol class="arabic simple">
-<li><p>We’ll look at the essential base case for integration into another application.
-This will use an <code class="docutils literal notranslate"><span class="pre">Activation</span></code> to provide values for variables.</p></li>
-<li><p>A more sophisticated integration involves extending the environment with custom functions.
-This can provide a well-defined interface between CEL expressions and application functionality.</p></li>
-<li><p>Some additional examples from the Go implementation show how extend the environment using new types.</p></li>
-<li><p>There are a few exception and error-handling cases that are part of working with Python types.</p></li>
-<li><p>Finally, we’ll look at how CEL can be integrated into Cloud Custodian (C7N).</p></li>
+<li><p>We’ll start with <a class="reference internal" href="#integration-essentials">Integration Essentials</a>. This is the base case for integration into another application.</p></li>
+<li><p>In <a class="reference internal" href="#function-bindings">Function Bindings</a>, we’ll look at a more sophisticated integration. This extends the environment with custom functions.
+This can provide a well-defined interface between CEL expressions and your application’s functionality.</p></li>
+<li><p><a class="reference internal" href="#more-examples-from-the-go-implementation">More Examples from the Go implementation</a> shows how extend the environment using new types.
+Python’s use of duck typing removes some of the complexity of the Go implementation.</p></li>
+<li><p>There are a few exception and error-handling cases covered in <a class="reference internal" href="#exceptions-and-errors">Exceptions and Errors</a>.</p></li>
+<li><p>The <a class="reference internal" href="#cloud-custodian-c7n-integration">Cloud Custodian (C7N) Integration</a> is rather complicated because the C7N is covers quite a large number of distinct data types.</p></li>
+</ol>
+<ol class="arabic simple" start="5">
+<li><p>Finally, <a class="reference internal" href="#external-api">External API</a> will review some elements of the API that are part of the integration interface.</p></li>
 </ol>
 <section id="integration-essentials">
 <h2>Integration Essentials<a class="headerlink" href="#integration-essentials" title="Link to this heading">¶</a></h2>
@@ -284,8 +287,8 @@ This uses a global function syntax instead of method syntax.</p>
 <a class="reference external" href="https://github.com/google/cel-go/tree/master/cel/cel_test.go">https://github.com/google/cel-go/tree/master/cel/cel_test.go</a></p>
 </section>
 </section>
-<section id="more-examples-from-go-implementation">
-<h2>More Examples from Go implementation<a class="headerlink" href="#more-examples-from-go-implementation" title="Link to this heading">¶</a></h2>
+<section id="more-examples-from-the-go-implementation">
+<h2>More Examples from the Go implementation<a class="headerlink" href="#more-examples-from-the-go-implementation" title="Link to this heading">¶</a></h2>
 <p>See <a class="reference external" href="https://github.com/google/cel-go/blob/master/README.md">https://github.com/google/cel-go/blob/master/README.md</a> for five more examples.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">//</span> <span class="n">Check</span> <span class="n">whether</span> <span class="n">a</span> <span class="n">resource</span> <span class="n">name</span> <span class="n">starts</span> <span class="k">with</span> <span class="n">a</span> <span class="n">group</span> <span class="n">name</span><span class="o">.</span>
 <span class="n">resource</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">startsWith</span><span class="p">(</span><span class="s2">&quot;/groups/&quot;</span> <span class="o">+</span> <span class="n">auth</span><span class="o">.</span><span class="n">claims</span><span class="o">.</span><span class="n">group</span><span class="p">)</span>
@@ -547,6 +550,55 @@ value computed from one or more resource attribute values.</p></li>
 <p>(This is based on cloud-custodian-0.8.40.0, newer versions may have slighyly different numbers.)</p>
 </section>
 </section>
+<section id="external-api">
+<h2>External API<a class="headerlink" href="#external-api" title="Link to this heading">¶</a></h2>
+<p>The key external components are the following:</p>
+<ul>
+<li><p><a class="reference internal" href="api.html#celpy.__init__.Environment" title="celpy.__init__.Environment"><code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.__init__.Environment</span></code></a></p>
+<p>This has two methods of interest:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="api.html#celpy.__init__.Environment.compile" title="celpy.__init__.Environment.compile"><code class="xref py py-meth docutils literal notranslate"><span class="pre">celpy.__init__.Environment.compile()</span></code></a></p></li>
+<li><p><a class="reference internal" href="api.html#celpy.__init__.Environment.program" title="celpy.__init__.Environment.program"><code class="xref py py-meth docutils literal notranslate"><span class="pre">celpy.__init__.Environment.program()</span></code></a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="api.html#celpy.__init__.Runner" title="celpy.__init__.Runner"><code class="xref py py-class docutils literal notranslate"><span class="pre">celpy.__init__.Runner</span></code></a></p>
+<p>This has one method of interest:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="api.html#celpy.__init__.Runner.evaluate" title="celpy.__init__.Runner.evaluate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">celpy.__init__.Runner.evaluate()</span></code></a>.</p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="api.html#celpy.adapter.json_to_cel" title="celpy.adapter.json_to_cel"><code class="xref py py-func docutils literal notranslate"><span class="pre">celpy.adapter.json_to_cel()</span></code></a></p>
+<p>This is used to convert native Python JSON documents to the appropriate CEL types.</p>
+</li>
+</ul>
+<p class="plantuml">
+<img src="_images/plantuml-36fad8472301586150ff18c26187340f47bb62fa.png" alt="&#64;startuml
+    class YourApp
+
+    package celpy {
+        class Environment {
+            compile()
+            program()
+        }
+        abstract class Runner {
+            evaluate(context)
+        }
+        Environment -&gt; Runner
+
+        class CompiledRunner
+        class InterpretedRunner
+
+        Runner &lt;|-- CompiledRunner
+        Runner &lt;|-- InterpretedRunner
+    }
+
+    YourApp *--&gt; Environment : &quot;Creates&quot;
+
+    YourApp *--&gt; Runner : &quot;Evaluates&quot;
+
+&#64;enduml"/>
+</p>
+</section>
 </section>
 
 
@@ -583,13 +635,14 @@ value computed from one or more resource attribute values.</p></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Application Integration</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#integration-essentials">Integration Essentials</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#function-bindings">Function Bindings</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#more-examples-from-go-implementation">More Examples from Go implementation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#more-examples-from-the-go-implementation">More Examples from the Go implementation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#exceptions-and-errors">Exceptions and Errors</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#cloud-custodian-c7n-integration">Cloud Custodian (C7N) Integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#external-api">External API</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="structure.html">Architecture and Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="development.html">Development Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="c7n_functions.html">C7N Functions Required</a></li>
 </ul>
