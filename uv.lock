@@ -69,16 +69,12 @@ name = "cel-python"
 version = "0.4.0"
 source = { editable = "." }
 dependencies = [
+    { name = "google-re2" },
     { name = "jmespath" },
     { name = "lark" },
     { name = "pendulum" },
     { name = "pyyaml" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
-]
-
-[package.optional-dependencies]
-re2 = [
-    { name = "google-re2" },
 ]
 
 [package.dev-dependencies]
@@ -100,14 +96,13 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "google-re2", marker = "extra == 're2'" },
+    { name = "google-re2", specifier = ">=1.1.20240702" },
     { name = "jmespath", specifier = ">=1.0.1" },
     { name = "lark", specifier = ">=1.2.2" },
     { name = "pendulum", specifier = ">=3.1.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=1.1.0" },
 ]
-provides-extras = ["re2"]
 
 [package.metadata.requires-dev]
 dev = [
