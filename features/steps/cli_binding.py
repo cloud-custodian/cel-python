@@ -34,7 +34,7 @@ import parse
 from behave import *
 
 
-@given(u'JSON Document \'{json}\'')
+@given(u'JSON document \'{json}\'')
 def step_impl(context, json):
     context.data['json'].append(json)
 
