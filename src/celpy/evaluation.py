@@ -2510,7 +2510,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
                 value = protobuf_class(cast(celpy.celtypes.Value, fieldinits))
             except (TypeError, ValueError) as ex:  # pragma: no cover
                 value = CELEvalError(ex.args[0], ex.__class__, ex.args, tree=tree)
-            self.logger.info("Created %r", value)
+            self.logger.debug("Created %r", value)
             return value
 
         else:
