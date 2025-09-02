@@ -443,7 +443,7 @@ class BytesType(bytes):
         return f"{self.__class__.__name__}({super().__repr__()})"
 
     def contains(self, item: Value) -> BoolType:
-        return BoolType(cast(StringType, item) in self)
+        return BoolType(cast(BytesType, item) in self)
 
 
 class DoubleType(float):

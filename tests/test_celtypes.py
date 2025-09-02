@@ -81,7 +81,7 @@ def test_bytes_type():
     assert repr(b_0) == "BytesType(b'bytes')"
     assert BytesType(None) == BytesType(b'')
     assert BytesType(MessageType({"value": BytesType(b'42')})) == BytesType(b'42')
-    assert b_0.contains("byte")
+    assert b_0.contains(b"byte")
 
 
 def test_double_type():
