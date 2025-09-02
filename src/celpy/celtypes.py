@@ -442,6 +442,9 @@ class BytesType(bytes):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({super().__repr__()})"
 
+    def contains(self, item: Value) -> BoolType:
+        return BoolType(cast(BytesType, item) in self)
+
 
 class DoubleType(float):
     """
