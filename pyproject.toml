@@ -119,11 +119,16 @@ commands = [["behave", "--tags=@conformance", "--tags=@wip", "-D", "runner='comp
 [tool.tox.env.lint]
 description = "Lint"
 commands = [
+    ["mypy", "--lineprecision-report", "type_check", "--strict", "--disable-error-code", "type-arg", "--show-error-codes", "src", "tools"],
+    ["ruff", "check", "src", "tools"],
+    ["ruff", "format", "--diff", "src", "tools"]
+]
+
+[tool.tox.env.coverage]
+description = "Coverage"
+commands = [
     ["coverage", "erase"],
     ["pytest", "-vv", "-x", "--cov=src", "--cov-report=term-missing"],
     ["coverage", "html"],
     ["coverage", "xml"],
-    ["mypy", "--lineprecision-report", "type_check", "--strict", "--disable-error-code", "type-arg", "--show-error-codes", "src", "tools"],
-    ["ruff", "check", "src", "tools"],
-    ["ruff", "format", "--diff", "src", "tools"]
 ]

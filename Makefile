@@ -65,7 +65,7 @@ format:
 	uv run ruff format src tools
 
 coverage:
-	uv run coverage report -m
+	uv run tox run -e coverage
 
 clean:
 	rm -rf .mypy_cache .pytest_cache .ruff_cache .tox .Python bin include lib pip-selfcheck.json
