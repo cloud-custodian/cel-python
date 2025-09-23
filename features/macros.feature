@@ -1,313 +1,256 @@
-
+@conformance
 Feature: macros
          Tests for CEL macros.
 
 # exists -- Tests for the .exists() macro, which is equivalent to joining the evaluated elements with logical-OR.
 
-Scenario: list_elem_all_true
 
-    When CEL expression "[1, 2, 3].exists(e, e > 0)" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+Scenario: exists/list_elem_all_true
 
+    When CEL expression '[1, 2, 3].exists(e, e > 0)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
-Scenario: list_elem_some_true
+Scenario: exists/list_elem_some_true
 
-    When CEL expression "[1, 2, 3].exists(e, e == 2)" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    When CEL expression '[1, 2, 3].exists(e, e == 2)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
+Scenario: exists/list_elem_none_true
 
-Scenario: list_elem_none_true
+    When CEL expression '[1, 2, 3].exists(e, e > 3)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
-    When CEL expression "[1, 2, 3].exists(e, e > 3)" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+Scenario: exists/list_elem_type_shortcircuit
+          Exists filter is true for the last element.
 
-
-Scenario: list_elem_type_shortcircuit
-          Exists filter is true for the last element, thus short-circuits after 'err || true'
     When CEL expression "[1, 'foo', 3].exists(e, e != '1')" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    Then value is celpy.celtypes.BoolType(source=True)
 
+@wip
+Scenario: exists/list_elem_type_exhaustive
+          Exists filter is never true, but heterogenous equality ensure the
+          result is false.
 
-Scenario: list_elem_type_exhaustive
-          Exists filter is never true, thus reduces to 'err || false || err' which is an error
     When CEL expression "[1, 'foo', 3].exists(e, e == '10')" is evaluated
-    #    errors:{message:"no such overload"}
-    Then eval_error is 'no such overload'
+    Then value is celpy.celtypes.BoolType(source=False)
 
+Scenario: exists/list_elem_exists_error
 
-Scenario: list_elem_all_error
-
-    When CEL expression "[1, 2, 3].exists(e, e / 0 == 17)" is evaluated
-    #    errors:{message:"divide by zero"}
+    When CEL expression '[1, 2, 3].exists(e, e / 0 == 17)' is evaluated
     Then eval_error is 'divide by zero'
 
+Scenario: exists/list_empty
 
-Scenario: list_empty
+    When CEL expression '[].exists(e, e == 2)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
-    When CEL expression "[].exists(e, e == 2)" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
-
-
-Scenario: map_key
+Scenario: exists/map_key
 
     When CEL expression "{'key1':1, 'key2':2}.exists(k, k == 'key2')" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    Then value is celpy.celtypes.BoolType(source=True)
 
-
-Scenario: not_map_key
+Scenario: exists/not_map_key
 
     When CEL expression "!{'key1':1, 'key2':2}.exists(k, k == 'key3')" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    Then value is celpy.celtypes.BoolType(source=True)
 
+Scenario: exists/map_key_type_shortcircuit
+          Exists filter is true for the second key
 
-Scenario: map_key_type_shortcircuit
-          Exists filter is true for the second key, thus reduces to 'err || true' which is true
     When CEL expression "{'key':1, 1:21}.exists(k, k != 2)" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    Then value is celpy.celtypes.BoolType(source=True)
 
+@wip
+Scenario: exists/map_key_type_exhaustive
+          Exists filter is never true, but heterogeneous equality ensures the
+          result is false.
 
-Scenario: map_key_type_exhaustive
-          Exists filter is never true, thus reduces to 'err || false' which is an error
     When CEL expression "!{'key':1, 1:42}.exists(k, k == 2)" is evaluated
-    #    errors:{message:"no such overload"}
-    Then eval_error is 'no such overload'
-
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # all -- Tests for the .all() macro, which is equivalent to joining the evaluated elements with logical-AND.
 
-Scenario: list_elem_all_true
 
-    When CEL expression "[1, 2, 3].all(e, e > 0)" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+Scenario: all/list_elem_all_true
 
+    When CEL expression '[1, 2, 3].all(e, e > 0)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
-Scenario: list_elem_some_true
+Scenario: all/list_elem_some_true
 
-    When CEL expression "[1, 2, 3].all(e, e == 2)" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+    When CEL expression '[1, 2, 3].all(e, e == 2)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
+Scenario: all/list_elem_none_true
 
-Scenario: list_elem_none_true
+    When CEL expression '[1, 2, 3].all(e, e == 17)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
-    When CEL expression "[1, 2, 3].all(e, e == 17)" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
-
-
-Scenario: list_elem_type_shortcircuit
+Scenario: all/list_elem_type_shortcircuit
 
     When CEL expression "[1, 'foo', 3].all(e, e == 1)" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+    Then value is celpy.celtypes.BoolType(source=False)
 
-
-Scenario: list_elem_type_exhaustive
+Scenario: all/list_elem_type_exhaustive
 
     When CEL expression "[1, 'foo', 3].all(e, e % 2 == 1)" is evaluated
-    #    errors:{message:"no_such_overload"}
     Then eval_error is 'no_such_overload'
 
+Scenario: all/list_elem_error_shortcircuit
 
-Scenario: list_elem_error_shortcircuit
+    When CEL expression '[1, 2, 3].all(e, 6 / (2 - e) == 6)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
-    When CEL expression "[1, 2, 3].all(e, 6 / (2 - e) == 6)" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+Scenario: all/list_elem_error_exhaustive
 
-
-Scenario: list_elem_error_exhaustive
-
-    When CEL expression "[1, 2, 3].all(e, e / 0 != 17)" is evaluated
-    #    errors:{message:"divide by zero"}
+    When CEL expression '[1, 2, 3].all(e, e / 0 != 17)' is evaluated
     Then eval_error is 'divide by zero'
 
+Scenario: all/list_empty
 
-Scenario: list_empty
+    When CEL expression '[].all(e, e > 0)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
-    When CEL expression "[].all(e, e > 0)" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
-
-
-Scenario: map_key
+Scenario: all/map_key
 
     When CEL expression "{'key1':1, 'key2':2}.all(k, k == 'key2')" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
-
+    Then value is celpy.celtypes.BoolType(source=False)
 
 
 # exists_one -- Tests for exists_one() macro. An expression 'L.exists_one(I, E)' is equivalent to 'size(L.filter(I, E)) == 1'.
 
-Scenario: list_empty
 
-    When CEL expression "[].exists_one(a, a == 7)" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+Scenario: exists_one/list_empty
 
+    When CEL expression '[].exists_one(a, a == 7)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
-Scenario: list_one_true
+Scenario: exists_one/list_one_true
 
-    When CEL expression "[7].exists_one(a, a == 7)" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    When CEL expression '[7].exists_one(a, a == 7)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
+Scenario: exists_one/list_one_false
 
-Scenario: list_one_false
+    When CEL expression '[8].exists_one(a, a == 7)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
-    When CEL expression "[8].exists_one(a, a == 7)" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+Scenario: exists_one/list_none
 
+    When CEL expression '[1, 2, 3].exists_one(x, x > 20)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
-Scenario: list_none
+Scenario: exists_one/list_one
 
-    When CEL expression "[1, 2, 3].exists_one(x, x > 20)" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+    When CEL expression '[6, 7, 8].exists_one(foo, foo % 5 == 2)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
+Scenario: exists_one/list_many
 
-Scenario: list_one
+    When CEL expression '[0, 1, 2, 3, 4].exists_one(n, n % 2 == 1)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
-    When CEL expression "[6, 7, 8].exists_one(foo, foo % 5 == 2)" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
-
-
-Scenario: list_many
-
-    When CEL expression "[0, 1, 2, 3, 4].exists_one(n, n % 2 == 1)" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
-
-
-Scenario: list_all
+Scenario: exists_one/list_all
 
     When CEL expression "['foal', 'foo', 'four'].exists_one(n, n.startsWith('fo'))" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+    Then value is celpy.celtypes.BoolType(source=False)
 
-
-Scenario: list_no_shortcircuit
+Scenario: exists_one/list_no_shortcircuit
           Errors invalidate everything, even if already false.
-    When CEL expression "[3, 2, 1, 0].exists_one(n, 12 / n > 1)" is evaluated
-    #    errors:{message:"divide by zero"}
+
+    When CEL expression '[3, 2, 1, 0].exists_one(n, 12 / n > 1)' is evaluated
     Then eval_error is 'divide by zero'
 
-
-Scenario: map_one
+Scenario: exists_one/map_one
 
     When CEL expression "{6: 'six', 7: 'seven', 8: 'eight'}.exists_one(foo, foo % 5 == 2)" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
-
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # map -- Tests for map() macro.
 
-Scenario: list_empty
 
-    When CEL expression "[].map(n, n / 2)" is evaluated
-    #    list_value:{}
+Scenario: map/list_empty
+
+    When CEL expression '[].map(n, n / 2)' is evaluated
     Then value is []
 
+Scenario: map/list_one
 
-Scenario: list_one
+    When CEL expression '[3].map(n, n * n)' is evaluated
+    Then value is [celpy.celtypes.IntType(source=9)]
 
-    When CEL expression "[3].map(n, n * n)" is evaluated
-    #    list_value:{values:{int64_value:9}}
-    Then value is [IntType(source=9)]
+Scenario: map/list_many
 
+    When CEL expression '[2, 4, 6].map(n, n / 2)' is evaluated
+    Then value is [celpy.celtypes.IntType(source=1), celpy.celtypes.IntType(source=2), celpy.celtypes.IntType(source=3)]
 
-Scenario: list_many
+Scenario: map/list_error
 
-    When CEL expression "[2, 4, 6].map(n, n / 2)" is evaluated
-    #    list_value:{values:{int64_value:1} values:{int64_value:2} values:{int64_value:3}}
-    Then value is [IntType(source=1), IntType(source=2), IntType(source=3)]
-
-
-Scenario: list_error
-
-    When CEL expression "[2, 1, 0].map(n, 4 / n)" is evaluated
-    #    errors:{message:"divide by zero"}
+    When CEL expression '[2, 1, 0].map(n, 4 / n)' is evaluated
     Then eval_error is 'divide by zero'
 
+Scenario: map/map_extract_keys
+
+    When CEL expression "{'John': 'smart'}.map(key, key) == ['John']" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # filter -- Tests for filter() macro.
 
-Scenario: list_empty
 
-    When CEL expression "[].filter(n, n % 2 == 0)" is evaluated
-    #    list_value:{}
+Scenario: filter/list_empty
+
+    When CEL expression '[].filter(n, n % 2 == 0)' is evaluated
     Then value is []
 
+Scenario: filter/list_one_true
 
-Scenario: list_one_true
+    When CEL expression '[2].filter(n, n == 2)' is evaluated
+    Then value is [celpy.celtypes.IntType(source=2)]
 
-    When CEL expression "[2].filter(n, n == 2)" is evaluated
-    #    list_value:{values:{int64_value:2}}
-    Then value is [IntType(source=2)]
+Scenario: filter/list_one_false
 
-
-Scenario: list_one_false
-
-    When CEL expression "[1].filter(n, n > 3)" is evaluated
-    #    list_value:{}
+    When CEL expression '[1].filter(n, n > 3)' is evaluated
     Then value is []
 
+Scenario: filter/list_none
 
-Scenario: list_none
-
-    When CEL expression "[1, 2, 3].filter(e, e > 3)" is evaluated
-    #    list_value:{}
+    When CEL expression '[1, 2, 3].filter(e, e > 3)' is evaluated
     Then value is []
 
+Scenario: filter/list_some
 
-Scenario: list_some
+    When CEL expression '[0, 1, 2, 3, 4].filter(x, x % 2 == 1)' is evaluated
+    Then value is [celpy.celtypes.IntType(source=1), celpy.celtypes.IntType(source=3)]
 
-    When CEL expression "[0, 1, 2, 3, 4].filter(x, x % 2 == 1)" is evaluated
-    #    list_value:{values:{int64_value:1} values:{int64_value:3}}
-    Then value is [IntType(source=1), IntType(source=3)]
+Scenario: filter/list_all
 
+    When CEL expression '[1, 2, 3].filter(n, n > 0)' is evaluated
+    Then value is [celpy.celtypes.IntType(source=1), celpy.celtypes.IntType(source=2), celpy.celtypes.IntType(source=3)]
 
-Scenario: list_all
+Scenario: filter/list_no_shortcircuit
 
-    When CEL expression "[1, 2, 3].filter(n, n > 0)" is evaluated
-    #    list_value:{values:{int64_value:1} values:{int64_value:2} values:{int64_value:3}}
-    Then value is [IntType(source=1), IntType(source=2), IntType(source=3)]
-
-
-Scenario: list_no_shortcircuit
-
-    When CEL expression "[3, 2, 1, 0].filter(n, 12 / n > 4)" is evaluated
-    #    errors:{message:"divide by zero"}
+    When CEL expression '[3, 2, 1, 0].filter(n, 12 / n > 4)' is evaluated
     Then eval_error is 'divide by zero'
 
+Scenario: filter/map_filter_keys
+
+    When CEL expression "{'John': 'smart', 'Paul': 'cute', 'George': 'quiet', 'Ringo': 'funny'}.filter(key, key == 'Ringo') == ['Ringo']" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # nested -- Tests with nested macros.
 
-Scenario: filter_all
+
+Scenario: nested/filter_all
 
     When CEL expression "['signer'].filter(signer, ['artifact'].all(artifact, true))" is evaluated
-    #    list_value:{values:{string_value:"signer"}}
-    Then value is [StringType(source='signer')]
+    Then value is [celpy.celtypes.StringType(source='signer')]
 
-
-Scenario: all_all
+Scenario: nested/all_all
 
     When CEL expression "['signer'].all(signer, ['artifact'].all(artifact, true))" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    Then value is celpy.celtypes.BoolType(source=True)
+

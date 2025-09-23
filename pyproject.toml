@@ -50,6 +50,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/celpy"]
 
+[[tool.uv.index]]
+url = "https://buf.build/gen/python"
+
 [dependency-groups]
 dev = [
     "behave>=1.2.6",
@@ -63,4 +66,64 @@ dev = [
     "types-pyyaml>=6.0.12.20250516",
     "google-re2-stubs",
     "sphinxcontrib-plantuml>=0.30",
+    "google-cel-spec-protocolbuffers-python==32.0.0.1.20250512201741+dffb8c8cf781",
+    "google-cel-spec-protocolbuffers-pyi==32.1.0.1.20250512201741+dffb8c8cf781",
+    "jinja2>=3.1.6",
+    "pytest-cov>=6.3.0",
+    "protobuf>=6.32.1",
+    "types-protobuf>=6.30.2.20250914",
+]
+
+[tool.tox]
+envlist = ["py39", "py310", "py311", "py312", "py313", "lint", "tools"]
+minversion = "4.24.0"
+
+[tool.tox.env_run_base]
+description = "Full test suite"
+dependency_groups = ["dev"]
+setenv = { PYTHONPATH = "./src" }
+commands = [
+    ["pytest", "-vv"],
+    ["pytest", "-v", "--doctest-modules", "src"],
+    ["pytest", "-v", "--doctest-modules", "README.rst"],
+    ["behave", "--tags=~@wip", "--tags=~@future", "-D", "env='{envname}'", "-f", "rerun", "--stop"],
+    ["behave", "--tags=~@wip", "--tags=~@future", "-D", "env='{envname}'", "-D", "runner='compiled'", "-f", "rerun", "--stop"],
+    ["python", "-m", "doctest", "{toxinidir}/docs/source/api.rst", "{toxinidir}/docs/source/cli.rst", "docs/source/index.rst", "docs/source/integration.rst"],
+    ["pytest", "-v", "-o", "python_classes='PYTest*'", "tools"]
+]
+
+[tool.tox.env.tools]
+description = "CEL conformance suite translation tools"
+commands = [["pytest", "-v", "tools"]]
+
+[tool.tox.env.wip]
+description = "CEL conformance suite"
+commands = [["behave", "--tags=@wip"]]
+
+[tool.tox.env.conformance]
+description = "CEL conformance suite"
+commands = [["behave", "--tags=@conformance", "--tags=~@wip"]]
+
+[tool.tox.env.conformance-compiled]
+description = "CEL conformance suite"
+commands = [["behave", "--tags=@conformance", "--tags=~@wip", "-D", "runner='compiled'"]]
+
+[tool.tox.env.conformance-wip]
+description = "CEL conformance suite work in progress"
+commands = [["behave", "--tags=@conformance", "--tags=@wip"]]
+
+[tool.tox.env.conformance-wip-compiled]
+description = "CEL conformance suite"
+commands = [["behave", "--tags=@conformance", "--tags=@wip", "-D", "runner='compiled'"]]
+
+[tool.tox.env.lint]
+description = "Lint"
+commands = [
+    ["coverage", "erase"],
+    ["pytest", "-vv", "-x", "--cov=src", "--cov-report=term-missing"],
+    ["coverage", "html"],
+    ["coverage", "xml"],
+    ["mypy", "--lineprecision-report", "type_check", "--strict", "--disable-error-code", "type-arg", "--show-error-codes", "src", "tools"],
+    ["ruff", "check", "src", "tools"],
+    ["ruff", "format", "--diff", "src", "tools"]
 ]

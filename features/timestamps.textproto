@@ -1,3 +1,6 @@
+# proto-file: ../../../proto/cel/expr/conformance/test/simple.proto
+# proto-message: cel.expr.conformance.test.SimpleTestFile
+
 name: "timestamps"
 description: "Timestamp and duration tests."
 section {
@@ -14,9 +17,19 @@ section {
     value: { string_value: "2009-02-13T23:31:30Z" }
   }
   test {
+    name: "toString_timestamp_nanos"
+    expr: "string(timestamp('9999-12-31T23:59:59.999999999Z'))"
+    value: { string_value: "9999-12-31T23:59:59.999999999Z" }
+  }
+  test {
     name: "toType_timestamp"
     expr: "type(timestamp('2009-02-13T23:31:30Z'))"
     value: { type_value: "google.protobuf.Timestamp" }
+  }
+  test {
+    name: "type_comparison"
+    expr: "google.protobuf.Timestamp == type(timestamp('2009-02-13T23:31:30Z'))"
+    value: { bool_value: true }
   }
 }
 section {
@@ -31,6 +44,11 @@ section {
     name: "toType_duration"
     expr: "type(duration('1000000s'))"
     value: { type_value: "google.protobuf.Duration" }
+  }
+  test {
+    name: "type_comparison"
+    expr: "google.protobuf.Duration == type(duration('1000000s'))"
+    value: { bool_value: true }
   }
 }
 
@@ -110,7 +128,7 @@ section {
   }
   test {
     name: "getDayOfMonth_numerical_neg"
-    expr: "timestamp('2009-02-13T02:00:00Z').getDayOfMonth('-2:30')"
+    expr: "timestamp('2009-02-13T02:00:00Z').getDayOfMonth('-02:30')"
     value: { int64_value: 11 }
   }
   test {
@@ -130,12 +148,12 @@ section {
   }
   test {
     name: "getFullYear"
-    expr: "timestamp('2009-02-13T23:31:30Z').getFullYear('-9:30')"
+    expr: "timestamp('2009-02-13T23:31:30Z').getFullYear('-09:30')"
     value: { int64_value: 2009 }
   }
   test {
     name: "getHours"
-    expr: "timestamp('2009-02-13T23:31:30Z').getHours('2:00')"
+    expr: "timestamp('2009-02-13T23:31:30Z').getHours('02:00')"
     value: { int64_value: 1 }
   }
   test {
@@ -208,12 +226,12 @@ section {
   test {
     name: "add_duration_to_time"
     expr: "timestamp('2009-02-13T23:00:00Z') + duration('240s') == timestamp('2009-02-13T23:04:00Z')"
-    value: { bool_value: true}
+    value: { bool_value: true }
   }
   test {
     name: "add_time_to_duration"
     expr: "duration('120s') + timestamp('2009-02-13T23:01:00Z') == timestamp('2009-02-13T23:03:00Z')"
-    value: { bool_value: true}
+    value: { bool_value: true }
   }
   test {
     name: "add_duration_to_duration"
@@ -221,14 +239,24 @@ section {
     value: { bool_value: true }
   }
   test {
+    name: "add_time_to_duration_nanos_negative"
+    expr: "timestamp('0001-01-01T00:00:01.000000001Z') + duration('-999999999ns') == timestamp('0001-01-01T00:00:00.000000002Z')"
+    value: { bool_value: true }
+  }
+  test {
+    name: "add_time_to_duration_nanos_positive"
+    expr: "timestamp('0001-01-01T00:00:01.999999999Z') + duration('999999999ns') == timestamp('0001-01-01T00:00:02.999999998Z')"
+    value: { bool_value: true }
+  }
+  test {
     name: "subtract_duration_from_time"
     expr: "timestamp('2009-02-13T23:10:00Z') - duration('600s') == timestamp('2009-02-13T23:00:00Z')"
-    value: { bool_value: true}
+    value: { bool_value: true }
   }
   test {
     name: "subtract_time_from_time"
     expr: "timestamp('2009-02-13T23:31:00Z') - timestamp('2009-02-13T23:29:00Z') == duration('120s')"
-    value: { bool_value: true}
+    value: { bool_value: true }
   }
   test {
     name: "subtract_duration_from_duration"
@@ -310,7 +338,7 @@ section {
   }
   test {
     name: "get_milliseconds"
-    description: "Need to import a variable to get milliseconds."
+    description: "Obtain the milliseconds component of the duration. Note, this is not the same as converting the duration to milliseconds. This behavior will be deprecated."
     expr: "x.getMilliseconds()"
     type_env {
       name: "x"
@@ -321,16 +349,15 @@ section {
       value {
         value {
           object_value {
-            [type.googleapis.com/google.protobuf.Duration]
-            {
+            [type.googleapis.com/google.protobuf.Duration] {
               seconds: 123
-              nanos: 123456789
+              nanos: 321456789
             }
           }
         }
       }
     }
-    value: { int64_value: 123123 }
+    value: { int64_value: 321 }
   }
   test {
     name: "get_minutes"
@@ -362,14 +389,42 @@ section {
   }
   test {
     name: "add_duration_under"
-    expr: "timestamp('0001-01-01T00:00:00Z') - duration('10s')"
+    expr: "timestamp('0001-01-01T00:00:00Z') + duration('-1s')"
     eval_error {
       errors { message: "range" }
     }
   }
   test {
     name: "add_duration_over"
-    expr: "timestamp('9999-12-31T23:59:59Z') + duration('10s')"
+    expr: "timestamp('9999-12-31T23:59:59Z') + duration('1s')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
+    name: "add_duration_nanos_over"
+    expr: "timestamp('9999-12-31T23:59:59.999999999Z') + duration('1ns')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
+    name: "add_duration_nanos_under"
+    expr: "timestamp('0001-01-01T00:00:00Z') + duration('-1ns')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
+    name: "sub_time_duration_over"
+    expr: "timestamp('9999-12-31T23:59:59Z') - timestamp('0001-01-01T00:00:00Z')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
+    name: "sub_time_duration_under"
+    expr: "timestamp('0001-01-01T00:00:00Z') - timestamp('9999-12-31T23:59:59Z')"
     eval_error {
       errors { message: "range" }
     }
@@ -402,6 +457,20 @@ section {
   test {
     name: "add_over"
     expr: "duration('200000000000s') + duration('200000000000s')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
+    name: "sub_under"
+    expr: "duration('-200000000000s') - duration('200000000000s')"
+    eval_error {
+      errors { message: "range" }
+    }
+  }
+  test {
+    name: "sub_over"
+    expr: "duration('200000000000s') - duration('-200000000000s')"
     eval_error {
       errors { message: "range" }
     }

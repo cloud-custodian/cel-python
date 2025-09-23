@@ -1,3 +1,6 @@
+# proto-file: ../../../proto/cel/expr/conformance/test/simple.proto
+# proto-message: cel.expr.conformance.test.SimpleTestFile
+
 name: "fp_math"
 description: "Tests for floating-point math."
 section {

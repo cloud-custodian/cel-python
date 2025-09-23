@@ -20,37 +20,55 @@
 build:
 	uv build
 
-install-tools:
-	cd tools && docker pull golang && docker build -t mkgherkin .
-
 test:
 	cd features && $(MAKE) all
-	tox run -e py312
+	uv run tox run -e py312
 
 test-all:
 	cd features && $(MAKE) all
-	tox run
+	uv run tox run
 
 test-wip:
 	cd features && $(MAKE) all
-	tox run -e wip
+	uv run tox run -e wip
 
 test-tools:
-	tox run -e tools
-	cd features && $(MAKE) scan
+	uv run tox run -e tools
+
+test-clean:
+	cd features && $(MAKE) clean
+
+conformance:
+	cd features && $(MAKE) all
+	uv run tox run -e conformance
+
+conformance-compiled:
+	cd features && $(MAKE) all
+	uv run tox run -e conformance-compiled
+
+conformance-wip:
+	cd features && $(MAKE) all
+	uv run tox run -e conformance-wip
+
+conformance-wip-compiled:
+	cd features && $(MAKE) all
+	uv run tox run -e conformance-wip
 
 docs: $(wildcard docs/source/*.rst)
 	PYTHONPATH=src python -m doctest docs/source/*.rst
 	export PYTHONPATH=$(PWD)/src:$(PWD)/tools && cd docs && $(MAKE) html
 
 lint:
-	tox run -e lint
+	uv run tox run -e lint
+
+format:
+	uv run ruff format src tools
 
 coverage:
-	coverage report -m
+	uv run coverage report -m
 
 clean:
-	rm -rf .tox .Python bin include lib pip-selfcheck.json
+	rm -rf .mypy_cache .pytest_cache .ruff_cache .tox .Python bin include lib pip-selfcheck.json
 
 benchmarks:
 	PYTHONPATH=src python benches/large_resource_set.py TagAssetBenchmark

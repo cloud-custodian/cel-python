@@ -35,9 +35,9 @@ import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 try:
-    import tomllib
+    import tomllib  # type: ignore [import-not-found, unused-ignore]
 except ImportError:  # pragma: no cover
-    import tomli as tomllib  # type: ignore [no-redef]
+    import tomli as tomllib  # type: ignore [no-redef, import-not-found, unused-import, unused-ignore]
 
 from celpy import Environment, Runner, celtypes
 from celpy.adapter import CELJSONDecoder, CELJSONEncoder

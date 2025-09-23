@@ -1,3 +1,6 @@
+# proto-file: ../../../proto/cel/expr/conformance/test/simple.proto
+# proto-message: google.api.expr.test.v1.SimpleTestFile
+
 name: "plumbing"
 description: "Check that the ConformanceService server can accept all arguments and return all responses."
 section {
