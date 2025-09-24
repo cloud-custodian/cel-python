@@ -119,7 +119,7 @@ dev = [
     { name = "behave", specifier = ">=1.2.6" },
     { name = "coverage", specifier = ">=7.8.1" },
     { name = "google-cel-spec-protocolbuffers-pyi", specifier = "==32.1.0.1.20250512201741+dffb8c8cf781" },
-    { name = "google-cel-spec-protocolbuffers-python", specifier = "==32.0.0.1.20250512201741+dffb8c8cf781" },
+    { name = "google-cel-spec-protocolbuffers-python", specifier = "==32.1.0.1.20250512201741+dffb8c8cf781" },
     { name = "google-re2-stubs" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "mypy", specifier = ">=1.15.0" },
@@ -365,7 +365,7 @@ wheels = [
 
 [[package]]
 name = "google-cel-spec-protocolbuffers-python"
-version = "32.0.0.1.20250512201741+dffb8c8cf781"
+version = "32.1.0.1.20250512201741+dffb8c8cf781"
 source = { registry = "https://buf.build/gen/python" }
 dependencies = [
     { name = "google-cel-spec-protocolbuffers-pyi" },
@@ -373,7 +373,7 @@ dependencies = [
     { name = "protobuf" },
 ]
 wheels = [
-    { url = "https://buf.build/gen/python/google-cel-spec-protocolbuffers-python/google_cel_spec_protocolbuffers_python-32.0.0.1.20250512201741+dffb8c8cf781-py3-none-any.whl" },
+    { url = "https://buf.build/gen/python/google-cel-spec-protocolbuffers-python/google_cel_spec_protocolbuffers_python-32.1.0.1.20250512201741+dffb8c8cf781-py3-none-any.whl" },
 ]
 
 [[package]]
@@ -520,14 +520,14 @@ wheels = [
 
 [[package]]
 name = "googleapis-googleapis-protocolbuffers-python"
-version = "32.0.0.1.20250411203938+61b203b9a916"
+version = "32.1.0.1.20250411203938+61b203b9a916"
 source = { registry = "https://buf.build/gen/python" }
 dependencies = [
     { name = "googleapis-googleapis-protocolbuffers-pyi" },
     { name = "protobuf" },
 ]
 wheels = [
-    { url = "https://buf.build/gen/python/googleapis-googleapis-protocolbuffers-python/googleapis_googleapis_protocolbuffers_python-32.0.0.1.20250411203938+61b203b9a916-py3-none-any.whl" },
+    { url = "https://buf.build/gen/python/googleapis-googleapis-protocolbuffers-python/googleapis_googleapis_protocolbuffers_python-32.1.0.1.20250411203938+61b203b9a916-py3-none-any.whl" },
 ]
 
 [[package]]

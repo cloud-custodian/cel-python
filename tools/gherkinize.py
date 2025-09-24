@@ -510,8 +510,8 @@ class CELList(CELValue):
         if len(self.values) != len(other.values):
             return False
 
-        for i in range(0, len(self.values)):
-            if self.values[i] != other.values[i]:
+        for s, o in zip(self.values, other.values):
+            if s != o:
                 return False
 
         return True
@@ -697,8 +697,8 @@ class CELErrorSet(CELValue):
         if len(self.errors) != len(other.errors):
             return False
 
-        for i in range(0, len(self.errors)):
-            if self.errors[i] != other.errors[i]:
+        for s, o in zip(self.errors, other.errors):
+            if s != o:
                 return False
 
         return True

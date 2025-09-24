@@ -47,7 +47,7 @@ Each ``.textproto`` file follows the ``SimpleTestFile`` `schema`_.
 
 These are deserialized into Python objects using an `SDK generated from the schemas`_.
 
-.. _SDK generated from the schemas: https://buf.build/google/cel-spec/sdks/dffb8c8cf7814e96a7c06b6a5ac72fdc:protocolbuffers/python
+.. _SDK generated from the schemas: https://buf.build/google/cel-spec/sdks/main:protocolbuffers/python
 
 These Python objects that represent the Protobuf data and then loaded into classes that represented
 Gherkin concepts (``features`` with comment-delineated sections, and ``scenarios`` with ``given``,
