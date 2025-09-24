@@ -12,19 +12,19 @@ from jinja2 import Environment, FileSystemLoader
 from cel.expr import checked_pb2, eval_pb2, value_pb2
 from cel.expr.conformance.test import simple_pb2
 from cel.expr.conformance.proto2 import (
-    test_all_types_pb2 as proto2_test_all_types,  # noqa
-    test_all_types_extensions_pb2 as proto2_test_all_types_extensions,  # noqa
+    test_all_types_pb2 as proto2_test_all_types,  # noqa: F401
+    test_all_types_extensions_pb2 as proto2_test_all_types_extensions,  # noqa: F401
 )
-from cel.expr.conformance.proto3 import test_all_types_pb2 as proto3_test_all_types  # noqa
+from cel.expr.conformance.proto3 import test_all_types_pb2 as proto3_test_all_types  # noqa: F401
 from google.protobuf import (
     any_pb2,
     descriptor_pool,
-    descriptor,  # noqa
+    descriptor,  # noqa: F401
     duration_pb2,
     message_factory,
     message,
     struct_pb2,
-    symbol_database,  # noqa
+    symbol_database,  # noqa: F401
     text_format,
     timestamp_pb2,
     wrappers_pb2,
