@@ -4,11 +4,15 @@ from io import open
 import logging
 from os import path
 from pathlib import Path
-import re
 import sys
-from typing import Any, Dict, List, Literal, Optional, Union, overload
+from typing import Any, Literal, Optional, Union, overload
 from typing_extensions import Self
 from jinja2 import Environment, FileSystemLoader
+import toml
+
+# Note that the `noqa: F401` annotations are because these imports are needed so
+# that the descriptors end up in the default descriptor pool, but aren't used
+# explicitly and thus would be otherwise flagged as unused imports.
 from cel.expr import checked_pb2, eval_pb2, value_pb2
 from cel.expr.conformance.test import simple_pb2
 from cel.expr.conformance.proto2 import (
@@ -39,28 +43,115 @@ logger = logging.getLogger("gherkinize")
 
 pool = descriptor_pool.Default()  # type: ignore [no-untyped-call]
 
+ScenarioConfigInput = Union[str, list[str], dict[Literal["tags"], list[str]]]
 
-class SkipList:
+
+class ScenarioConfig:
+    def __init__(
+        self, section: "SectionConfig", name: str, input: ScenarioConfigInput
+    ) -> None:
+        self.section = section
+        self.name = name
+        self.tags: list[str] = []
+        self.__has_logged_error_context = False
+        self.__load_tags(input)
+
+    def __log_error_context(self) -> None:
+        if not self.__has_logged_error_context:
+            logger.error(
+                f"[{self.section.feature.name}.{self.section.name}.{self.name}]"
+            )
+
+    def __load_tags(self, input: ScenarioConfigInput) -> None:
+        if isinstance(input, str):
+            if not input.startswith("@"):
+                self.__log_error_context()
+                logger.error(
+                    f'  Skipping invalid tag (must start with "@"): {repr(input)}'
+                )
+                logger.error(f"  Did you mean {repr('@' + input)}?")
+            self.tags.append(input)
+        elif isinstance(input, list):
+            for tag in input:
+                if not isinstance(tag, str):
+                    self.__log_error_context()
+                    logger.error(
+                        f"  Skipping invalid tag (must be a string): {repr(tag)}"
+                    )
+                    continue
+                self.__load_tags(tag)
+        elif "tags" in input and isinstance(input["tags"], list):
+            self.__load_tags(input["tags"])
+        else:
+            self.__log_error_context()
+            logger.error(f"  Skipping invalid scenario config: {repr(input)}")
+
+
+SectionConfigInput = dict[str, ScenarioConfigInput]
+
+
+class SectionConfig:
+    def __init__(
+        self, feature: "FeatureConfig", name: str, input: SectionConfigInput
+    ) -> None:
+        self.feature = feature
+        self.name = name
+        self.scenarios = []
+        if isinstance(input, dict):
+            for name, value in input.items():
+                self.scenarios.append(ScenarioConfig(self, name, value))
+        else:
+            logger.error(f"[{self.feature.name}.{self.name}]")
+            logger.error(f"  Skipping invalid section config: {repr(input)}")
+
+    def tags_for(self, scenario: str) -> list[str]:
+        for s in self.scenarios:
+            if s.name == scenario:
+                return s.tags
+        return []
+
+
+FeatureConfigInput = dict[str, SectionConfigInput]
+
+
+class FeatureConfig:
+    def __init__(self, name: str, input: FeatureConfigInput) -> None:
+        self.name = name
+        self.sections = []
+        if isinstance(input, dict):
+            for name, value in input.items():
+                self.sections.append(SectionConfig(self, name, value))
+        else:
+            logger.error(f"[{self.name}]")
+            logger.error(f"  Skipping invalid feature config: {repr(input)}")
+
+    def tags_for(self, section: str, scenario: str) -> list[str]:
+        for s in self.sections:
+            if s.name == section:
+                return s.tags_for(scenario)
+        return []
+
+
+class Config:
     def __init__(self, path: str) -> None:
-        self.list = []
-        logger.debug(f"Reading from {path}...")
-        blank = re.compile("^[ \t]*(#|$)")
-        with open(path, encoding="utf_8") as file_handle:
-            for line in file_handle:
-                if blank.match(line) is not None:
-                    continue
-                stripped = line.split("#")[0].strip()
-                tuple = stripped.split(":")
-                if len(tuple) != 3:
-                    logger.warning(f"Skipping invalid line: {line}")
-                    continue
-                self.list.append(stripped)
+        self.features: list[FeatureConfig] = []
+        logger.debug(f"Reading from {repr(path)}...")
+        input = toml.load(path)
 
-    def should_skip(self, feature: str, section: str, scenario: str) -> bool:
-        return f"{feature}:{section}:{scenario}" in self.list
+        if isinstance(input, dict):
+            for name, value in input.items():
+                self.features.append(FeatureConfig(name, value))
+        else:
+            logger.error(f"Could not read from {repr(path)}")
+
+    def tags_for(self, feature: str, section: str, scenario: str) -> list[str]:
+        for f in self.features:
+            if f.name == feature:
+                return f.tags_for(section, scenario)
+        return []
 
 
-skip_list = SkipList(f"{path.dirname(__file__)}/wip.txt")
+wip_config = Config(f"{path.dirname(__file__)}/wip.toml")
 
 
 class Result:
@@ -490,7 +581,7 @@ class CELList(CELValue):
     type_name = "celpy.celtypes.ListType"
 
     def __init__(
-        self, source: Union[struct_pb2.ListValue, value_pb2.ListValue, List[CELValue]]
+        self, source: Union[struct_pb2.ListValue, value_pb2.ListValue, list[CELValue]]
     ) -> None:
         if isinstance(source, (struct_pb2.ListValue, value_pb2.ListValue)):
             self.values = [CELValue.from_proto(v) for v in source.values]
@@ -524,7 +615,7 @@ class CELMap(CELValue):
     type_name = "celpy.celtypes.MapType"
 
     def __init__(
-        self, source: Union[struct_pb2.Struct, value_pb2.MapValue, Dict[str, CELValue]]
+        self, source: Union[struct_pb2.Struct, value_pb2.MapValue, dict[str, CELValue]]
     ) -> None:
         self.value = {}
         if isinstance(source, struct_pb2.Struct):
@@ -656,7 +747,7 @@ class CELStatus(CELValue):
 class CELErrorSet(CELValue):
     type_name = "CELEvalError"
 
-    def __init__(self, message: Union[eval_pb2.ErrorSet, List[CELStatus], str]) -> None:
+    def __init__(self, message: Union[eval_pb2.ErrorSet, list[CELStatus], str]) -> None:
         self.errors = []
         if isinstance(message, eval_pb2.ErrorSet):
             for status in message.errors:
@@ -764,14 +855,12 @@ class Scenario:
         logger.debug(f"Scenario {source.name}")
         self.name = source.name
         self.description = source.description
-        self.tag = (
-            "@wip\n"
-            if skip_list.should_skip(feature.name, section.name, source.name)
-            else ""
-        )
-        self.preconditions: List[str] = []
-        self.events: List[str] = []
-        self.outcomes: List[str] = []
+        self.tag = ""
+        for tag in wip_config.tags_for(feature.name, section.name, source.name):
+            self.tag += f"{tag}\n"
+        self.preconditions: list[str] = []
+        self.events: list[str] = []
+        self.outcomes: list[str] = []
 
         if source.disable_macros:
             self.given("disable_macros parameter is True")
@@ -804,7 +893,7 @@ class Scenario:
         return self
 
     @property
-    def steps(self) -> List[str]:
+    def steps(self) -> list[str]:
         steps = []
         if len(self.preconditions) > 0:
             steps.append(f"Given {self.preconditions[0]}")
@@ -866,7 +955,7 @@ class Feature:
             print(gherkin)
 
 
-def get_options(argv: List[str] = sys.argv[1:]) -> argparse.Namespace:
+def get_options(argv: list[str] = sys.argv[1:]) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-v",

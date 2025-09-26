@@ -72,6 +72,8 @@ dev = [
     "pytest-cov>=6.3.0",
     "protobuf>=6.32.1",
     "types-protobuf>=6.30.2.20250914",
+    "types-toml>=0.10.8.20240310",
+    "toml>=0.10.2",
 ]
 
 [tool.tox]
