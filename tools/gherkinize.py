@@ -40,114 +40,109 @@ env = Environment(
 )
 template = env.get_template("gherkin.feature.jinja")
 logger = logging.getLogger("gherkinize")
-
 pool = descriptor_pool.Default()  # type: ignore [no-untyped-call]
 
 ScenarioConfigInput = Union[str, list[str], dict[Literal["tags"], list[str]]]
-
-
-class ScenarioConfig:
-    def __init__(
-        self, section: "SectionConfig", name: str, input: ScenarioConfigInput
-    ) -> None:
-        self.section = section
-        self.name = name
-        self.tags: list[str] = []
-        self.__has_logged_error_context = False
-        self.__load_tags(input)
-
-    def __log_error_context(self) -> None:
-        if not self.__has_logged_error_context:
-            logger.error(
-                f"[{self.section.feature.name}.{self.section.name}.{self.name}]"
-            )
-
-    def __load_tags(self, input: ScenarioConfigInput) -> None:
-        if isinstance(input, str):
-            if not input.startswith("@"):
-                self.__log_error_context()
-                logger.error(
-                    f'  Skipping invalid tag (must start with "@"): {repr(input)}'
-                )
-                logger.error(f"  Did you mean {repr('@' + input)}?")
-            self.tags.append(input)
-        elif isinstance(input, list):
-            for tag in input:
-                if not isinstance(tag, str):
-                    self.__log_error_context()
-                    logger.error(
-                        f"  Skipping invalid tag (must be a string): {repr(tag)}"
-                    )
-                    continue
-                self.__load_tags(tag)
-        elif "tags" in input and isinstance(input["tags"], list):
-            self.__load_tags(input["tags"])
-        else:
-            self.__log_error_context()
-            logger.error(f"  Skipping invalid scenario config: {repr(input)}")
-
-
 SectionConfigInput = dict[str, ScenarioConfigInput]
-
-
-class SectionConfig:
-    def __init__(
-        self, feature: "FeatureConfig", name: str, input: SectionConfigInput
-    ) -> None:
-        self.feature = feature
-        self.name = name
-        self.scenarios = []
-        if isinstance(input, dict):
-            for name, value in input.items():
-                self.scenarios.append(ScenarioConfig(self, name, value))
-        else:
-            logger.error(f"[{self.feature.name}.{self.name}]")
-            logger.error(f"  Skipping invalid section config: {repr(input)}")
-
-    def tags_for(self, scenario: str) -> list[str]:
-        for s in self.scenarios:
-            if s.name == scenario:
-                return s.tags
-        return []
-
-
 FeatureConfigInput = dict[str, SectionConfigInput]
 
-
-class FeatureConfig:
-    def __init__(self, name: str, input: FeatureConfigInput) -> None:
-        self.name = name
-        self.sections = []
-        if isinstance(input, dict):
-            for name, value in input.items():
-                self.sections.append(SectionConfig(self, name, value))
-        else:
-            logger.error(f"[{self.name}]")
-            logger.error(f"  Skipping invalid feature config: {repr(input)}")
-
-    def tags_for(self, section: str, scenario: str) -> list[str]:
-        for s in self.sections:
-            if s.name == section:
-                return s.tags_for(scenario)
-        return []
-
+ScenarioConfig = dict[Literal["tags"], list[str]]
+SectionConfig = dict[str, ScenarioConfig]
+FeatureConfig = dict[str, SectionConfig]
 
 class Config:
     def __init__(self, path: str) -> None:
-        self.features: list[FeatureConfig] = []
+        self.features: dict[str, FeatureConfig] = {}
         logger.debug(f"Reading from {repr(path)}...")
         input = toml.load(path)
 
         if isinstance(input, dict):
             for name, value in input.items():
-                self.features.append(FeatureConfig(name, value))
+                feature = Config._canonicalize_feature(name, value)
+                if feature is not None:
+                    self.features[name] = feature
         else:
             logger.error(f"Could not read from {repr(path)}")
 
+    @staticmethod
+    def _canonicalize_feature(context: str, input: FeatureConfigInput) -> FeatureConfig | None:
+        feature = {}
+        if isinstance(input, dict):
+            for name, value in input.items():
+                section = Config._canonicalize_section(f"{context}.{name}", value)
+                if section is not None:
+                    feature[name] = section
+        else:
+            logger.error(f"[{context}]: Skipping invalid feature: {repr(input)}")
+
+        return feature
+
+    @staticmethod
+    def _canonicalize_section(context: str, input: SectionConfigInput) -> SectionConfig | None:
+        section = {}
+        if isinstance(input, dict):
+            for name, value in input.items():
+                scenario = Config._canonicalize_scenario(f"{context}.{name}", value)
+                if scenario is not None:
+                    section[name] = scenario
+        else:
+            logger.error(f"[{context}]: Skipping invalid section: {repr(input)}")
+
+        return section
+
+    @staticmethod
+    def _canonicalize_scenario(context: str, input: ScenarioConfigInput) -> ScenarioConfig | None:
+        tags = None
+        if isinstance(input, str):
+            tag = Config._canonicalize_tag(context, input);
+            if tag is not None:
+                tags = [tag]
+        elif isinstance(input, list):
+            tags = Config._canonicalize_tags(context, input)
+        elif "tags" in input:
+            tags = Config._canonicalize_tags(f"{context}.tags", input["tags"])
+
+        if tags is None:
+            logger.error(f"[{context}]: Skipping invalid scenario: {repr(input)}")
+            return None
+
+        return { "tags": tags }
+
+    @staticmethod
+    def _canonicalize_tags(context: str, input: Any) -> list[str] | None:
+        if not isinstance(input, list):
+            logger.error(f"[{context}]: Skipping invalid tags (must be a list): {repr(input)}")
+            return None
+
+        tags: list[str] = []
+        for i, tag in enumerate(input):
+            tag = Config._canonicalize_tag(f"{context}.{i}", input)
+            if tag is not None:
+                tags.append(tag)
+        if (len(tags)):
+            return tags
+        return None
+
+    @staticmethod
+    def _canonicalize_tag(context: str, input: Any) -> str | None:
+        if not isinstance(input, str):
+            logger.error(f"[{context}]: Skipping invalid tag (must be a string): {repr(input)}")
+            return None
+        if not input.startswith("@"):
+            logger.error(f'[{context}]: Skipping invalid tag (must start with "@"): {repr(input)}')
+            logger.error(f"[{context}]:   Did you mean {repr('@' + input)}?")
+            return None
+
+        return input
+
     def tags_for(self, feature: str, section: str, scenario: str) -> list[str]:
-        for f in self.features:
-            if f.name == feature:
-                return f.tags_for(section, scenario)
+        if (
+            feature in self.features and
+            section in self.features[feature] and
+            scenario in self.features[feature][section]
+        ):
+            return self.features[feature][section][scenario]["tags"]
+
         return []
 
 
@@ -292,16 +287,16 @@ class CELType(CELValue):
         ],
     ) -> None:
         if isinstance(value, value_pb2.Value):
-            self.__from_cel_value(value)
+            self._from_cel_value(value)
             super().__init__(value)
         elif isinstance(value, checked_pb2.Decl):
-            self.__from_decl(value)
+            self._from_decl(value)
             super().__init__(value)
         elif isinstance(value, checked_pb2.Decl.IdentDecl):
-            self.__from_ident(value)
+            self._from_ident(value)
             super().__init__(value)
         elif isinstance(value, str):
-            self.__from_str(value)
+            self._from_str(value)
             super().__init__(None)
         else:
             if isinstance(value, message.Message):
@@ -315,20 +310,20 @@ class CELType(CELValue):
     def is_aliased(alias: str) -> bool:
         return alias in ["type", "type_value"]
 
-    def __from_cel_value(self, source: value_pb2.Value) -> None:
-        self.__from_str(source.type_value)
+    def _from_cel_value(self, source: value_pb2.Value) -> None:
+        self._from_str(source.type_value)
 
-    def __from_decl(self, source: checked_pb2.Decl) -> None:
+    def _from_decl(self, source: checked_pb2.Decl) -> None:
         decl_kind = source.WhichOneof("decl_kind")
 
         if decl_kind == "ident":
-            self.__from_ident(source.ident)
+            self._from_ident(source.ident)
         else:
             raise NotImplementedError(
                 f'Unable to interpret declaration kind "{decl_kind}"'
             )
 
-    def __from_ident(self, ident: checked_pb2.Decl.IdentDecl) -> None:
+    def _from_ident(self, ident: checked_pb2.Decl.IdentDecl) -> None:
         type_kind = ident.type.WhichOneof("type_kind")
         if type_kind == "primitive":
             primitive_kind = checked_pb2.Type.PrimitiveType.Name(ident.type.primitive)
@@ -343,11 +338,11 @@ class CELType(CELValue):
             if cel_class:
                 self.name = cel_class.type_name
             else:
-                self.__from_str(ident.type.message_type)
+                self._from_str(ident.type.message_type)
         else:
             self.name = CELValue.get_class_by_alias(type_kind, None, True).type_name
 
-    def __from_str(self, type_value: str) -> None:
+    def _from_str(self, type_value: str) -> None:
         candidate = CELValue.get_class_by_alias(type_value, None, False)
 
         if candidate:
