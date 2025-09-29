@@ -55,9 +55,9 @@ import logging
 import operator
 import os
 import re
-from string import Template
 import sys
 from functools import reduce, wraps
+from string import Template
 from textwrap import dedent
 from typing import (
     Any,
@@ -80,36 +80,10 @@ from typing import (
 
 import lark
 import lark.visitors
+import re2
 
 import celpy.celtypes
 from celpy.celparser import tree_dump
-
-try:
-    import re2
-
-    def function_matches(text: str, pattern: str) -> "Result":
-        """Implementation of the ``match()`` function using ``re2``"""
-        try:
-            m = re2.search(pattern, text)
-        except re2.error as ex:
-            return CELEvalError("match error", ex.__class__, ex.args)
-
-        return celpy.celtypes.BoolType(m is not None)
-
-except ImportError:  # pragma: no cover
-    # There is a build issue with python_version=='3.13' and sys_platform=='darwin'
-    # See https://github.com/google/re2/issues/516
-    # We fall back to using re, which passes the essential tests
-
-    def function_matches(text: str, pattern: str) -> "Result":
-        """Alternative implementation of the ``match()`` function for systems where ``re2`` can't be installed."""
-        try:
-            m = re.search(pattern, text)
-        except re.error as ex:
-            return CELEvalError("match error", ex.__class__, ex.args)
-
-        return celpy.celtypes.BoolType(m is not None)
-
 
 # An Annotation describes a union of types, functions, and function types.
 Annotation = Union[
@@ -418,6 +392,16 @@ def function_endsWith(
     string: celpy.celtypes.StringType, fragment: celpy.celtypes.StringType
 ) -> Result:
     return celpy.celtypes.BoolType(string.endswith(fragment))
+
+
+def function_matches(text: str, pattern: str) -> Result:
+    """Implementation of the ``match()`` function using ``re2``"""
+    try:
+        m = re2.search(pattern, text)
+    except re2.error as ex:
+        return CELEvalError("match error", ex.__class__, ex.args)
+
+    return celpy.celtypes.BoolType(m is not None)
 
 
 def function_getDate(

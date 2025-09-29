@@ -45,17 +45,6 @@ CEL specifies that regular expressions use re2 syntax,
 https://github.com/google/re2/wiki/Syntax.
 As of the 0.4.0 release, the Google-RE2 module is part of the CEL distribution.
 
-.. warning:: Apple Silicon and Python 3.13
-
-    See https://github.com/google/re2/issues/453,
-    https://github.com/google/re2/issues/346,
-    https://github.com/google/re2/issues/516
-
-    Google-RE2 does not build for Python 3.13 on the "darwin" platform with the "arm64" architecture.
-    Currently, there is no pre-built binary for Python 3.13.
-
-    The built-in ``re`` is used as a fall-back, and does work for all but a few edge cases.
-
 Command Line
 ============
 
