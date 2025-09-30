@@ -998,9 +998,7 @@ class Scenario:
         logger.debug(f"Scenario {source.name}")
         self.name = source.name
         self.description = source.description
-        self.tag = ""
-        for tag in config.tags_for(feature.name, section.name, source.name):
-            self.tag += f"{tag}\n"
+        self.tags = config.tags_for(feature.name, section.name, source.name)
         self.preconditions: list[str] = []
         self.events: list[str] = []
         self.outcomes: list[str] = []
