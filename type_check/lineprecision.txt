@@ -7,7 +7,7 @@ celpy.c7nlib       1663      344         16  152   1151           0
 celpy.celparser     411      136         68   23    184           0
 celpy.celtypes     1483      386         15  235    810          37
 celpy.evaluation   3859     1127        252  242   2222          16
-gherkinize         1114      533         14   96    451          20
+gherkinize         1144      533         14   96    481          20
 test_gherkinize    5581     5014        135    4    428           0
 xlate                 0        0          0    0      0           0
 xlate.c7n_to_cel   1755      387        103  144   1115           6

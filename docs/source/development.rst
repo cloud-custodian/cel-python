@@ -26,6 +26,7 @@ The ``gherkinize.py`` Tool
 
 ..  automodule:: gherkinize
     :no-members:
+    :members: Config
 
 
 The ``features/steps`` Directory

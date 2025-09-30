@@ -139,6 +139,53 @@ This is often the path to a file in a local download of <a class="reference exte
 <p>The source <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> files have a “section” heading which doesn’t have a precise parallel in the Gherkin language.
 The sections become comments in the <code class="docutils literal notranslate"><span class="pre">.feature</span></code> file, and the section name is used to prefix each feature name.</p>
 </section>
+<dl class="py class">
+<dt class="sig sig-object py" id="gherkinize.Config">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">gherkinize.</span></span><span class="sig-name descname"><span class="pre">Config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gherkinize.html#Config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gherkinize.Config" title="Link to this definition">¶</a></dt>
+<dd><p>This class reads in optional configuration for conformance tests. Each scenario
+is within a feature and a section.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"></th>
+<th class="head"><p>feature</p></th>
+<th class="head"><p>section</p></th>
+<th class="head"><p>scenario</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>example</strong></p></td>
+<td><p>string_ext</p></td>
+<td><p>ascii_casing</p></td>
+<td><p>lowerascii_unicode</p></td>
+</tr>
+</tbody>
+</table>
+<p>The value for each scenario can be a string tag (which must begin with
+<code class="docutils literal notranslate"><span class="pre">&#64;</span></code>), an array of tags (each of which must begin with <code class="docutils literal notranslate"><span class="pre">&#64;</span></code>) or a dictionary
+with a <code class="docutils literal notranslate"><span class="pre">tags</span></code> key containing an array of tags (each of which… y’know).</p>
+<p>For example, each of the following are valid:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">bindings_ext</span><span class="o">.</span><span class="n">bind</span><span class="p">]</span>
+<span class="n">bind_nested</span> <span class="o">=</span> <span class="s2">&quot;@wip&quot;</span>
+<span class="n">boolean_literal</span> <span class="o">=</span> <span class="p">[</span> <span class="s2">&quot;@wip&quot;</span> <span class="p">]</span>
+
+<span class="p">[</span><span class="n">bindings_ext</span><span class="o">.</span><span class="n">bind</span><span class="o">.</span><span class="n">macro_exists</span><span class="p">]</span>
+<span class="n">tags</span> <span class="o">=</span> <span class="p">[</span> <span class="s2">&quot;@wip&quot;</span> <span class="p">]</span>
+</pre></div>
+</div>
+<p>In the future, dictionaries with additional features may be supported.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="gherkinize.Config.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/gherkinize.html#Config.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gherkinize.Config.__init__" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gherkinize.Config.tags_for">
+<span class="sig-name descname"><span class="pre">tags_for</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feature</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">section</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scenario</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/gherkinize.html#Config.tags_for"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gherkinize.Config.tags_for" title="Link to this definition">¶</a></dt>
+<dd><p>Get a list of tags for a given scenario.</p>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 <section id="the-features-steps-directory">
 <h2>The <code class="docutils literal notranslate"><span class="pre">features/steps</span></code> Directory<a class="headerlink" href="#the-features-steps-directory" title="Link to this heading">¶</a></h2>

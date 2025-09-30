@@ -1,25 +1,6 @@
-################################################################################
-# Each scenario is within a feature and a section; for example:                #
-#                                                                              #
-#     feature       section          scenario                                  #
-#   ----------   ------------   ------------------                             #
-#   string_ext . ascii_casing . lowerascii_unicode                             #
-#                                                                              #
-# The value for each scenario can be a string tag (which must begin with `@`), #
-# an array of tags (each of which must begin with `@`) or a dictionary with a  #
-# `tags` key containing an array of tags (each of which... y'know).            #
-#                                                                              #
-# For example, each of the following are valid:                                #
-#                                                                              #
-#     [bindings_ext.bind]                                                      #
-#     bind_nested = "@wip"                                                     #
-#     boolean_literal = [ "@wip" ]                                             #
-#                                                                              #
-#     [bindings_ext.bind.macro_exists]                                         #
-#     tags = [ "@wip" ]                                                        #
-#                                                                              #
-# In the future, dictionaries with additional features may be supported.       #
-################################################################################
+# The value for each scenario can be a string tag, an array of tags or a
+# dictionary with a `tags` key containing an array of tags. For additional
+# documentation, see the Config class in gherkinize.py.
 
 [bindings_ext.bind]
 bind_nested = "@wip"

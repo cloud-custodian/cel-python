@@ -154,16 +154,43 @@ pool = descriptor_pool.Default()  # type: ignore [no-untyped-call]
 
 
 class Config:
+    """
+    This class reads in optional configuration for conformance tests. Each scenario
+    is within a feature and a section.
+
+    ..  csv-table::
+        :header:   , feature,    section,      scenario
+
+        **example**, string_ext, ascii_casing, lowerascii_unicode
+
+    The value for each scenario can be a string tag (which must begin with
+    ``@``), an array of tags (each of which must begin with ``@``) or a dictionary
+    with a ``tags`` key containing an array of tags (each of which... y'know).
+
+    For example, each of the following are valid:
+
+    ::
+
+      [bindings_ext.bind]
+      bind_nested = "@wip"
+      boolean_literal = [ "@wip" ]
+
+      [bindings_ext.bind.macro_exists]
+      tags = [ "@wip" ]
+
+    In the future, dictionaries with additional features may be supported.
+    """
+
     # We tolerate some variation in the structure of the configuration for each
     # scenario, but we need to canonicalize it as we load it.
-    ScenarioInput = Union[str, list[str], dict[Literal["tags"], list[str]]]
-    SectionInput = dict[str, "Config.ScenarioInput"]
-    FeatureInput = dict[str, "Config.SectionInput"]
+    _ScenarioInput = Union[str, list[str], dict[Literal["tags"], list[str]]]
+    _SectionInput = dict[str, "Config._ScenarioInput"]
+    _FeatureInput = dict[str, "Config._SectionInput"]
 
     # These are the canonical forms
-    Scenario = dict[Literal["tags"], list[str]]
-    Section = dict[str, "Config.Scenario"]
-    Feature = dict[str, "Config.Section"]
+    _Scenario = dict[Literal["tags"], list[str]]
+    _Section = dict[str, "Config._Scenario"]
+    _Feature = dict[str, "Config._Section"]
 
     def __init__(self, path: str) -> None:
         logger.debug(f"Reading from {repr(path)}...")
@@ -174,14 +201,14 @@ class Config:
             return None
 
         features = [(k, Config._load_feature(k, v)) for k, v in input.items()]
-        self.features: dict[str, "Config.Feature"] = {
+        self.features: dict[str, "Config._Feature"] = {
             k: v for k, v in features if v is not None
         }
 
     @staticmethod
     def _load_feature(
-        context: str, input: "Config.FeatureInput"
-    ) -> "Config.Feature | None":
+        context: str, input: "Config._FeatureInput"
+    ) -> "Config._Feature | None":
         if not isinstance(input, dict):
             logger.error(f"[{context}]: Skipping invalid feature: {repr(input)}")
             return None
@@ -193,8 +220,8 @@ class Config:
 
     @staticmethod
     def _load_section(
-        context: str, input: "Config.SectionInput"
-    ) -> "Config.Section | None":
+        context: str, input: "Config._SectionInput"
+    ) -> "Config._Section | None":
         if not isinstance(input, dict):
             logger.error(f"[{context}]: Skipping invalid section: {repr(input)}")
             return None
@@ -206,8 +233,8 @@ class Config:
 
     @staticmethod
     def _load_scenario(
-        context: str, input: "Config.ScenarioInput"
-    ) -> "Config.Scenario | None":
+        context: str, input: "Config._ScenarioInput"
+    ) -> "Config._Scenario | None":
         tags = None
         if isinstance(input, str):
             tag = Config._load_tag(context, input)
@@ -224,7 +251,7 @@ class Config:
         return {"tags": tags}
 
     @staticmethod
-    def _load_tag_list(context: str, input: Any) -> "list[str] | None":
+    def _load_tag_list(context: str, input: Any) -> Union[list[str], None]:
         if not isinstance(input, list):
             logger.error(
                 f"[{context}]: Skipping invalid tags (must be a list): {repr(input)}"
@@ -237,7 +264,7 @@ class Config:
         return [t for t in tags_and_nones if t is not None]
 
     @staticmethod
-    def _load_tag(context: str, input: Any) -> "str | None":
+    def _load_tag(context: str, input: Any) -> Union[str, None]:
         if not isinstance(input, str):
             logger.error(
                 f"[{context}]: Skipping invalid tag (must be a string): {repr(input)}"
@@ -253,6 +280,9 @@ class Config:
         return input
 
     def tags_for(self, feature: str, section: str, scenario: str) -> list[str]:
+        """
+        Get a list of tags for a given scenario.
+        """
         if (
             feature in self.features
             and section in self.features[feature]
