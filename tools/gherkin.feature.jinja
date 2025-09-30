@@ -1,10 +1,10 @@
 @conformance
 Feature: {{ feature.name }}
          {{ (feature.description | wordwrap(width=71,wrapstring="\n         ")) }}
+
 {% for section in feature.sections %}
 
 # {{ section.name }} -- {{ section.description }}
-
 
 {% for scenario in section.scenarios %}
 {{ scenario.tag }}Scenario: {{ section.name }}/{{ scenario.name }}

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and limitations under the License.
 
 """
-Test translation of the pb2g tool to convert textproto to Gherkin..
+Test the gherkinize.py tool to convert textproto to Gherkin.
 """
 
 from google.protobuf import any_pb2, struct_pb2
