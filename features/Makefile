@@ -17,6 +17,13 @@
 # Either have https://github.com/google/cel-spec checked out adjacent to cel-python
 # OR set CEL_SPEC_PATH to be location of the cel-spec project.
 
+HELP_TEXT := ""
+HELP_TEXT += "Available commands:\n"
+
+.PHONY: help
+help:
+	@echo $(HELP_TEXT)
+
 HERE := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 TOOLS = $(HERE)../tools
 CEL_SPEC_PATH ?= $(HERE)../../../google/cel-spec
@@ -64,17 +71,25 @@ SOURCES := $(patsubst %.feature,%.textproto,$(FEATURES))
 
 all : $(FEATURES)
 
-# Copy the textproto from the cel-spec directory to keep our reference copy.
+HELP_TEXT += "  %.textproto   copies the .textproto from the cel-spec directory\n"
 %.textproto : $(CEL_SIMPLE_TESTDATA)/%.textproto
 	cp $(CEL_SIMPLE_TESTDATA)/$@ $@
 
-# Create Gherkin from the textproto serialization.
+HELP_TEXT += "  %.feature     generates Gherkin feature from %.textproto source\n"
 %.feature : %.textproto
 	uv run $(TOOLS)/gherkinize.py -v $^ -o $@
 
+HELP_TEXT += "  clean         cleans generated feature files\n"
+.PHONY: clean-features
 clean-features:
 	rm $(FEATURES)
 
+HELP_TEXT += "  clean         cleans generated feature files and textproto sources\n"
+.PHONY: clean
 clean:
 	rm $(FEATURES)
 	rm $(SOURCES)
+
+.PHONY: conformance-feature-list
+conformance-feature-list:
+	@$(foreach file, $(FEATURES), echo $(file);)

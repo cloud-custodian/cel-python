@@ -1,3 +1,113 @@
+# SPDX-Copyright: Copyright (c) Capital One Services, LLC
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2025 The Cloud Custodian Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and limitations under the License.
+
+"""
+The ``gherkinize.py`` tool converts a ``.textproto`` test case collection into a Gherkin ``.feature`` file.
+This can be used to update the conformance tests in the ``features`` directory.
+
+Synopsis
+--------
+
+..  program:: python tools/gherkinize.py [-o output] [-sv] source
+
+..  option:: -o <output>, --output <output>
+
+    Where to write the feature file.
+    Generally, it's helpful to have the ``.textproto`` and ``.feature`` stems match.
+    The ``Makefile`` assures this.
+
+..  option:: -s, --silent
+
+    No console output is produced
+
+..  option:: -v, --verbose
+
+    Verbose debugging output on the console.
+
+..  option:: source
+
+    A source  ``.textproto`` file.
+    This is often the path to a file in a local download of https://github.com/google/cel-spec/tree/master/tests/simple/testdata.
+
+    A URL for the source is **not** supported.
+
+
+Description
+-----------
+
+Convert one ``.textproto`` file to a Gherkin ``.feature`` file.
+
+Files
+-----
+
+:source:
+    A ``.textproto`` test case file from the ``cel-spec`` repository.
+
+:output:
+    A ``.feature`` file with the same stem as the source file is written to the output directory.
+    ``basic.textproto`` will create ``basic.feature``.
+
+Examples
+--------
+
+The ``basic.textproto`` starts like this:
+
+..  code-block:: protobuf
+
+    name: "basic"
+    description: "Basic conformance tests that all implementations should pass."
+    section {
+      name: "self_eval_zeroish"
+      description: "Simple self-evaluating forms to zero-ish values."
+      test {
+        name: "self_eval_int_zero"
+        expr: "0"
+        value: { int64_value: 0 }
+      }
+      test {
+        name: "self_eval_uint_zero"
+        expr: "0u"
+        value: { uint64_value: 0 }
+      }
+
+The ``basic.feature`` file created looks like this:
+
+..  code-block:: gherkin
+
+    @conformance
+    Feature: basic
+            Basic conformance tests that all implementations should pass.
+
+
+    # self_eval_zeroish -- Simple self-evaluating forms to zero-ish values.
+
+    Scenario: self_eval_zeroish/self_eval_int_zero
+
+        When CEL expression '0' is evaluated
+        Then value is celpy.celtypes.IntType(source=0)
+
+    Scenario: self_eval_zeroish/self_eval_uint_zero
+
+        When CEL expression '0u' is evaluated
+        Then value is celpy.celtypes.UintType(source=0)
+
+The source ``.textproto`` files have a "section" heading which doesn't have a precise parallel in the Gherkin language.
+The sections become comments in the ``.feature`` file, and the section name is used to prefix each feature name.
+
+"""
+
 import argparse
 from datetime import datetime, timedelta, timezone
 from io import open
