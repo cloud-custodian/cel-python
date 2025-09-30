@@ -2,8 +2,8 @@
 Feature: comparisons
          Tests for boolean-valued functions and operators.
 
-# eq_literal -- Literals comparison on _==_
 
+# eq_literal -- Literals comparison on _==_
 
 Scenario: eq_literal/eq_int
 
@@ -471,7 +471,6 @@ Scenario: eq_literal/not_eq_dyn_double_uint
 
 # eq_wrapper -- Wrapper type comparison on _==_. Wrapper types treated as boxed primitives when they appear on message fields. An unset wrapper field should be treated as null. The tests show the distinction between unset, empty, and set equality behavior.
 
-
 @wip
 Scenario: eq_wrapper/eq_bool
 
@@ -868,7 +867,6 @@ Scenario: eq_wrapper/eq_proto3_any_unpack_bytewise_fallback_equal
 
 # ne_literal -- Literals comparison on _!=_
 
-
 Scenario: ne_literal/ne_int
 
     When CEL expression '24 != 42' is evaluated
@@ -1157,7 +1155,6 @@ Scenario: ne_literal/ne_proto3_any_unpack_bytewise_fallback
 
 # lt_literal -- Literals comparison on _<_. (a < b) == (b > a) == !(a >= b) == !(b <= a)
 
-
 Scenario: lt_literal/lt_int
 
     When CEL expression '-1 < 0' is evaluated
@@ -1432,7 +1429,6 @@ Scenario: lt_literal/not_lt_dyn_small_double_int
 
 # gt_literal -- Literals comparison on _>_
 
-
 Scenario: gt_literal/gt_int
 
     When CEL expression '42 > -42' is evaluated
@@ -1672,7 +1668,6 @@ Scenario: gt_literal/not_gt_dyn_small_double_int
 
 
 # lte_literal -- Literals comparison on _<=_
-
 
 Scenario: lte_literal/lte_int_lt
 
@@ -1938,7 +1933,6 @@ Scenario: lte_literal/lte_dyn_small_double_int
 
 
 # gte_literal -- Literals comparison on _>=_
-
 
 Scenario: gte_literal/gte_int_gt
 
@@ -2220,7 +2214,6 @@ Scenario: gte_literal/gte_dyn_small_double_int
 
 # in_list_literal -- Set membership tests using list literals and the 'in' operator
 
-
 Scenario: in_list_literal/elem_not_in_empty_list
 
     When CEL expression "'empty' in []" is evaluated
@@ -2255,7 +2248,6 @@ Scenario: in_list_literal/elem_in_mixed_type_list_cross_type
 
 # in_map_literal -- Set membership tests using map literals and the 'in' operator
 
-
 Scenario: in_map_literal/key_not_in_empty_map
 
     When CEL expression "'empty' in {}" is evaluated
@@ -2286,7 +2278,6 @@ Scenario: in_map_literal/key_in_mixed_key_type_map_cross_type
 
 
 # bound -- Comparing bound variables with literals or other variables
-
 
 Scenario: bound/bytes_gt_left_false
 

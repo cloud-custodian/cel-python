@@ -2,8 +2,8 @@
 Feature: conversions
          Tests for type conversions.
 
-# bytes -- Conversions to bytes.
 
+# bytes -- Conversions to bytes.
 
 Scenario: bytes/string_empty
 
@@ -27,7 +27,6 @@ Scenario: bytes/string_unicode_vs_literal
 
 
 # double -- Conversions to double.
-
 
 Scenario: double/int_zero
 
@@ -137,7 +136,6 @@ Scenario: double/string_exp_neg_neg
 
 # dyn -- Tests for dyn annotation.
 
-
 Scenario: dyn/dyn_heterogeneous_list
           No need to disable type checking.
 
@@ -146,7 +144,6 @@ Scenario: dyn/dyn_heterogeneous_list
 
 
 # int -- Conversions to int.
-
 
 Scenario: int/uint
 
@@ -242,7 +239,6 @@ Scenario: int/timestamp
 
 # string -- Conversions to string.
 
-
 Scenario: string/int
 
     When CEL expression 'string(123)' is evaluated
@@ -285,7 +281,6 @@ Scenario: string/bytes_invalid
 
 
 # type -- Type reflection tests.
-
 
 Scenario: type/bool
 
@@ -436,7 +431,6 @@ Scenario: type/type_type
 
 # uint -- Conversions to uint.
 
-
 Scenario: uint/int
 
     When CEL expression 'uint(1729)' is evaluated
@@ -499,7 +493,6 @@ Scenario: uint/string
 
 
 # bool -- Conversions to bool
-
 
 Scenario: bool/string_1
 
@@ -571,7 +564,6 @@ Scenario: bool/string_false_badcase
 
 
 # identity -- Identity functions
-
 
 Scenario: identity/bool
 

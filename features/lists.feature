@@ -2,8 +2,8 @@
 Feature: lists
          Tests for list operations.
 
-# concatenation -- Tests for list concatenation.
 
+# concatenation -- Tests for list concatenation.
 
 Scenario: concatenation/list_append
 
@@ -37,7 +37,6 @@ Scenario: concatenation/right_unit
 
 
 # index -- List indexing tests.
-
 
 Scenario: index/zero_based
 
@@ -128,7 +127,6 @@ Scenario: index/bad_index_type_and_true
 
 # in -- List membership tests.
 
-
 Scenario: in/empty
 
     When CEL expression '7 in []' is evaluated
@@ -197,7 +195,6 @@ Scenario: in/missing
 
 
 # size -- List and map size tests.
-
 
 Scenario: size/list_empty
 

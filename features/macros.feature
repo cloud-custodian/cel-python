@@ -2,8 +2,8 @@
 Feature: macros
          Tests for CEL macros.
 
-# exists -- Tests for the .exists() macro, which is equivalent to joining the evaluated elements with logical-OR.
 
+# exists -- Tests for the .exists() macro, which is equivalent to joining the evaluated elements with logical-OR.
 
 Scenario: exists/list_elem_all_true
 
@@ -71,7 +71,6 @@ Scenario: exists/map_key_type_exhaustive
 
 # all -- Tests for the .all() macro, which is equivalent to joining the evaluated elements with logical-AND.
 
-
 Scenario: all/list_elem_all_true
 
     When CEL expression '[1, 2, 3].all(e, e > 0)' is evaluated
@@ -119,7 +118,6 @@ Scenario: all/map_key
 
 
 # exists_one -- Tests for exists_one() macro. An expression 'L.exists_one(I, E)' is equivalent to 'size(L.filter(I, E)) == 1'.
-
 
 Scenario: exists_one/list_empty
 
@@ -170,7 +168,6 @@ Scenario: exists_one/map_one
 
 # map -- Tests for map() macro.
 
-
 Scenario: map/list_empty
 
     When CEL expression '[].map(n, n / 2)' is evaluated
@@ -198,7 +195,6 @@ Scenario: map/map_extract_keys
 
 
 # filter -- Tests for filter() macro.
-
 
 Scenario: filter/list_empty
 
@@ -242,7 +238,6 @@ Scenario: filter/map_filter_keys
 
 
 # nested -- Tests with nested macros.
-
 
 Scenario: nested/filter_all
 

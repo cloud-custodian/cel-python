@@ -2,8 +2,8 @@
 Feature: bindings_ext
          Tests for the bindings extension library.
 
-# bind -- 
 
+# bind -- 
 
 @wip
 Scenario: bind/boolean_literal

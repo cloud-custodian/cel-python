@@ -2,8 +2,8 @@
 Feature: fp_math
          Tests for floating-point math.
 
-# fp_math -- Simple tests for floating point.
 
+# fp_math -- Simple tests for floating point.
 
 Scenario: fp_math/add_positive_positive
 

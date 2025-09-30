@@ -2,8 +2,8 @@
 Feature: timestamps
          Timestamp and duration tests.
 
-# timestamp_conversions -- Conversions of timestamps to other types.
 
+# timestamp_conversions -- Conversions of timestamps to other types.
 
 Scenario: timestamp_conversions/toInt_timestamp
 
@@ -35,7 +35,6 @@ Scenario: timestamp_conversions/type_comparison
 
 # duration_conversions -- Conversions of durations to other types.
 
-
 Scenario: duration_conversions/toString_duration
 
     When CEL expression "string(duration('1000000s'))" is evaluated
@@ -54,7 +53,6 @@ Scenario: duration_conversions/type_comparison
 
 
 # timestamp_selectors -- Timestamp selection operators without timezones
-
 
 Scenario: timestamp_selectors/getDate
 
@@ -108,7 +106,6 @@ Scenario: timestamp_selectors/getSeconds
 
 
 # timestamp_selectors_tz -- Timestamp selection operators with timezones
-
 
 Scenario: timestamp_selectors_tz/getDate
 
@@ -173,7 +170,6 @@ Scenario: timestamp_selectors_tz/getSeconds
 
 # timestamp_equality -- Equality operations on timestamps.
 
-
 Scenario: timestamp_equality/eq_same
 
     When CEL expression "timestamp('2009-02-13T23:31:30Z') == timestamp('2009-02-13T23:31:30Z')" is evaluated
@@ -197,7 +193,6 @@ Scenario: timestamp_equality/neq_diff
 
 # duration_equality -- Equality tests for durations.
 
-
 Scenario: duration_equality/eq_same
 
     When CEL expression "duration('123s') == duration('123s')" is evaluated
@@ -220,7 +215,6 @@ Scenario: duration_equality/neq_diff
 
 
 # timestamp_arithmetic -- Arithmetic operations on timestamps and/or durations.
-
 
 Scenario: timestamp_arithmetic/add_duration_to_time
 
@@ -264,7 +258,6 @@ Scenario: timestamp_arithmetic/subtract_duration_from_duration
 
 
 # comparisons -- Comparisons on timestamps and/or durations.
-
 
 Scenario: comparisons/leq_timestamp_true
 
@@ -329,7 +322,6 @@ Scenario: comparisons/greater_duration_true
 
 # duration_converters -- Conversion functions on durations. Unlike timestamps, we don't, e.g. select the 'minutes' field - we convert the duration to integer minutes.
 
-
 Scenario: duration_converters/get_hours
 
     When CEL expression "duration('10000s').getHours()" is evaluated
@@ -358,7 +350,6 @@ Scenario: duration_converters/get_seconds
 
 
 # timestamp_range -- Tests for out-of-range operations on timestamps.
-
 
 Scenario: timestamp_range/from_string_under
 
@@ -406,7 +397,6 @@ Scenario: timestamp_range/sub_time_duration_under
 
 
 # duration_range -- Tests for out-of-range operations on durations.
-
 
 Scenario: duration_range/from_string_under
 

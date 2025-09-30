@@ -2,8 +2,8 @@
 Feature: fields
          Tests for field access in maps.
 
-# map_fields -- select an element in a map
 
+# map_fields -- select an element in a map
 
 Scenario: map_fields/map_key_int64
 
@@ -198,7 +198,6 @@ Scenario: map_fields/map_value_mix_type
 
 # map_has -- Has macro for map entries.
 
-
 Scenario: map_has/has
 
     When CEL expression "has({'a': 1, 'b': 2}.a)" is evaluated
@@ -216,7 +215,6 @@ Scenario: map_has/has_empty
 
 
 # quoted_map_fields -- Field accesses using the quote syntax
-
 
 @wip
 Scenario: quoted_map_fields/field_access_slash
@@ -257,7 +255,6 @@ Scenario: quoted_map_fields/has_field_dot
 
 # qualified_identifier_resolution -- Tests for qualified identifier resolution.
 
-
 Scenario: qualified_identifier_resolution/qualified_ident
 
     Given type_env parameter "a.b.c" is celpy.celtypes.StringType
@@ -279,8 +276,8 @@ Scenario: qualified_identifier_resolution/qualified_identifier_resolution_unchec
     Given disable_check parameter is True
     and type_env parameter "a.b.c" is celpy.celtypes.StringType
     and type_env parameter "a.b" is celpy.celtypes.MapType
-    and bindings parameter "a.b" is celpy.celtypes.MapType({'c': celpy.celtypes.StringType(source='oops')})
     and bindings parameter "a.b.c" is celpy.celtypes.StringType(source='yeah')
+    and bindings parameter "a.b" is celpy.celtypes.MapType({'c': celpy.celtypes.StringType(source='oops')})
     When CEL expression 'a.b.c' is evaluated
     Then value is celpy.celtypes.StringType(source='yeah')
 
@@ -306,8 +303,8 @@ Scenario: qualified_identifier_resolution/ident_with_longest_prefix_check
 
     Given type_env parameter "a.b.c" is celpy.celtypes.StringType
     and type_env parameter "a.b" is celpy.celtypes.MapType
-    and bindings parameter "a.b" is celpy.celtypes.MapType({'c': celpy.celtypes.StringType(source='oops')})
     and bindings parameter "a.b.c" is celpy.celtypes.StringType(source='yeah')
+    and bindings parameter "a.b" is celpy.celtypes.MapType({'c': celpy.celtypes.StringType(source='oops')})
     When CEL expression 'a.b.c' is evaluated
     Then value is celpy.celtypes.StringType(source='yeah')
 
@@ -339,7 +336,6 @@ Scenario: qualified_identifier_resolution/map_value_repeat_key_heterogeneous
 
 
 # in -- Tests for 'in' operator for maps.
-
 
 Scenario: in/empty
 

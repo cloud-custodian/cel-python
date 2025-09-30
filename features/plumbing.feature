@@ -3,8 +3,8 @@ Feature: plumbing
          Check that the ConformanceService server can accept all arguments and
          return all responses.
 
-# min -- Minimal programs.
 
+# min -- Minimal programs.
 
 Scenario: min/min_program
           Smallest functionality: expr in, result out.
@@ -14,7 +14,6 @@ Scenario: min/min_program
 
 
 # eval_results -- All evaluation result kinds.
-
 
 Scenario: eval_results/error_result
           Check that error results go through.
@@ -31,7 +30,6 @@ Scenario: eval_results/eval_map_results
 
 # check_inputs -- All inputs to Check phase.
 
-
 Scenario: check_inputs/skip_check
           Make sure we can skip type checking.
 
@@ -41,7 +39,6 @@ Scenario: check_inputs/skip_check
 
 
 # eval_inputs -- All inputs to Eval phase.
-
 
 Scenario: eval_inputs/one_ignored_value_arg
           Check that value bindings can be given, even if ignored.

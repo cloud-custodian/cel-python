@@ -2,8 +2,8 @@
 Feature: macros2
          Tests for CEL comprehensions v2
 
-# exists -- Tests for the .exists() macro, which is equivalent to joining the evaluated elements with logical-OR.
 
+# exists -- Tests for the .exists() macro, which is equivalent to joining the evaluated elements with logical-OR.
 
 @wip
 Scenario: exists/list_elem_all_true
@@ -74,7 +74,6 @@ Scenario: exists/map_key_type_exhaustive
 
 # all -- Tests for the .all() macro, which is equivalent to joining the evaluated elements with logical-AND.
 
-
 @wip
 Scenario: all/list_elem_all_true
 
@@ -138,7 +137,6 @@ Scenario: all/map_key
 
 # existsOne -- Tests for existsOne() macro. An expression 'L.existsOne(I, E)' is equivalent to 'size(L.filter(I, E)) == 1'.
 
-
 @wip
 Scenario: existsOne/list_empty
 
@@ -195,7 +193,6 @@ Scenario: existsOne/map_one
 
 # transformList -- Tests for transformList() macro.
 
-
 @wip
 Scenario: transformList/empty
 
@@ -244,7 +241,6 @@ Scenario: transformList/error_filter
 
 
 # transformMap -- Tests for transformMap() macro.
-
 
 @wip
 Scenario: transformMap/empty

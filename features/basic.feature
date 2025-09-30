@@ -2,8 +2,8 @@
 Feature: basic
          Basic conformance tests that all implementations should pass.
 
-# self_eval_zeroish -- Simple self-evaluating forms to zero-ish values.
 
+# self_eval_zeroish -- Simple self-evaluating forms to zero-ish values.
 
 Scenario: self_eval_zeroish/self_eval_int_zero
 
@@ -82,7 +82,6 @@ Scenario: self_eval_zeroish/self_eval_string_raw_prefix_triple_single
 
 
 # self_eval_nonzeroish -- Simple self-evaluating forms to non-zero-ish values.
-
 
 Scenario: self_eval_nonzeroish/self_eval_int_nonzero
 
@@ -182,7 +181,6 @@ Scenario: self_eval_nonzeroish/self_eval_ascii_escape_seq
 
 # variables -- Variable lookups.
 
-
 Scenario: variables/self_eval_bound_lookup
 
     Given type_env parameter "x" is celpy.celtypes.IntType
@@ -208,7 +206,6 @@ Scenario: variables/unbound_is_runtime_error
 
 # functions -- Basic mechanisms for function calls.
 
-
 Scenario: functions/binop
 
     When CEL expression '1 + 1' is evaluated
@@ -228,7 +225,6 @@ Scenario: functions/unbound_is_runtime_error
 
 
 # reserved_const -- Named constants should never be shadowed by identifiers.
-
 
 Scenario: reserved_const/false
 

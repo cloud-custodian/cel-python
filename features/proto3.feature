@@ -3,8 +3,8 @@ Feature: proto3
          Protocol buffer version 3 tests.  See notes for the available set of
          protos for tests.
 
-# literal_singular -- Literals with singular fields set.
 
+# literal_singular -- Literals with singular fields set.
 
 @wip
 Scenario: literal_singular/int64_nocontainer
@@ -106,7 +106,6 @@ Scenario: literal_singular/bytes
 
 # literal_wellknown -- Literals with well-known fields set.
 
-
 Scenario: literal_wellknown/any
 
     Given container is 'cel.expr.conformance.proto3'
@@ -130,7 +129,7 @@ Scenario: literal_wellknown/struct
 
     Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_struct: {'one': 1, 'two': 2}}" is evaluated
-    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'two': celpy.celtypes.DoubleType(source=2.0), 'one': celpy.celtypes.DoubleType(source=1.0)}))
+    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'one': celpy.celtypes.DoubleType(source=1.0), 'two': celpy.celtypes.DoubleType(source=2.0)}))
 
 Scenario: literal_wellknown/value
 
@@ -195,7 +194,6 @@ Scenario: literal_wellknown/bytes_wrapper
 
 # singular_bind -- Binding the singular fields.
 
-
 Scenario: singular_bind/int32
 
     Given type_env parameter "x" is celpy.celtypes.MessageType
@@ -212,7 +210,6 @@ Scenario: singular_bind/int64
 
 
 # empty_field -- Tests on empty fields.
-
 
 @wip
 Scenario: empty_field/scalar
@@ -270,7 +267,6 @@ Scenario: empty_field/map
 
 
 # has -- Tests for the has() macro on proto3 messages.
-
 
 @wip
 Scenario: has/undefined
@@ -430,7 +426,6 @@ Scenario: has/oneof_set_default
 
 # set_null -- 
 
-
 Scenario: set_null/single_message
 
     Given container is 'cel.expr.conformance.proto3'
@@ -503,7 +498,6 @@ Scenario: set_null/single_struct
 
 
 # quoted_fields -- 
-
 
 @wip
 Scenario: quoted_fields/set_field

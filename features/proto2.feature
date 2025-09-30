@@ -3,8 +3,8 @@ Feature: proto2
          Protocol buffer version 2 tests.  See notes for the available set of
          protos for tests.
 
-# literal_singular -- Literals with singular fields set.
 
+# literal_singular -- Literals with singular fields set.
 
 @wip
 Scenario: literal_singular/int64_nocontainer
@@ -190,7 +190,6 @@ Scenario: literal_singular/bytes
 
 # literal_wellknown -- Literals with well-known fields set.
 
-
 Scenario: literal_wellknown/any
 
     Given container is 'cel.expr.conformance.proto2'
@@ -279,7 +278,6 @@ Scenario: literal_wellknown/bytes_wrapper
 
 # singular_bind -- Binding the singular fields.
 
-
 Scenario: singular_bind/int32
 
     Given type_env parameter "x" is celpy.celtypes.MessageType
@@ -296,7 +294,6 @@ Scenario: singular_bind/int64
 
 
 # empty_field -- Tests on empty fields.
-
 
 @wip
 Scenario: empty_field/scalar_with_default
@@ -361,7 +358,6 @@ Scenario: empty_field/map
 
 
 # has -- Tests for the has() macro on proto2 messages.
-
 
 @wip
 Scenario: has/undefined
@@ -534,7 +530,6 @@ Scenario: has/oneof_set_default
 
 # set_null -- 
 
-
 Scenario: set_null/single_message
 
     Given container is 'cel.expr.conformance.proto2'
@@ -608,7 +603,6 @@ Scenario: set_null/single_struct
 
 # quoted_fields -- 
 
-
 @wip
 Scenario: quoted_fields/set_field_with_quoted_name
 
@@ -625,7 +619,6 @@ Scenario: quoted_fields/get_field_with_quoted_name
 
 
 # extensions_has -- Tests for presence checks on proto2 extension fields.
-
 
 @wip
 Scenario: extensions_has/package_scoped_int32
@@ -701,7 +694,6 @@ Scenario: extensions_has/message_scoped_repeated_test_all_types
 
 
 # extensions_get -- Tests for accessing proto2 extension fields.
-
 
 @wip
 Scenario: extensions_get/package_scoped_int32

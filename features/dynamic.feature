@@ -3,8 +3,8 @@ Feature: dynamic
          Tests for 'dynamic' proto behavior, including JSON, wrapper, and Any
          messages.
 
-# int32 -- Tests for int32 conversion.
 
+# int32 -- Tests for int32 conversion.
 
 @wip
 Scenario: int32/literal
@@ -134,7 +134,6 @@ Scenario: int32/field_read_proto3_unset
 
 # int64 -- Tests for int64 conversion.
 
-
 @wip
 Scenario: int64/literal
 
@@ -186,7 +185,6 @@ Scenario: int64/field_assign_proto3_zero
 
 
 # uint32 -- Tests for uint32 conversion.
-
 
 @wip
 Scenario: uint32/literal
@@ -285,7 +283,6 @@ Scenario: uint32/field_read_proto2_unset
 
 # uint64 -- Tests for uint64 conversion.
 
-
 @wip
 Scenario: uint64/literal
 
@@ -356,7 +353,6 @@ Scenario: uint64/field_read_proto2_unset
 
 
 # float -- Tests for float conversion.
-
 
 @wip
 Scenario: float/literal
@@ -503,7 +499,6 @@ Scenario: float/field_read_proto3_unset
 
 # double -- Tests for double conversion.
 
-
 @wip
 Scenario: double/literal
 
@@ -606,7 +601,6 @@ Scenario: double/field_read_proto3_unset
 
 # bool -- Tests for bool conversion.
 
-
 @wip
 Scenario: bool/literal
 
@@ -658,7 +652,6 @@ Scenario: bool/field_assign_proto3_false
 
 
 # string -- Tests for string conversion.
-
 
 @wip
 Scenario: string/literal
@@ -718,7 +711,6 @@ Scenario: string/field_assign_proto3_empty
 
 # bytes -- Tests for bytes conversion.
 
-
 @wip
 Scenario: bytes/literal
 
@@ -775,7 +767,6 @@ Scenario: bytes/field_assign_proto3_empty
 
 
 # list -- Tests for list conversion.
-
 
 @wip
 Scenario: list/literal
@@ -867,7 +858,6 @@ Scenario: list/field_read_proto3_unset
 
 # struct -- Tests for struct conversion.
 
-
 @wip
 Scenario: struct/literal
 
@@ -890,7 +880,7 @@ Scenario: struct/literal_empty
 Scenario: struct/var
 
     Given type_env parameter "x" is celpy.celtypes.MapType
-    and bindings parameter "x" is celpy.celtypes.MapType({'first': celpy.celtypes.StringType(source='Abraham'), 'last': celpy.celtypes.StringType(source='Lincoln')})
+    and bindings parameter "x" is celpy.celtypes.MapType({'last': celpy.celtypes.StringType(source='Lincoln'), 'first': celpy.celtypes.StringType(source='Abraham')})
     When CEL expression 'x' is evaluated
     Then value is celpy.celtypes.MapType({'first': celpy.celtypes.StringType(source='Abraham'), 'last': celpy.celtypes.StringType(source='Lincoln')})
 
@@ -898,7 +888,7 @@ Scenario: struct/field_assign_proto2
 
     Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_struct: {'un': 1.0, 'deux': 2.0}}" is evaluated
-    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'un': celpy.celtypes.DoubleType(source=1.0), 'deux': celpy.celtypes.DoubleType(source=2.0)}))
+    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'deux': celpy.celtypes.DoubleType(source=2.0), 'un': celpy.celtypes.DoubleType(source=1.0)}))
 
 Scenario: struct/field_assign_proto2_empty
 
@@ -937,7 +927,7 @@ Scenario: struct/field_assign_proto3
 
     Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_struct: {'un': 1.0, 'deux': 2.0}}" is evaluated
-    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'un': celpy.celtypes.DoubleType(source=1.0), 'deux': celpy.celtypes.DoubleType(source=2.0)}))
+    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'deux': celpy.celtypes.DoubleType(source=2.0), 'un': celpy.celtypes.DoubleType(source=1.0)}))
 
 Scenario: struct/field_assign_proto3_empty
 
@@ -974,7 +964,6 @@ Scenario: struct/field_read_proto3_unset
 
 
 # value_null -- Tests for null conversions.
-
 
 @wip
 Scenario: value_null/literal
@@ -1043,7 +1032,6 @@ Scenario: value_null/field_read_proto3_unset
 
 
 # value_number -- Tests for number conversions in Value.
-
 
 @wip
 Scenario: value_number/literal
@@ -1121,7 +1109,6 @@ Scenario: value_number/field_read_proto3_zero
 
 # value_string -- Tests for string conversions in Value.
 
-
 @wip
 Scenario: value_string/literal
 
@@ -1197,7 +1184,6 @@ Scenario: value_string/field_read_proto3_zero
 
 
 # value_bool -- Tests for boolean conversions in Value.
-
 
 @wip
 Scenario: value_bool/literal
@@ -1275,7 +1261,6 @@ Scenario: value_bool/field_read_proto3_false
 
 # value_struct -- Tests for struct conversions in Value.
 
-
 @wip
 Scenario: value_struct/literal
 
@@ -1305,7 +1290,7 @@ Scenario: value_struct/field_assign_proto2
 
     Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_value: {'un': 1.0, 'deux': 2.0}}" is evaluated
-    Then value is TestAllTypes(single_value=celpy.celtypes.MapType({'un': celpy.celtypes.DoubleType(source=1.0), 'deux': celpy.celtypes.DoubleType(source=2.0)}))
+    Then value is TestAllTypes(single_value=celpy.celtypes.MapType({'deux': celpy.celtypes.DoubleType(source=2.0), 'un': celpy.celtypes.DoubleType(source=1.0)}))
 
 Scenario: value_struct/field_assign_proto2_empty
 
@@ -1329,7 +1314,7 @@ Scenario: value_struct/field_assign_proto3
 
     Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_value: {'un': 1.0, 'deux': 2.0}}" is evaluated
-    Then value is TestAllTypes(single_value=celpy.celtypes.MapType({'un': celpy.celtypes.DoubleType(source=1.0), 'deux': celpy.celtypes.DoubleType(source=2.0)}))
+    Then value is TestAllTypes(single_value=celpy.celtypes.MapType({'deux': celpy.celtypes.DoubleType(source=2.0), 'un': celpy.celtypes.DoubleType(source=1.0)}))
 
 Scenario: value_struct/field_assign_proto3_empty
 
@@ -1351,7 +1336,6 @@ Scenario: value_struct/field_read_proto3_empty
 
 
 # value_list -- Tests for list conversions in Value.
-
 
 @wip
 Scenario: value_list/literal
@@ -1429,7 +1413,6 @@ Scenario: value_list/field_read_proto3_empty
 
 # any -- Tests for Any conversion.
 
-
 @wip
 Scenario: any/literal
 
@@ -1480,7 +1463,6 @@ Scenario: any/field_read_proto3
 
 
 # complex -- Tests combining various dynamic conversions.
-
 
 Scenario: complex/any_list_map
 

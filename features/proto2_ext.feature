@@ -2,8 +2,8 @@
 Feature: proto2_ext
          Tests for the proto extension library.
 
-# has_ext -- 
 
+# has_ext -- 
 
 @wip
 Scenario: has_ext/package_scoped_int32
@@ -79,7 +79,6 @@ Scenario: has_ext/message_scoped_repeated_test_all_types
 
 
 # get_ext -- 
-
 
 @wip
 Scenario: get_ext/package_scoped_int32

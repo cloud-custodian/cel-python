@@ -2,8 +2,8 @@
 Feature: encoders_ext
          Tests for the encoders extension library.
 
-# encode -- 
 
+# encode -- 
 
 @wip
 Scenario: encode/hello
@@ -13,7 +13,6 @@ Scenario: encode/hello
 
 
 # decode -- 
-
 
 @wip
 Scenario: decode/hello
@@ -29,7 +28,6 @@ Scenario: decode/hello_without_padding
 
 
 # round_trip -- 
-
 
 @wip
 Scenario: round_trip/hello

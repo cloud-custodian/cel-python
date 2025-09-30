@@ -2,8 +2,8 @@
 Feature: parse
          End-to-end parsing tests.
 
-# nest -- Deep parse trees which all implementations must support.
 
+# nest -- Deep parse trees which all implementations must support.
 
 Scenario: nest/list_index
           Member = Member '[' Expr ']'. Nested indices are supported up to 12
@@ -51,7 +51,6 @@ Scenario: nest/parens
 
 
 # repeat -- Repetitive parse trees which all implementations must support.
-
 
 Scenario: repeat/conditional
           Expr = ConditionalOr ['?' ConditionalOr ':' Expr]. Chained ternary
@@ -138,7 +137,6 @@ Scenario: repeat/message_literal
 
 # whitespace -- Check that whitespace is ignored by the grammar.
 
-
 @wip
 Scenario: whitespace/spaces
           Check that spaces are ignored.
@@ -176,7 +174,6 @@ Scenario: whitespace/carriage_returns
 
 
 # comments -- Check that comments are ignored by the grammar. Note that carriage returns alone cannot terminate comments.
-
 
 @wip
 Scenario: comments/new_line_terminated

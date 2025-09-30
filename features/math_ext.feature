@@ -2,8 +2,8 @@
 Feature: math_ext
          Tests for the math extension library.
 
-# greatest_int_result -- 
 
+# greatest_int_result -- 
 
 @wip
 Scenario: greatest_int_result/unary_negative
@@ -140,7 +140,6 @@ Scenario: greatest_int_result/quaternary_mixed_dyn_array
 
 # greatest_double_result -- 
 
-
 @wip
 Scenario: greatest_double_result/unary_negative
 
@@ -276,7 +275,6 @@ Scenario: greatest_double_result/quaternary_mixed_dyn_array
 
 # greatest_uint_result -- 
 
-
 @wip
 Scenario: greatest_uint_result/unary
 
@@ -381,7 +379,6 @@ Scenario: greatest_uint_result/quaternary_mixed_dyn_array
 
 
 # least_int_result -- 
-
 
 @wip
 Scenario: least_int_result/unary_negative
@@ -518,7 +515,6 @@ Scenario: least_int_result/quaternary_mixed_dyn_array
 
 # least_double_result -- 
 
-
 @wip
 Scenario: least_double_result/unary_negative
 
@@ -654,7 +650,6 @@ Scenario: least_double_result/quaternary_mixed_dyn_array
 
 # least_uint_result -- 
 
-
 @wip
 Scenario: least_uint_result/unary
 
@@ -760,7 +755,6 @@ Scenario: least_uint_result/quaternary_mixed_dyn_array
 
 # ceil -- 
 
-
 @wip
 Scenario: ceil/negative
 
@@ -781,7 +775,6 @@ Scenario: ceil/dyn_error
 
 # floor -- 
 
-
 @wip
 Scenario: floor/negative
 
@@ -801,7 +794,6 @@ Scenario: floor/dyn_error
 
 
 # round -- 
-
 
 @wip
 Scenario: round/negative_down
@@ -847,7 +839,6 @@ Scenario: round/dyn_error
 
 # trunc -- 
 
-
 @wip
 Scenario: trunc/negative
 
@@ -873,7 +864,6 @@ Scenario: trunc/dyn_error
 
 
 # abs -- 
-
 
 @wip
 Scenario: abs/uint
@@ -912,7 +902,6 @@ Scenario: abs/int_overflow
 
 
 # sign -- 
-
 
 @wip
 Scenario: sign/positive_uint
@@ -970,7 +959,6 @@ Scenario: sign/dyn_error
 
 # isNaN -- 
 
-
 @wip
 Scenario: isNaN/true
 
@@ -991,7 +979,6 @@ Scenario: isNaN/dyn_error
 
 # isInf -- 
 
-
 @wip
 Scenario: isInf/true
 
@@ -1011,7 +998,6 @@ Scenario: isInf/dyn_error
 
 
 # isFinite -- 
-
 
 @wip
 Scenario: isFinite/true
@@ -1038,7 +1024,6 @@ Scenario: isFinite/dyn_error
 
 
 # bit_and -- 
-
 
 @wip
 Scenario: bit_and/int_int_non_intersect
@@ -1078,7 +1063,6 @@ Scenario: bit_and/int_dyn_error
 
 # bit_or -- 
 
-
 @wip
 Scenario: bit_or/int_int_positive
 
@@ -1105,7 +1089,6 @@ Scenario: bit_or/dyn_int_error
 
 # bit_xor -- 
 
-
 @wip
 Scenario: bit_xor/int_int_positive
 
@@ -1131,7 +1114,6 @@ Scenario: bit_xor/dyn_dyn_error
 
 
 # bit_not -- 
-
 
 @wip
 Scenario: bit_not/int_positive
@@ -1170,7 +1152,6 @@ Scenario: bit_not/dyn_error
 
 
 # bit_shift_left -- 
-
 
 @wip
 Scenario: bit_shift_left/int
@@ -1214,7 +1195,6 @@ Scenario: bit_shift_left/dyn_int_error
 
 
 # bit_shift_right -- 
-
 
 @wip
 Scenario: bit_shift_right/int

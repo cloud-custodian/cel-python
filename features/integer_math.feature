@@ -2,8 +2,8 @@
 Feature: integer_math
          Tests for int and uint math.
 
-# int64_math -- Simple tests for int64.
 
+# int64_math -- Simple tests for int64.
 
 Scenario: int64_math/add_positive_positive
 
@@ -251,7 +251,6 @@ Scenario: int64_math/uint64_overflow_mul_positive
 
 
 # uint64_math -- Simple tests for uint64.
-
 
 Scenario: uint64_math/add
 

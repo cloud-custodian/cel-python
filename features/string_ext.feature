@@ -2,8 +2,8 @@
 Feature: string_ext
          Tests for the strings extension library.
 
-# char_at -- 
 
+# char_at -- 
 
 @wip
 Scenario: char_at/middle_index
@@ -25,7 +25,6 @@ Scenario: char_at/multiple
 
 
 # index_of -- 
-
 
 @wip
 Scenario: index_of/empty_index
@@ -114,7 +113,6 @@ Scenario: index_of/string_nomatch_index
 
 # last_index_of -- 
 
-
 @wip
 Scenario: last_index_of/empty
 
@@ -196,7 +194,6 @@ Scenario: last_index_of/repeated_string
 
 # ascii_casing -- 
 
-
 @wip
 Scenario: ascii_casing/lowerascii
 
@@ -236,7 +233,6 @@ Scenario: ascii_casing/upperascii_unicode_with_space
 
 # replace -- 
 
-
 @wip
 Scenario: replace/no_placeholder
 
@@ -264,7 +260,6 @@ Scenario: replace/unicode
 
 # split -- 
 
-
 @wip
 Scenario: split/empty
 
@@ -291,7 +286,6 @@ Scenario: split/unicode_negative_limit
 
 
 # substring -- 
-
 
 @wip
 Scenario: substring/start
@@ -332,7 +326,6 @@ Scenario: substring/unicode_start_and_end_equal_value
 
 # trim -- 
 
-
 @wip
 Scenario: trim/blank_spaces_escaped_chars
 
@@ -366,7 +359,6 @@ Scenario: trim/unicode_no_trim
 
 # join -- 
 
-
 @wip
 Scenario: join/empty_separator
 
@@ -393,7 +385,6 @@ Scenario: join/empty_string_dash_separator
 
 
 # quote -- 
-
 
 @wip
 Scenario: quote/multiline
@@ -523,7 +514,6 @@ Scenario: quote/empty_quote
 
 
 # format -- 
-
 
 @wip
 Scenario: format/no-op
@@ -932,7 +922,6 @@ Scenario: format/default precision for fixed-point clause in a string variable
 
 # format_errors -- 
 
-
 Scenario: format_errors/unrecognized formatting clause
 
     Given disable_check parameter is True
@@ -1038,7 +1027,6 @@ Scenario: format_errors/null not allowed for %o
 
 # value_errors -- 
 
-
 @wip
 Scenario: value_errors/charat_out_of_range
 
@@ -1092,7 +1080,6 @@ Scenario: value_errors/substring_end_index_greater_than_begin_index
 
 
 # type_errors -- 
-
 
 Scenario: type_errors/charat_invalid_type
 

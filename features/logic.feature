@@ -2,8 +2,8 @@
 Feature: logic
          Tests for logical special operators.
 
-# conditional -- Tests for the conditional operator.
 
+# conditional -- Tests for the conditional operator.
 
 Scenario: conditional/true_case
 
@@ -34,7 +34,6 @@ Scenario: conditional/bad_type
 
 
 # AND -- Tests for logical AND.
-
 
 Scenario: AND/all_true
 
@@ -97,7 +96,6 @@ Scenario: AND/no_overload
 
 # OR -- Tests for logical OR
 
-
 Scenario: OR/all_true
 
     When CEL expression 'true || true' is evaluated
@@ -158,7 +156,6 @@ Scenario: OR/no_overload
 
 
 # NOT -- Tests for logical NOT.
-
 
 Scenario: NOT/not_true
 

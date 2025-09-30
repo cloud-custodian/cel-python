@@ -2,8 +2,8 @@
 Feature: enums
          Tests for enum types.
 
-# legacy_proto2 -- Legacy semantics where all enums are ints, proto2.
 
+# legacy_proto2 -- Legacy semantics where all enums are ints, proto2.
 
 @wip
 Scenario: legacy_proto2/literal_global
@@ -125,7 +125,6 @@ Scenario: legacy_proto2/enum_as_int
 
 
 # legacy_proto3 -- Legacy semantics where all enums are ints, proto3
-
 
 @wip
 Scenario: legacy_proto3/literal_global
@@ -284,7 +283,6 @@ Scenario: legacy_proto3/enum_as_int
 
 # strong_proto2 -- String semantics where enums are distinct types, proto2.
 
-
 @wip
 Scenario: strong_proto2/comparison_true
 
@@ -340,7 +338,6 @@ Scenario: strong_proto2/convert_string_bad
 
 
 # strong_proto3 -- String semantics where enums are distinct types, proto3.
-
 
 @wip
 Scenario: strong_proto3/comparison_true

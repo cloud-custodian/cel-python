@@ -2,8 +2,8 @@
 Feature: string
          Tests for string and bytes operations.
 
-# size -- Tests for the size() function.
 
+# size -- Tests for the size() function.
 
 Scenario: size/empty
 
@@ -43,7 +43,6 @@ Scenario: size/bytes
 
 # starts_with -- Tests for the startsWith() function.
 
-
 Scenario: starts_with/basic_true
 
     When CEL expression "'foobar'.startsWith('foo')" is evaluated
@@ -82,7 +81,6 @@ Scenario: starts_with/unicode_smp
 
 # ends_with -- Tests for the endsWith() function.
 
-
 Scenario: ends_with/basic_true
 
     When CEL expression "'foobar'.endsWith('bar')" is evaluated
@@ -120,7 +118,6 @@ Scenario: ends_with/unicode_smp
 
 
 # matches -- Tests for regexp matching.  For now, we will only test the subset of regular languages.
-
 
 Scenario: matches/basic
 
@@ -170,7 +167,6 @@ Scenario: matches/unicode_smp
 
 # concatenation -- Tests for string concatenation.
 
-
 Scenario: concatenation/concat_true
 
     When CEL expression "'he' + 'llo'" is evaluated
@@ -219,7 +215,6 @@ Scenario: concatenation/empty_unicode
 
 # contains -- Tests for contains.
 
-
 Scenario: contains/contains_true
 
     When CEL expression "'hello'.contains('he')" is evaluated
@@ -262,7 +257,6 @@ Scenario: contains/empty_empty
 
 
 # bytes_concat -- Tests for bytes concatenation.
-
 
 Scenario: bytes_concat/concat
 
