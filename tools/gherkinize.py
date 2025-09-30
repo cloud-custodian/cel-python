@@ -224,7 +224,7 @@ class Config:
         return {"tags": tags}
 
     @staticmethod
-    def _load_tag_list(context: str, input: Any) -> list[str] | None:
+    def _load_tag_list(context: str, input: Any) -> "list[str] | None":
         if not isinstance(input, list):
             logger.error(
                 f"[{context}]: Skipping invalid tags (must be a list): {repr(input)}"
@@ -237,7 +237,7 @@ class Config:
         return [t for t in tags_and_nones if t is not None]
 
     @staticmethod
-    def _load_tag(context: str, input: Any) -> str | None:
+    def _load_tag(context: str, input: Any) -> "str | None":
         if not isinstance(input, str):
             logger.error(
                 f"[{context}]: Skipping invalid tag (must be a string): {repr(input)}"
