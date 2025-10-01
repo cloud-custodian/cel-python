@@ -194,7 +194,7 @@ class CompiledRunner(Runner):
             activation=self.new_activation(),
         )
         self.tp.transpile()
-        self.logger.info("Transpiled:\n%s", indent(self.tp.source_text, "  "))
+        self.logger.debug("Transpiled:\n%s", indent(self.tp.source_text, "  "))
 
     def evaluate(self, context: Context) -> celpy.celtypes.Value:
         """
