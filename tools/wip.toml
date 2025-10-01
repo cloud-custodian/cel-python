@@ -1,0 +1,1198 @@
+# The value for each scenario can be a string tag, an array of tags or a
+# dictionary with a `tags` key containing an array of tags. For additional
+# documentation, see the Config class in gherkinize.py.
+
+[bindings_ext.bind]
+bind_nested = "@wip"
+boolean_literal = "@wip"
+macro_exists = "@wip"
+macro_not_exists = "@wip"
+string_concat = "@wip"
+
+[block_ext.basic]
+adjacent_macros = "@wip"
+call = "@wip"
+inclusion_list = "@wip"
+inclusion_map = "@wip"
+int_add = "@wip"
+macro_shadowed_variable_1 = "@wip"
+macro_shadowed_variable_2 = "@wip"
+map_index = "@wip"
+multiple_macros_1 = "@wip"
+multiple_macros_2 = "@wip"
+multiple_macros_3 = "@wip"
+nested_list_construction = "@wip"
+nested_macros_1 = "@wip"
+nested_macros_2 = "@wip"
+nested_map_construction = "@wip"
+nested_ternary = "@wip"
+optional_list = "@wip"
+optional_map = "@wip"
+optional_map_chained = "@wip"
+optional_message = "@wip"
+presence_test = "@wip"
+presence_test_2 = "@wip"
+presence_test_with_ternary = "@wip"
+presence_test_with_ternary_2 = "@wip"
+presence_test_with_ternary_3 = "@wip"
+presence_test_with_ternary_nested = "@wip"
+select = "@wip"
+select_nested_1 = "@wip"
+select_nested_2 = "@wip"
+select_nested_message_map_index_1 = "@wip"
+select_nested_message_map_index_2 = "@wip"
+size_1 = "@wip"
+size_2 = "@wip"
+size_3 = "@wip"
+size_4 = "@wip"
+ternary = "@wip"
+timestamp = "@wip"
+
+[comparisons.eq_literal]
+eq_double_int = "@wip"
+eq_double_uint = "@wip"
+eq_dyn_double_int = "@wip"
+eq_dyn_double_uint = "@wip"
+eq_dyn_int_double = "@wip"
+eq_dyn_int_uint = "@wip"
+eq_dyn_json_null = "@wip"
+eq_dyn_uint_double = "@wip"
+eq_dyn_uint_int = "@wip"
+eq_int_double = "@wip"
+eq_int_uint = "@wip"
+eq_list_elem_mixed_types = "@wip"
+eq_list_mixed_type_numbers = "@wip"
+eq_map_mixed_type_numbers = "@wip"
+eq_map_value_mixed_types = "@wip"
+eq_mixed_types = "@wip"
+eq_uint_double = "@wip"
+eq_uint_int = "@wip"
+not_eq_double_int = "@wip"
+not_eq_double_nan = "@wip"
+not_eq_double_uint = "@wip"
+not_eq_dyn_double_int = "@wip"
+not_eq_dyn_double_null = "@wip"
+not_eq_dyn_double_uint = "@wip"
+not_eq_dyn_int_double = "@wip"
+not_eq_dyn_int_null = "@wip"
+not_eq_dyn_int_uint = "@wip"
+not_eq_dyn_list_null = "@wip"
+not_eq_dyn_map_null = "@wip"
+not_eq_dyn_timestamp_null = "@wip"
+not_eq_dyn_uint_double = "@wip"
+not_eq_dyn_uint_int = "@wip"
+not_eq_int_double = "@wip"
+not_eq_int_double_nan = "@wip"
+not_eq_int_uint = "@wip"
+not_eq_list_elem_null = "@wip"
+not_eq_list_mixed_type_numbers = "@wip"
+not_eq_map_null = "@wip"
+not_eq_uint_double = "@wip"
+not_eq_uint_double_nan = "@wip"
+not_eq_uint_int = "@wip"
+
+[comparisons.eq_wrapper]
+eq_bool = "@wip"
+eq_bool_empty = "@wip"
+eq_bool_not_null = "@wip"
+eq_bool_proto2_null = "@wip"
+eq_bool_proto3_null = "@wip"
+eq_bytes = "@wip"
+eq_bytes_proto2_null = "@wip"
+eq_bytes_proto3_null = "@wip"
+eq_double = "@wip"
+eq_double_empty = "@wip"
+eq_double_not_null = "@wip"
+eq_double_proto2_null = "@wip"
+eq_double_proto3_null = "@wip"
+eq_float = "@wip"
+eq_float_empty = "@wip"
+eq_float_not_null = "@wip"
+eq_float_proto2_null = "@wip"
+eq_float_proto3_null = "@wip"
+eq_int32 = "@wip"
+eq_int32_empty = "@wip"
+eq_int32_not_null = "@wip"
+eq_int32_proto2_null = "@wip"
+eq_int32_proto3_null = "@wip"
+eq_int64 = "@wip"
+eq_int64_empty = "@wip"
+eq_int64_not_null = "@wip"
+eq_int64_proto2_null = "@wip"
+eq_int64_proto3_null = "@wip"
+eq_proto2_any_unpack_bytewise_fallback_equal = "@wip"
+eq_proto2_any_unpack_bytewise_fallback_not_equal = "@wip"
+eq_proto2_any_unpack_equal = "@wip"
+eq_proto2_any_unpack_not_equal = "@wip"
+eq_proto2_missing_fields_neq = "@wip"
+eq_proto3_any_unpack_bytewise_fallback_equal = "@wip"
+eq_proto3_any_unpack_bytewise_fallback_not_equal = "@wip"
+eq_proto3_any_unpack_equal = "@wip"
+eq_proto3_any_unpack_not_equal = "@wip"
+eq_proto3_missing_fields_neq = "@wip"
+eq_string = "@wip"
+eq_string_empty = "@wip"
+eq_string_proto2_null = "@wip"
+eq_string_proto3_null = "@wip"
+eq_uint32 = "@wip"
+eq_uint32_empty = "@wip"
+eq_uint32_not_null = "@wip"
+eq_uint32_proto2_null = "@wip"
+eq_uint32_proto3_null = "@wip"
+eq_uint64 = "@wip"
+eq_uint64_empty = "@wip"
+eq_uint64_not_null = "@wip"
+eq_uint64_proto2_null = "@wip"
+eq_uint64_proto3_null = "@wip"
+
+[comparisons.gt_literal]
+gt_dyn_int_double = "@wip"
+gt_dyn_int_small_lossy_double_greater = "@wip"
+gt_dyn_int_uint = "@wip"
+not_gt_dyn_big_double_int = "@wip"
+not_gt_dyn_int_big_double = "@wip"
+not_gt_dyn_int_big_uint = "@wip"
+not_gt_dyn_int_double = "@wip"
+not_gt_dyn_int_small_lossy_double = "@wip"
+not_gt_dyn_int_uint = "@wip"
+not_gt_dyn_small_double_int = "@wip"
+not_gt_dyn_small_int_uint = "@wip"
+
+[comparisons.gte_literal]
+gte_dyn_int_big_lossy_double = "@wip"
+gte_dyn_int_double = "@wip"
+gte_dyn_int_small_lossy_double_equal = "@wip"
+gte_dyn_int_small_lossy_double_greater = "@wip"
+gte_dyn_int_uint = "@wip"
+gte_dyn_small_double_int = "@wip"
+not_gte_dyn_int_big_double = "@wip"
+not_gte_dyn_int_big_uint = "@wip"
+not_gte_dyn_int_double = "@wip"
+not_gte_dyn_int_uint = "@wip"
+not_gte_dyn_small_int_uint = "@wip"
+
+[comparisons.in_list_literal]
+elem_in_mixed_type_list_cross_type = "@wip"
+
+[comparisons.in_map_literal]
+key_in_mixed_key_type_map_cross_type = "@wip"
+
+[comparisons.lt_literal]
+lt_dyn_int_big_lossy_double = "@wip"
+lt_dyn_int_big_uint = "@wip"
+lt_dyn_int_double = "@wip"
+lt_dyn_int_uint = "@wip"
+lt_dyn_small_int_uint = "@wip"
+not_lt_dyn_int_big_lossy_double = "@wip"
+not_lt_dyn_int_double = "@wip"
+not_lt_dyn_int_small_double = "@wip"
+not_lt_dyn_int_small_lossy_double = "@wip"
+not_lt_dyn_int_uint = "@wip"
+not_lt_dyn_small_double_int = "@wip"
+
+[comparisons.lte_literal]
+lte_dyn_big_double_int = "@wip"
+lte_dyn_int_big_double = "@wip"
+lte_dyn_int_big_uint = "@wip"
+lte_dyn_int_double = "@wip"
+lte_dyn_int_small_lossy_double = "@wip"
+lte_dyn_int_uint = "@wip"
+lte_dyn_small_double_int = "@wip"
+lte_dyn_small_int_uint = "@wip"
+not_lte_dyn_int_double = "@wip"
+not_lte_dyn_int_small_lossy_double_less = "@wip"
+not_lte_dyn_int_uint = "@wip"
+
+[comparisons.ne_literal]
+ne_double_int = "@wip"
+ne_double_nan = "@wip"
+ne_double_uint = "@wip"
+ne_int_double = "@wip"
+ne_int_uint = "@wip"
+ne_mixed_types = "@wip"
+ne_proto2_any_unpack = "@wip"
+ne_proto2_any_unpack_bytewise_fallback = "@wip"
+ne_proto3_any_unpack = "@wip"
+ne_proto3_any_unpack_bytewise_fallback = "@wip"
+ne_proto_different_types = "@wip"
+ne_uint_double = "@wip"
+not_ne_double_int = "@wip"
+not_ne_double_nan = "@wip"
+not_ne_double_uint = "@wip"
+not_ne_int_double = "@wip"
+not_ne_int_double_nan = "@wip"
+not_ne_int_uint = "@wip"
+not_ne_uint_double = "@wip"
+not_ne_uint_double_nan = "@wip"
+
+[conversions.bool]
+string_f = "@wip"
+string_false_lowercase = "@wip"
+string_false_pascalcase = "@wip"
+string_false_uppercase = "@wip"
+string_t = "@wip"
+string_true_lowercase = "@wip"
+string_true_pascalcase = "@wip"
+string_true_uppercase = "@wip"
+
+[conversions.identity]
+timestamp = "@wip"
+
+[conversions.int]
+double_half_neg = "@wip"
+double_half_pos = "@wip"
+double_int_min_range = "@wip"
+double_truncate = "@wip"
+double_truncate_neg = "@wip"
+
+[conversions.uint]
+double_half = "@wip"
+double_truncate = "@wip"
+
+[dynamic.any]
+literal = "@wip"
+
+[dynamic.bool]
+literal = "@wip"
+literal_empty = "@wip"
+
+[dynamic.bytes]
+literal = "@wip"
+literal_unicode = "@wip"
+
+[dynamic.double]
+field_read_proto2_unset = "@wip"
+field_read_proto3_unset = "@wip"
+literal = "@wip"
+literal_zero = "@wip"
+
+[dynamic.float]
+field_assign_proto2_range = "@wip"
+field_assign_proto2_round_to_zero = "@wip"
+field_assign_proto2_subnorm = "@wip"
+field_assign_proto3_range = "@wip"
+field_assign_proto3_round_to_zero = "@wip"
+field_read_proto2_unset = "@wip"
+field_read_proto3_unset = "@wip"
+literal = "@wip"
+literal_not_double = "@wip"
+literal_zero = "@wip"
+
+[dynamic.int32]
+field_assign_proto2_range = "@wip"
+field_assign_proto3_range = "@wip"
+field_read_proto2_unset = "@wip"
+field_read_proto3_unset = "@wip"
+literal = "@wip"
+literal_zero = "@wip"
+
+[dynamic.int64]
+literal = "@wip"
+literal_zero = "@wip"
+
+[dynamic.list]
+literal = "@wip"
+literal_empty = "@wip"
+
+[dynamic.string]
+literal = "@wip"
+literal_empty = "@wip"
+literal_unicode = "@wip"
+
+[dynamic.struct]
+field_assign_proto2_bad = "@wip"
+field_assign_proto3_bad = "@wip"
+literal = "@wip"
+literal_empty = "@wip"
+literal_no_field_access = "@wip"
+
+[dynamic.uint32]
+field_assign_proto2_range = "@wip"
+field_assign_proto3_range = "@wip"
+field_read_proto2_unset = "@wip"
+literal = "@wip"
+literal_zero = "@wip"
+
+[dynamic.uint64]
+field_read_proto2_unset = "@wip"
+literal = "@wip"
+literal_zero = "@wip"
+
+[dynamic.value_bool]
+literal = "@wip"
+literal_false = "@wip"
+
+[dynamic.value_list]
+literal = "@wip"
+literal_empty = "@wip"
+
+[dynamic.value_null]
+field_read_proto2_unset = "@wip"
+field_read_proto3_unset = "@wip"
+literal = "@wip"
+literal_unset = "@wip"
+
+[dynamic.value_number]
+literal = "@wip"
+literal_zero = "@wip"
+
+[dynamic.value_string]
+literal = "@wip"
+literal_empty = "@wip"
+
+[dynamic.value_struct]
+literal = "@wip"
+literal_empty = "@wip"
+
+[encoders_ext.decode]
+hello = "@wip"
+hello_without_padding = "@wip"
+
+[encoders_ext.encode]
+hello = "@wip"
+
+[encoders_ext.round_trip]
+hello = "@wip"
+
+[enums.legacy_proto2]
+access_repeated_enum = "@wip"
+arithmetic = "@wip"
+assign_repeated_enum = "@wip"
+assign_standalone_int_too_big = "@wip"
+assign_standalone_int_too_neg = "@wip"
+assign_standalone_name = "@wip"
+comparison = "@wip"
+enum_as_int = "@wip"
+field_type = "@wip"
+list_enum_as_list_int = "@wip"
+literal_global = "@wip"
+literal_nested = "@wip"
+literal_zero = "@wip"
+select_default = "@wip"
+type_global = "@wip"
+type_nested = "@wip"
+
+[enums.legacy_proto3]
+access_repeated_enum = "@wip"
+arithmetic = "@wip"
+assign_repeated_enum = "@wip"
+assign_standalone_int_too_big = "@wip"
+assign_standalone_int_too_neg = "@wip"
+assign_standalone_name = "@wip"
+comparison = "@wip"
+enum_as_int = "@wip"
+field_type = "@wip"
+list_enum_as_list_int = "@wip"
+literal_global = "@wip"
+literal_nested = "@wip"
+literal_zero = "@wip"
+select_default = "@wip"
+type_global = "@wip"
+type_nested = "@wip"
+
+[enums.strong_proto2]
+assign_standalone_int = "@wip"
+assign_standalone_name = "@wip"
+comparison_false = "@wip"
+comparison_true = "@wip"
+convert_symbol_to_int = "@wip"
+
+[enums.strong_proto3]
+assign_standalone_int = "@wip"
+assign_standalone_int_big = "@wip"
+assign_standalone_int_neg = "@wip"
+assign_standalone_name = "@wip"
+comparison_false = "@wip"
+comparison_true = "@wip"
+convert_symbol_to_int = "@wip"
+
+[fields.in]
+mixed_numbers_and_keys_absent = "@wip"
+mixed_numbers_and_keys_present = "@wip"
+
+[fields.map_fields]
+map_key_mixed_numbers_double_key = "@wip"
+map_key_mixed_numbers_int_key = "@wip"
+map_key_mixed_numbers_uint_key = "@wip"
+
+[fields.quoted_map_fields]
+field_access_dash = "@wip"
+field_access_dot = "@wip"
+field_access_slash = "@wip"
+has_field_dash = "@wip"
+has_field_dot = "@wip"
+has_field_slash = "@wip"
+
+[lists.in]
+double_in_ints = "@wip"
+double_in_uints = "@wip"
+int_in_doubles = "@wip"
+int_in_uints = "@wip"
+uint_in_doubles = "@wip"
+uint_in_ints = "@wip"
+
+[lists.index]
+zero_based_double = "@wip"
+
+[macros.exists]
+list_elem_type_exhaustive = "@wip"
+map_key_type_exhaustive = "@wip"
+
+[macros2.all]
+list_elem_all_true = "@wip"
+list_elem_error_exhaustive = "@wip"
+list_elem_error_shortcircuit = "@wip"
+list_elem_none_true = "@wip"
+list_elem_some_true = "@wip"
+list_elem_type_error_exhaustive = "@wip"
+list_elem_type_exhaustive = "@wip"
+list_elem_type_shortcircuit = "@wip"
+list_empty = "@wip"
+map_key = "@wip"
+
+[macros2.exists]
+list_elem_all_true = "@wip"
+list_elem_exists_error = "@wip"
+list_elem_none_true = "@wip"
+list_elem_some_true = "@wip"
+list_elem_type_exhaustive = "@wip"
+list_elem_type_shortcircuit = "@wip"
+list_empty = "@wip"
+map_key = "@wip"
+map_key_type_exhaustive = "@wip"
+map_key_type_shortcircuit = "@wip"
+not_map_key = "@wip"
+
+[macros2.existsOne]
+list_all = "@wip"
+list_empty = "@wip"
+list_many = "@wip"
+list_none = "@wip"
+list_one = "@wip"
+list_one_false = "@wip"
+list_one_true = "@wip"
+map_one = "@wip"
+
+[macros2.transformList]
+empty = "@wip"
+empty_filter = "@wip"
+many = "@wip"
+many_filter = "@wip"
+one = "@wip"
+one_filter = "@wip"
+
+[macros2.transformMap]
+empty = "@wip"
+empty_filter = "@wip"
+many = "@wip"
+many_filter = "@wip"
+one = "@wip"
+one_filter = "@wip"
+
+[math_ext.abs]
+negative_double = "@wip"
+negative_int = "@wip"
+positive_double = "@wip"
+positive_int = "@wip"
+uint = "@wip"
+
+[math_ext.bit_and]
+int_int_intersect = "@wip"
+int_int_intersect_neg = "@wip"
+int_int_non_intersect = "@wip"
+uint_uint_intersect = "@wip"
+uint_uint_non_intersect = "@wip"
+
+[math_ext.bit_not]
+int_negative = "@wip"
+int_positive = "@wip"
+int_zero = "@wip"
+uint_positive = "@wip"
+uint_zero = "@wip"
+
+[math_ext.bit_or]
+int_int_positive = "@wip"
+int_int_positive_negative = "@wip"
+uint_uint = "@wip"
+
+[math_ext.bit_shift_left]
+int = "@wip"
+int_large_shift = "@wip"
+int_negative_large_shift = "@wip"
+uint = "@wip"
+uint_large_shift = "@wip"
+
+[math_ext.bit_shift_right]
+int = "@wip"
+int_large_shift = "@wip"
+int_negative = "@wip"
+int_negative_large_shift = "@wip"
+uint = "@wip"
+uint_large_shift = "@wip"
+
+[math_ext.bit_xor]
+int_int_positive = "@wip"
+int_int_positive_negative = "@wip"
+uint_uint = "@wip"
+
+[math_ext.ceil]
+negative = "@wip"
+positive = "@wip"
+
+[math_ext.floor]
+negative = "@wip"
+positive = "@wip"
+
+[math_ext.greatest_double_result]
+binary_first_arg_double_max = "@wip"
+binary_first_arg_double_min = "@wip"
+binary_first_arg_greater = "@wip"
+binary_same_args = "@wip"
+binary_second_arg_double_max = "@wip"
+binary_second_arg_double_min = "@wip"
+binary_second_arg_greater = "@wip"
+binary_with_int = "@wip"
+binary_with_uint = "@wip"
+quaternary_mixed = "@wip"
+quaternary_mixed_array = "@wip"
+quaternary_mixed_dyn_array = "@wip"
+ternary_double_max = "@wip"
+ternary_double_min = "@wip"
+ternary_first_arg_greatest = "@wip"
+ternary_same_args = "@wip"
+ternary_third_arg_greatest = "@wip"
+ternary_with_int = "@wip"
+ternary_with_negatives = "@wip"
+ternary_with_uint = "@wip"
+unary_negative = "@wip"
+unary_positive = "@wip"
+
+[math_ext.greatest_int_result]
+binary_first_arg_greater = "@wip"
+binary_first_arg_int_max = "@wip"
+binary_first_arg_int_min = "@wip"
+binary_same_args = "@wip"
+binary_second_arg_greater = "@wip"
+binary_second_arg_int_max = "@wip"
+binary_second_arg_int_min = "@wip"
+binary_with_decimal = "@wip"
+binary_with_uint = "@wip"
+quaternary_mixed = "@wip"
+quaternary_mixed_array = "@wip"
+quaternary_mixed_dyn_array = "@wip"
+ternary_first_arg_greatest = "@wip"
+ternary_int_max = "@wip"
+ternary_int_min = "@wip"
+ternary_same_args = "@wip"
+ternary_third_arg_greatest = "@wip"
+ternary_with_decimal = "@wip"
+ternary_with_negatives = "@wip"
+ternary_with_uint = "@wip"
+unary_negative = "@wip"
+unary_positive = "@wip"
+
+[math_ext.greatest_uint_result]
+binary_first_arg_greater = "@wip"
+binary_first_arg_uint_max = "@wip"
+binary_same_args = "@wip"
+binary_second_arg_greater = "@wip"
+binary_second_arg_uint_max = "@wip"
+binary_with_decimal = "@wip"
+binary_with_int = "@wip"
+quaternary_mixed = "@wip"
+quaternary_mixed_array = "@wip"
+quaternary_mixed_dyn_array = "@wip"
+ternary_first_arg_greatest = "@wip"
+ternary_int_max = "@wip"
+ternary_same_args = "@wip"
+ternary_third_arg_greatest = "@wip"
+ternary_with_decimal = "@wip"
+ternary_with_int = "@wip"
+unary = "@wip"
+
+[math_ext.isFinite]
+false_inf = "@wip"
+false_nan = "@wip"
+true = "@wip"
+
+[math_ext.isInf]
+false = "@wip"
+true = "@wip"
+
+[math_ext.isNaN]
+false = "@wip"
+true = "@wip"
+
+[math_ext.least_double_result]
+binary_first_arg_double_max = "@wip"
+binary_first_arg_double_min = "@wip"
+binary_first_arg_least = "@wip"
+binary_same_args = "@wip"
+binary_second_arg_double_max = "@wip"
+binary_second_arg_double_min = "@wip"
+binary_second_arg_least = "@wip"
+binary_with_int = "@wip"
+binary_with_uint = "@wip"
+quaternary_mixed = "@wip"
+quaternary_mixed_array = "@wip"
+quaternary_mixed_dyn_array = "@wip"
+ternary_double_max = "@wip"
+ternary_double_min = "@wip"
+ternary_first_arg_least = "@wip"
+ternary_same_args = "@wip"
+ternary_third_arg_least = "@wip"
+ternary_with_int = "@wip"
+ternary_with_negatives = "@wip"
+ternary_with_uint = "@wip"
+unary_negative = "@wip"
+unary_positive = "@wip"
+
+[math_ext.least_int_result]
+binary_first_arg_int_max = "@wip"
+binary_first_arg_int_min = "@wip"
+binary_first_arg_least = "@wip"
+binary_same_args = "@wip"
+binary_second_arg_int_max = "@wip"
+binary_second_arg_int_min = "@wip"
+binary_second_arg_least = "@wip"
+binary_with_decimal = "@wip"
+binary_with_uint = "@wip"
+quaternary_mixed = "@wip"
+quaternary_mixed_array = "@wip"
+quaternary_mixed_dyn_array = "@wip"
+ternary_first_arg_least = "@wip"
+ternary_int_max = "@wip"
+ternary_int_min = "@wip"
+ternary_same_args = "@wip"
+ternary_third_arg_least = "@wip"
+ternary_with_decimal = "@wip"
+ternary_with_negatives = "@wip"
+ternary_with_uint = "@wip"
+unary_negative = "@wip"
+unary_positive = "@wip"
+
+[math_ext.least_uint_result]
+binary_first_arg_least = "@wip"
+binary_first_arg_uint_max = "@wip"
+binary_same_args = "@wip"
+binary_second_arg_least = "@wip"
+binary_second_arg_uint_max = "@wip"
+binary_with_decimal = "@wip"
+binary_with_int = "@wip"
+quaternary_mixed = "@wip"
+quaternary_mixed_array = "@wip"
+quaternary_mixed_dyn_array = "@wip"
+ternary_first_arg_least = "@wip"
+ternary_same_args = "@wip"
+ternary_third_arg_least = "@wip"
+ternary_uint_max = "@wip"
+ternary_with_decimal = "@wip"
+ternary_with_int = "@wip"
+unary = "@wip"
+
+[math_ext.round]
+nan = "@wip"
+negative_down = "@wip"
+negative_mid = "@wip"
+negative_up = "@wip"
+positive_down = "@wip"
+positive_up = "@wip"
+
+[math_ext.sign]
+negative_double = "@wip"
+negative_int = "@wip"
+positive_double = "@wip"
+positive_int = "@wip"
+positive_uint = "@wip"
+zero_double = "@wip"
+zero_int = "@wip"
+zero_uint = "@wip"
+
+[math_ext.trunc]
+nan = "@wip"
+negative = "@wip"
+positive = "@wip"
+
+[optionals.optionals]
+empty_list_optindex_hasValue = "@wip"
+empty_map_optFlatMap_hasValue = "@wip"
+empty_struct_optindex_hasValue = "@wip"
+has_map_optindex = "@wip"
+has_map_optindex_field = "@wip"
+has_optional_ofNonZeroValue_struct_optional_ofNonZeroValue_map_optindex_field = "@wip"
+list_optindex_value = "@wip"
+map_absent_key_absent_field_none = "@wip"
+map_empty_submap_optFlatMap_hasValue = "@wip"
+map_key_mixed_numbers_double_key_optindex_value = "@wip"
+map_key_mixed_numbers_int_key_optindex_value = "@wip"
+map_key_mixed_numbers_uint_key_optindex_value = "@wip"
+map_key_mixed_type_optindex_value = "@wip"
+map_null_entry_hasValue = "@wip"
+map_optindex_hasValue = "@wip"
+map_optindex_optFlatMap_optional_ofNonZeroValue_hasValue = "@wip"
+map_optional_entry_has = "@wip"
+map_optional_has = "@wip"
+map_submap_optFlatMap_value = "@wip"
+map_submap_subkey_optFlatMap_value = "@wip"
+map_undefined_entry_hasValue = "@wip"
+none_optMap_hasValue = "@wip"
+none_or_none_or_value = "@wip"
+null = "@wip"
+null_non_zero_value = "@wip"
+optional_chaining_1 = "@wip"
+optional_chaining_11 = "@wip"
+optional_chaining_12 = "@wip"
+optional_chaining_13 = "@wip"
+optional_chaining_14 = "@wip"
+optional_chaining_15 = "@wip"
+optional_chaining_16 = "@wip"
+optional_chaining_2 = "@wip"
+optional_chaining_3 = "@wip"
+optional_chaining_4 = "@wip"
+optional_chaining_5 = "@wip"
+optional_chaining_6 = "@wip"
+optional_chaining_7 = "@wip"
+optional_chaining_8 = "@wip"
+optional_chaining_9 = "@wip"
+optional_empty_list_optindex_hasValue = "@wip"
+optional_empty_map_optindex_hasValue = "@wip"
+optional_empty_struct_optindex_hasValue = "@wip"
+optional_eq_int_int = "@wip"
+optional_eq_int_none = "@wip"
+optional_eq_none_int = "@wip"
+optional_eq_none_none = "@wip"
+optional_list_optindex_value = "@wip"
+optional_ne_int_int = "@wip"
+optional_ne_int_none = "@wip"
+optional_ne_none_int = "@wip"
+optional_ne_none_none = "@wip"
+optional_none_optindex_hasValue = "@wip"
+optional_none_optselect_hasValue = "@wip"
+optional_ofNonZeroValue_or_optional_value = "@wip"
+optional_ofNonZeroValue_struct_optional_ofNonZeroValue_map_optindex_field = "@wip"
+optional_of_optMap_value = "@wip"
+optional_struct_optindex_index_value = "@wip"
+optional_struct_optindex_value = "@wip"
+struct_list_optindex_field = "@wip"
+struct_map_optindex_field = "@wip"
+struct_map_optindex_field_nested = "@wip"
+struct_optindex_value = "@wip"
+struct_optional_ofNonZeroValue_map_optindex_field = "@wip"
+ternary_optional_hasValue = "@wip"
+type = "@wip"
+
+[parse.comments]
+new_line_terminated = "@wip"
+
+[parse.whitespace]
+carriage_returns = "@wip"
+new_lines = "@wip"
+new_pages = "@wip"
+spaces = "@wip"
+tabs = "@wip"
+
+[proto2.empty_field]
+nested_message_subfield = "@wip"
+repeated_enum = "@wip"
+repeated_nested = "@wip"
+repeated_scalar = "@wip"
+scalar_no_default = "@wip"
+scalar_with_default = "@wip"
+wkt = "@wip"
+
+[proto2.extensions_get]
+message_scoped_int64 = "@wip"
+message_scoped_nested_enum_ext = "@wip"
+message_scoped_nested_ext = "@wip"
+message_scoped_repeated_test_all_types = "@wip"
+package_scoped_int32 = "@wip"
+package_scoped_nested_ext = "@wip"
+package_scoped_repeated_test_all_types = "@wip"
+package_scoped_test_all_types_ext = "@wip"
+package_scoped_test_all_types_nested_enum_ext = "@wip"
+
+[proto2.extensions_has]
+message_scoped_int64 = "@wip"
+message_scoped_nested_enum_ext = "@wip"
+message_scoped_nested_ext = "@wip"
+message_scoped_repeated_test_all_types = "@wip"
+package_scoped_int32 = "@wip"
+package_scoped_nested_ext = "@wip"
+package_scoped_repeated_test_all_types = "@wip"
+package_scoped_test_all_types_ext = "@wip"
+package_scoped_test_all_types_nested_enum_ext = "@wip"
+
+[proto2.has]
+map_none_explicit = "@wip"
+map_none_implicit = "@wip"
+oneof_other_set = "@wip"
+oneof_set = "@wip"
+oneof_set_default = "@wip"
+oneof_unset = "@wip"
+optional_enum_set = "@wip"
+optional_enum_set_zero = "@wip"
+optional_enum_unset = "@wip"
+optional_message_set = "@wip"
+optional_message_unset = "@wip"
+optional_unset_no_default = "@wip"
+optional_unset_with_default = "@wip"
+repeated_none_explicit = "@wip"
+repeated_none_implicit = "@wip"
+required = "@wip"
+undefined = "@wip"
+
+[proto2.literal_singular]
+float = "@wip"
+float_eq_int = "@wip"
+float_eq_uint = "@wip"
+int32_eq_double = "@wip"
+int32_eq_uint = "@wip"
+int64_nocontainer = "@wip"
+not_float_eq_int = "@wip"
+not_float_eq_uint = "@wip"
+not_int32_eq_double = "@wip"
+not_int32_eq_uint = "@wip"
+not_uint32_eq_double = "@wip"
+not_uint32_eq_int = "@wip"
+uint32_eq_double = "@wip"
+uint32_eq_int = "@wip"
+
+[proto2.literal_wellknown]
+struct = "@wip"
+
+[proto2.quoted_fields]
+get_field_with_quoted_name = "@wip"
+set_field_with_quoted_name = "@wip"
+
+[proto2.set_null]
+list_value = "@wip"
+map = "@wip"
+repeated = "@wip"
+single_scalar = "@wip"
+single_struct = "@wip"
+
+[proto2_ext.get_ext]
+message_scoped_int64 = "@wip"
+message_scoped_nested_enum_ext = "@wip"
+message_scoped_nested_ext = "@wip"
+message_scoped_repeated_test_all_types = "@wip"
+package_scoped_int32 = "@wip"
+package_scoped_nested_ext = "@wip"
+package_scoped_repeated_test_all_types = "@wip"
+package_scoped_test_all_types_ext = "@wip"
+package_scoped_test_all_types_nested_enum_ext = "@wip"
+
+[proto2_ext.has_ext]
+message_scoped_int64 = "@wip"
+message_scoped_nested_enum_ext = "@wip"
+message_scoped_nested_ext = "@wip"
+message_scoped_repeated_test_all_types = "@wip"
+package_scoped_int32 = "@wip"
+package_scoped_nested_ext = "@wip"
+package_scoped_repeated_test_all_types = "@wip"
+package_scoped_test_all_types_ext = "@wip"
+package_scoped_test_all_types_nested_enum_ext = "@wip"
+
+[proto3.empty_field]
+nested_message_subfield = "@wip"
+repeated_enum = "@wip"
+repeated_nested = "@wip"
+repeated_scalar = "@wip"
+scalar = "@wip"
+wkt = "@wip"
+
+[proto3.has]
+map_none_explicit = "@wip"
+map_none_implicit = "@wip"
+oneof_other_set = "@wip"
+oneof_set = "@wip"
+oneof_set_default = "@wip"
+oneof_unset = "@wip"
+repeated_none_explicit = "@wip"
+repeated_none_implicit = "@wip"
+single_enum_set = "@wip"
+single_enum_unset = "@wip"
+single_message_set = "@wip"
+single_message_set_to_default = "@wip"
+single_message_unset = "@wip"
+single_set_to_default = "@wip"
+single_unset = "@wip"
+undefined = "@wip"
+
+[proto3.literal_singular]
+float = "@wip"
+int64_nocontainer = "@wip"
+
+[proto3.literal_wellknown]
+struct = "@wip"
+
+[proto3.quoted_fields]
+get_field = "@wip"
+set_field = "@wip"
+
+[proto3.set_null]
+list_value = "@wip"
+map = "@wip"
+repeated = "@wip"
+single_scalar = "@wip"
+single_struct = "@wip"
+
+[string_ext.ascii_casing]
+lowerascii = "@wip"
+lowerascii_unicode = "@wip"
+lowerascii_unicode_with_space = "@wip"
+upperascii = "@wip"
+upperascii_unicode = "@wip"
+upperascii_unicode_with_space = "@wip"
+
+[string_ext.char_at]
+end_index = "@wip"
+middle_index = "@wip"
+multiple = "@wip"
+
+[string_ext.format]
+"NaN support for decimal" = "@wip"
+"NaN support for fixed-point" = "@wip"
+"NaN support for scientific notation" = "@wip"
+"binary formatting clause" = "@wip"
+"binary formatting clause in a string variable" = "@wip"
+"bool support for binary formatting" = "@wip"
+"boolean support for %s" = "@wip"
+"byte support with hexadecimal formatting clause" = "@wip"
+"byte support with uppercase hexadecimal formatting clause" = "@wip"
+"bytes support for string" = "@wip"
+"default precision for fixed-point clause" = "@wip"
+"default precision for fixed-point clause in a string variable" = "@wip"
+"default precision for scientific notation" = "@wip"
+"duration support for string" = "@wip"
+"dyntype NaN/infinity support" = "@wip"
+"dyntype support for duration" = "@wip"
+"dyntype support for fixed-point formatting clause" = "@wip"
+"dyntype support for hex formatting clause" = "@wip"
+"dyntype support for hex formatting clause (uppercase)" = "@wip"
+"dyntype support for integer formatting clause" = "@wip"
+"dyntype support for integer formatting clause (unsigned)" = "@wip"
+"dyntype support for lists" = "@wip"
+"dyntype support for maps" = "@wip"
+"dyntype support for numbers with string formatting clause" = "@wip"
+"dyntype support for scientific notation" = "@wip"
+"dyntype support for string formatting clause" = "@wip"
+"dyntype support for timestamp" = "@wip"
+"dyntype support for unsigned hex formatting clause" = "@wip"
+"fixed point formatting clause" = "@wip"
+"fixed point formatting clause in a string variable" = "@wip"
+"int support for string" = "@wip"
+"list support for string" = "@wip"
+"lowercase hexadecimal formatting clause" = "@wip"
+"map support (all key types)" = "@wip"
+"map support for string" = "@wip"
+"mid-string substitution" = "@wip"
+"multiple substitutions" = "@wip"
+"multiple substitutions in a string variable" = "@wip"
+"negative infinity support for decimal" = "@wip"
+"negative infinity support for fixed-point" = "@wip"
+"negative infinity support for scientific notation" = "@wip"
+no-op = "@wip"
+"null support for string" = "@wip"
+"octal formatting clause" = "@wip"
+"percent escaping" = "@wip"
+"percent sign escape sequence support" = "@wip"
+"positive infinity support for decimal" = "@wip"
+"positive infinity support for fixed-point" = "@wip"
+"positive infinity support for scientific notation" = "@wip"
+"scientific notation formatting clause" = "@wip"
+"scientific notation formatting clause in a string variable" = "@wip"
+"string substitution in a string variable" = "@wip"
+"string support with hexadecimal formatting clause" = "@wip"
+"string support with uppercase hexadecimal formatting clause" = "@wip"
+"substitution inside escaped percent signs" = "@wip"
+"substitution inside escaped percent signs in a string variable" = "@wip"
+"substitution with one escaped percent sign on the left" = "@wip"
+"substitution with one escaped percent sign on the right" = "@wip"
+"timestamp support for string" = "@wip"
+"type() support for string" = "@wip"
+"uint support for binary formatting" = "@wip"
+"uint support for decimal clause" = "@wip"
+"uint support for octal formatting clause" = "@wip"
+"unsigned support for hexadecimal formatting clause" = "@wip"
+"uppercase hexadecimal formatting clause" = "@wip"
+
+[string_ext.index_of]
+char_index = "@wip"
+empty_index = "@wip"
+nomatch = "@wip"
+string_index = "@wip"
+string_nomatch_index = "@wip"
+string_with_space_fullmatch = "@wip"
+string_with_space_index = "@wip"
+unicode_char = "@wip"
+unicode_char_index = "@wip"
+unicode_string_index = "@wip"
+unicode_string_nomatch_index = "@wip"
+
+[string_ext.join]
+dash_separator = "@wip"
+empty_separator = "@wip"
+empty_string_dash_separator = "@wip"
+empty_string_empty_separator = "@wip"
+
+[string_ext.last_index_of]
+char_index = "@wip"
+empty = "@wip"
+empty_index = "@wip"
+repeated_string = "@wip"
+string = "@wip"
+string_nomatch = "@wip"
+string_with_space_fullmatch = "@wip"
+string_with_space_string_index = "@wip"
+string_with_space_string_nomatch = "@wip"
+string_with_space_string_with_space_nomatch = "@wip"
+unicode_char = "@wip"
+unicode_char_index = "@wip"
+unicode_string_index = "@wip"
+
+[string_ext.quote]
+backspace = "@wip"
+carriage_return = "@wip"
+double_slash = "@wip"
+empty_quote = "@wip"
+ends_with = "@wip"
+escaped = "@wip"
+form_feed = "@wip"
+horizontal_tab = "@wip"
+mid_string_quote = "@wip"
+multiline = "@wip"
+printable_unicode = "@wip"
+single_quote_with_double_quote = "@wip"
+size_unicode_char = "@wip"
+size_unicode_string = "@wip"
+starts_with = "@wip"
+two_escape_sequences = "@wip"
+unicode = "@wip"
+unicode_2 = "@wip"
+unicode_code_points = "@wip"
+verbatim = "@wip"
+vertical_tab = "@wip"
+
+[string_ext.replace]
+basic = "@wip"
+chained = "@wip"
+no_placeholder = "@wip"
+unicode = "@wip"
+
+[string_ext.split]
+empty = "@wip"
+one_limit = "@wip"
+unicode_negative_limit = "@wip"
+zero_limit = "@wip"
+
+[string_ext.substring]
+start = "@wip"
+start_and_end = "@wip"
+start_and_end_equal_value = "@wip"
+start_with_max_length = "@wip"
+unicode_start_and_end = "@wip"
+unicode_start_and_end_equal_value = "@wip"
+
+[string_ext.trim]
+blank_spaces_escaped_chars = "@wip"
+unicode_no_trim = "@wip"
+unicode_space_chars_1 = "@wip"
+unicode_space_chars_2 = "@wip"
+unicode_space_chars_3 = "@wip"
+
+[string_ext.type_errors]
+charat_invalid_argument = "@wip"
+replace_binary_invalid_argument = "@wip"
+replace_binary_invalid_argument_2 = "@wip"
+replace_quaternary_invalid_argument = "@wip"
+replace_ternary_invalid_argument_2 = "@wip"
+replace_ternary_invalid_argument_3 = "@wip"
+replace_ternary_invalid_argument_4 = "@wip"
+substring_binary_invalid_argument = "@wip"
+substring_binary_invalid_argument_2 = "@wip"
+substring_ternary_invalid_argument = "@wip"
+
+[string_ext.value_errors]
+charat_out_of_range = "@wip"
+substring_begin_index_out_of_range = "@wip"
+substring_end_index_greater_than_begin_index = "@wip"
+substring_end_index_out_of_range = "@wip"
+substring_negative_index = "@wip"
+substring_out_of_range = "@wip"
+
+[timestamps.duration_conversions]
+type_comparison = "@wip"
+
+[timestamps.duration_converters]
+get_milliseconds = "@wip"
+
+[timestamps.duration_range]
+sub_over = "@wip"
+sub_under = "@wip"
+
+[timestamps.timestamp_conversions]
+toString_timestamp_nanos = "@wip"
+type_comparison = "@wip"
+
+[timestamps.timestamp_range]
+add_duration_nanos_over = "@wip"
+add_duration_nanos_under = "@wip"
+sub_time_duration_over = "@wip"
+sub_time_duration_under = "@wip"
+
+[wrappers.bool]
+to_any = "@wip"
+to_json = "@wip"
+
+[wrappers.bytes]
+to_any = "@wip"
+to_json = "@wip"
+
+[wrappers.double]
+to_any = "@wip"
+to_json = "@wip"
+
+[wrappers.duration]
+to_json = "@wip"
+
+[wrappers.empty]
+to_json = "@wip"
+
+[wrappers.field_mask]
+to_json = "@wip"
+
+[wrappers.float]
+to_any = "@wip"
+to_json = "@wip"
+to_null = "@wip"
+
+[wrappers.int32]
+to_any = "@wip"
+to_json = "@wip"
+to_null = "@wip"
+
+[wrappers.int64]
+to_any = "@wip"
+to_json_number = "@wip"
+to_json_string = "@wip"
+
+[wrappers.string]
+to_any = "@wip"
+to_json = "@wip"
+
+[wrappers.timestamp]
+to_json = "@wip"
+
+[wrappers.uint32]
+to_any = "@wip"
+to_json = "@wip"
+to_null = "@wip"
+
+[wrappers.uint64]
+to_any = "@wip"
+to_json_number = "@wip"
+to_json_string = "@wip"
+
+[wrappers.value]
+default_to_json = "@wip"

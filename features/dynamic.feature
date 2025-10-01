@@ -1,1964 +1,1472 @@
-@wip
+@conformance
 Feature: dynamic
-         Tests for 'dynamic' proto behavior, including JSON, wrapper, and Any messages.
+         Tests for 'dynamic' proto behavior, including JSON, wrapper, and Any
+         messages.
+
 
 # int32 -- Tests for int32 conversion.
 
-Scenario: literal
+@wip
+Scenario: int32/literal
 
-    When CEL expression "google.protobuf.Int32Value{value: -123}" is evaluated
-    #    int64_value:-123
-    Then value is IntType(source=-123)
+    When CEL expression 'google.protobuf.Int32Value{value: -123}' is evaluated
+    Then value is celpy.celtypes.IntType(source=-123)
 
+Scenario: int32/literal_no_field_access
 
-Scenario: literal_no_field_access
-
-    When CEL expression "google.protobuf.Int32Value{value: -123}.value" is evaluated
-    #    errors:{message:"no_matching_overload"}
+    Given disable_check parameter is True
+    When CEL expression 'google.protobuf.Int32Value{value: -123}.value' is evaluated
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: int32/literal_zero
 
-Scenario: literal_zero
+    When CEL expression 'google.protobuf.Int32Value{}' is evaluated
+    Then value is celpy.celtypes.IntType(source=0)
 
-    When CEL expression "google.protobuf.Int32Value{}" is evaluated
-    #    int64_value:0
-    Then value is IntType(source=0)
+Scenario: int32/var
 
+    Given type_env parameter "x" is celpy.celtypes.IntType
+    and bindings parameter "x" is celpy.celtypes.IntType(source=2000000)
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.IntType(source=2000000)
 
-Scenario: var
+Scenario: int32/field_assign_proto2
 
-   #     type:{message_type:"google.protobuf.Int32Value"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.Int32Value')
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: 432}' is evaluated
+    Then value is TestAllTypes(single_int32_wrapper=celpy.celtypes.IntType(source=432))
 
-   #     object_value:{[type.googleapis.com/google.protobuf.Int32Value]:{value:2000000}}
-   Given bindings parameter "x" is IntType(source=2000000)
+Scenario: int32/field_assign_proto2_zero
 
-    When CEL expression "x" is evaluated
-    #    int64_value:2000000
-    Then value is IntType(source=2000000)
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: 0}' is evaluated
+    Then value is TestAllTypes(single_int32_wrapper=celpy.celtypes.IntType(source=0))
 
+Scenario: int32/field_assign_proto2_max
 
-Scenario: field_assign_proto2
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: 2147483647}' is evaluated
+    Then value is TestAllTypes(single_int32_wrapper=celpy.celtypes.IntType(source=2147483647))
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: int32/field_assign_proto2_min
 
-    When CEL expression "TestAllTypes{single_int32_wrapper: 432}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_int32_wrapper:{value:432}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=432, single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: -2147483648}' is evaluated
+    Then value is TestAllTypes(single_int32_wrapper=celpy.celtypes.IntType(source=-2147483648))
 
+@wip
+Scenario: int32/field_assign_proto2_range
 
-Scenario: field_assign_proto2_zero
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_int32_wrapper: 0}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_int32_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=None, single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto2_range
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_int32_wrapper: 12345678900}" is evaluated
-    #    errors:{message:"range error"}
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: 12345678900}' is evaluated
     Then eval_error is 'range error'
 
+Scenario: int32/field_read_proto2
 
-Scenario: field_read_proto2
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: 642}.single_int32_wrapper' is evaluated
+    Then value is celpy.celtypes.IntType(source=642)
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: int32/field_read_proto2_zero
 
-    When CEL expression "TestAllTypes{single_int32_wrapper: 642}.single_int32_wrapper" is evaluated
-    #    int64_value:642
-    Then value is IntType(source=642)
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: 0}.single_int32_wrapper' is evaluated
+    Then value is celpy.celtypes.IntType(source=0)
 
+@wip
+Scenario: int32/field_read_proto2_unset
 
-Scenario: field_read_proto2_zero
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_int32_wrapper: 0}.single_int32_wrapper" is evaluated
-    #    int64_value:0
-    Then value is IntType(source=0)
-
-
-Scenario: field_read_proto2_unset
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{}.single_int32_wrapper" is evaluated
-    #    null_value:NULL_VALUE
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{}.single_int32_wrapper' is evaluated
     Then value is None
 
+Scenario: int32/field_assign_proto3
 
-Scenario: field_assign_proto3
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: -975}' is evaluated
+    Then value is TestAllTypes(single_int32_wrapper=celpy.celtypes.IntType(source=-975))
 
-   Given container is "google.api.expr.test.v1.proto3"
+Scenario: int32/field_assign_proto3_zero
 
-    When CEL expression "TestAllTypes{single_int32_wrapper: -975}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_int32_wrapper:{value:-975}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=-975, single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: 0}' is evaluated
+    Then value is TestAllTypes(single_int32_wrapper=celpy.celtypes.IntType(source=0))
 
+Scenario: int32/field_assign_proto3_max
 
-Scenario: field_assign_proto3_zero
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: 2147483647}' is evaluated
+    Then value is TestAllTypes(single_int32_wrapper=celpy.celtypes.IntType(source=2147483647))
 
-   Given container is "google.api.expr.test.v1.proto3"
+Scenario: int32/field_assign_proto3_min
 
-    When CEL expression "TestAllTypes{single_int32_wrapper: 0}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_int32_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=None, single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: -2147483648}' is evaluated
+    Then value is TestAllTypes(single_int32_wrapper=celpy.celtypes.IntType(source=-2147483648))
 
+@wip
+Scenario: int32/field_assign_proto3_range
 
-Scenario: field_assign_proto3_range
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_int32_wrapper: -998877665544332211}" is evaluated
-    #    errors:{message:"range error"}
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: -998877665544332211}' is evaluated
     Then eval_error is 'range error'
 
+Scenario: int32/field_read_proto3
 
-Scenario: field_read_proto3
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: 642}.single_int32_wrapper' is evaluated
+    Then value is celpy.celtypes.IntType(source=642)
 
-   Given container is "google.api.expr.test.v1.proto3"
+Scenario: int32/field_read_proto3_zero
 
-    When CEL expression "TestAllTypes{single_int32_wrapper: 642}.single_int32_wrapper" is evaluated
-    #    int64_value:642
-    Then value is IntType(source=642)
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: 0}.single_int32_wrapper' is evaluated
+    Then value is celpy.celtypes.IntType(source=0)
 
+@wip
+Scenario: int32/field_read_proto3_unset
 
-Scenario: field_read_proto3_zero
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_int32_wrapper: 0}.single_int32_wrapper" is evaluated
-    #    int64_value:0
-    Then value is IntType(source=0)
-
-
-Scenario: field_read_proto3_unset
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{}.single_int32_wrapper" is evaluated
-    #    null_value:NULL_VALUE
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{}.single_int32_wrapper' is evaluated
     Then value is None
-
 
 
 # int64 -- Tests for int64 conversion.
 
-Scenario: literal
+@wip
+Scenario: int64/literal
 
-    When CEL expression "google.protobuf.Int64Value{value: -123}" is evaluated
-    #    int64_value:-123
-    Then value is IntType(source=-123)
+    When CEL expression 'google.protobuf.Int64Value{value: -123}' is evaluated
+    Then value is celpy.celtypes.IntType(source=-123)
 
+Scenario: int64/literal_no_field_access
 
-Scenario: literal_no_field_access
-
-    When CEL expression "google.protobuf.Int64Value{value: -123}.value" is evaluated
-    #    errors:{message:"no_matching_overload"}
+    Given disable_check parameter is True
+    When CEL expression 'google.protobuf.Int64Value{value: -123}.value' is evaluated
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: int64/literal_zero
 
-Scenario: literal_zero
+    When CEL expression 'google.protobuf.Int64Value{}' is evaluated
+    Then value is celpy.celtypes.IntType(source=0)
 
-    When CEL expression "google.protobuf.Int64Value{}" is evaluated
-    #    int64_value:0
-    Then value is IntType(source=0)
+Scenario: int64/var
 
+    Given type_env parameter "x" is celpy.celtypes.IntType
+    and bindings parameter "x" is celpy.celtypes.IntType(source=2000000)
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.IntType(source=2000000)
 
-Scenario: var
+Scenario: int64/field_assign_proto2
 
-   #     type:{message_type:"google.protobuf.Int64Value"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.Int64Value')
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_int64_wrapper: 432}' is evaluated
+    Then value is TestAllTypes(single_int64_wrapper=celpy.celtypes.IntType(source=432))
 
-   #     object_value:{[type.googleapis.com/google.protobuf.Int64Value]:{value:2000000}}
-   Given bindings parameter "x" is IntType(source=2000000)
+Scenario: int64/field_assign_proto2_zero
 
-    When CEL expression "x" is evaluated
-    #    int64_value:2000000
-    Then value is IntType(source=2000000)
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_int64_wrapper: 0}' is evaluated
+    Then value is TestAllTypes(single_int64_wrapper=celpy.celtypes.IntType(source=0))
 
+Scenario: int64/field_assign_proto3
 
-Scenario: field_assign_proto2
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_int64_wrapper: -975}' is evaluated
+    Then value is TestAllTypes(single_int64_wrapper=celpy.celtypes.IntType(source=-975))
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: int64/field_assign_proto3_zero
 
-    When CEL expression "TestAllTypes{single_int64_wrapper: 432}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_int64_wrapper:{value:432}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=432, single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto2_zero
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_int64_wrapper: 0}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_int64_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=None, single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_int64_wrapper: -975}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_int64_wrapper:{value:-975}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=-975, single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto3_zero
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_int64_wrapper: 0}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_int64_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=None, single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_int64_wrapper: 0}' is evaluated
+    Then value is TestAllTypes(single_int64_wrapper=celpy.celtypes.IntType(source=0))
 
 
 # uint32 -- Tests for uint32 conversion.
 
-Scenario: literal
+@wip
+Scenario: uint32/literal
 
-    When CEL expression "google.protobuf.UInt32Value{value: 123u}" is evaluated
-    #    uint64_value:123
-    Then value is UintType(source=123)
+    When CEL expression 'google.protobuf.UInt32Value{value: 123u}' is evaluated
+    Then value is celpy.celtypes.UintType(source=123)
 
+Scenario: uint32/literal_no_field_access
 
-Scenario: literal_no_field_access
-
-    When CEL expression "google.protobuf.UInt32Value{value: 123u}.value" is evaluated
-    #    errors:{message:"no_matching_overload"}
+    Given disable_check parameter is True
+    When CEL expression 'google.protobuf.UInt32Value{value: 123u}.value' is evaluated
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: uint32/literal_zero
 
-Scenario: literal_zero
+    When CEL expression 'google.protobuf.UInt32Value{}' is evaluated
+    Then value is celpy.celtypes.UintType(source=0)
 
-    When CEL expression "google.protobuf.UInt32Value{}" is evaluated
-    #    uint64_value:0
-    Then value is UintType(source=0)
+Scenario: uint32/var
 
+    Given type_env parameter "x" is celpy.celtypes.UintType
+    and bindings parameter "x" is celpy.celtypes.UintType(source=2000000)
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.UintType(source=2000000)
 
-Scenario: var
+Scenario: uint32/field_assign_proto2
 
-   #     type:{message_type:"google.protobuf.UInt32Value"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.UInt32Value')
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_uint32_wrapper: 432u}' is evaluated
+    Then value is TestAllTypes(single_uint32_wrapper=celpy.celtypes.UintType(source=432))
 
-   #     object_value:{[type.googleapis.com/google.protobuf.UInt32Value]:{value:2000000}}
-   Given bindings parameter "x" is UintType(source=2000000)
+Scenario: uint32/field_assign_proto2_zero
 
-    When CEL expression "x" is evaluated
-    #    uint64_value:2000000
-    Then value is UintType(source=2000000)
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_uint32_wrapper: 0u}' is evaluated
+    Then value is TestAllTypes(single_uint32_wrapper=celpy.celtypes.UintType(source=0))
 
+Scenario: uint32/field_assign_proto2_max
 
-Scenario: field_assign_proto2
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_uint32_wrapper: 4294967295u}' is evaluated
+    Then value is TestAllTypes(single_uint32_wrapper=celpy.celtypes.UintType(source=4294967295))
 
-   Given container is "google.api.expr.test.v1.proto2"
+@wip
+Scenario: uint32/field_assign_proto2_range
 
-    When CEL expression "TestAllTypes{single_uint32_wrapper: 432u}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_uint32_wrapper:{value:432}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=432, single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto2_zero
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_uint32_wrapper: 0u}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_uint32_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=None, single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto2_range
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_uint32_wrapper: 6111222333u}" is evaluated
-    #    errors:{message:"range error"}
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_uint32_wrapper: 6111222333u}' is evaluated
     Then eval_error is 'range error'
 
+Scenario: uint32/field_assign_proto3
 
-Scenario: field_assign_proto3
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_uint32_wrapper: 975u}' is evaluated
+    Then value is TestAllTypes(single_uint32_wrapper=celpy.celtypes.UintType(source=975))
 
-   Given container is "google.api.expr.test.v1.proto3"
+Scenario: uint32/field_assign_proto3_zero
 
-    When CEL expression "TestAllTypes{single_uint32_wrapper: 975u}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_uint32_wrapper:{value:975}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=975, single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_uint32_wrapper: 0u}' is evaluated
+    Then value is TestAllTypes(single_uint32_wrapper=celpy.celtypes.UintType(source=0))
 
+Scenario: uint32/field_assign_proto3_max
 
-Scenario: field_assign_proto3_zero
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_uint32_wrapper: 4294967295u}' is evaluated
+    Then value is TestAllTypes(single_uint32_wrapper=celpy.celtypes.UintType(source=4294967295))
 
-   Given container is "google.api.expr.test.v1.proto3"
+@wip
+Scenario: uint32/field_assign_proto3_range
 
-    When CEL expression "TestAllTypes{single_uint32_wrapper: 0u}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_uint32_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=None, single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto3_range
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_uint32_wrapper: 6111222333u}" is evaluated
-    #    errors:{message:"range error"}
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_uint32_wrapper: 6111222333u}' is evaluated
     Then eval_error is 'range error'
 
+Scenario: uint32/field_read_proto2
 
-Scenario: field_read_proto2
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_uint32_wrapper: 258u}.single_uint32_wrapper' is evaluated
+    Then value is celpy.celtypes.UintType(source=258)
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: uint32/field_read_proto2_zero
 
-    When CEL expression "TestAllTypes{single_uint32_wrapper: 258u}.single_uint32_wrapper" is evaluated
-    #    uint64_value:258
-    Then value is UintType(source=258)
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_uint32_wrapper: 0u}.single_uint32_wrapper' is evaluated
+    Then value is celpy.celtypes.UintType(source=0)
 
+@wip
+Scenario: uint32/field_read_proto2_unset
 
-Scenario: field_read_proto2_zero
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_uint32_wrapper: 0u}.single_uint32_wrapper" is evaluated
-    #    uint64_value:0
-    Then value is UintType(source=0)
-
-
-Scenario: field_read_proto2_unset
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{}.single_uint32_wrapper" is evaluated
-    #    null_value:NULL_VALUE
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{}.single_uint32_wrapper' is evaluated
     Then value is None
-
 
 
 # uint64 -- Tests for uint64 conversion.
 
-Scenario: literal
+@wip
+Scenario: uint64/literal
 
-    When CEL expression "google.protobuf.UInt64Value{value: 123u}" is evaluated
-    #    uint64_value:123
-    Then value is UintType(source=123)
+    When CEL expression 'google.protobuf.UInt64Value{value: 123u}' is evaluated
+    Then value is celpy.celtypes.UintType(source=123)
 
+Scenario: uint64/literal_no_field_access
 
-Scenario: literal_no_field_access
-
-    When CEL expression "google.protobuf.UInt64Value{value: 123u}.value" is evaluated
-    #    errors:{message:"no_matching_overload"}
+    Given disable_check parameter is True
+    When CEL expression 'google.protobuf.UInt64Value{value: 123u}.value' is evaluated
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: uint64/literal_zero
 
-Scenario: literal_zero
+    When CEL expression 'google.protobuf.UInt64Value{}' is evaluated
+    Then value is celpy.celtypes.UintType(source=0)
 
-    When CEL expression "google.protobuf.UInt64Value{}" is evaluated
-    #    uint64_value:0
-    Then value is UintType(source=0)
+Scenario: uint64/var
 
+    Given type_env parameter "x" is celpy.celtypes.UintType
+    and bindings parameter "x" is celpy.celtypes.UintType(source=2000000)
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.UintType(source=2000000)
 
-Scenario: var
+Scenario: uint64/field_assign_proto2
 
-   #     type:{message_type:"google.protobuf.UInt64Value"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.UInt64Value')
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_uint64_wrapper: 432u}' is evaluated
+    Then value is TestAllTypes(single_uint64_wrapper=celpy.celtypes.UintType(source=432))
 
-   #     object_value:{[type.googleapis.com/google.protobuf.UInt64Value]:{value:2000000}}
-   Given bindings parameter "x" is UintType(source=2000000)
+Scenario: uint64/field_assign_proto2_zero
 
-    When CEL expression "x" is evaluated
-    #    uint64_value:2000000
-    Then value is UintType(source=2000000)
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_uint64_wrapper: 0u}' is evaluated
+    Then value is TestAllTypes(single_uint64_wrapper=celpy.celtypes.UintType(source=0))
 
+Scenario: uint64/field_assign_proto3
 
-Scenario: field_assign_proto2
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_uint64_wrapper: 975u}' is evaluated
+    Then value is TestAllTypes(single_uint64_wrapper=celpy.celtypes.UintType(source=975))
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: uint64/field_assign_proto3_zero
 
-    When CEL expression "TestAllTypes{single_uint64_wrapper: 432u}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_uint64_wrapper:{value:432}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=432, single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_uint64_wrapper: 0u}' is evaluated
+    Then value is TestAllTypes(single_uint64_wrapper=celpy.celtypes.UintType(source=0))
 
+Scenario: uint64/field_read_proto2
 
-Scenario: field_assign_proto2_zero
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_uint64_wrapper: 5123123123u}.single_uint64_wrapper' is evaluated
+    Then value is celpy.celtypes.UintType(source=5123123123)
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: uint64/field_read_proto2_zero
 
-    When CEL expression "TestAllTypes{single_uint64_wrapper: 0u}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_uint64_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=None, single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_uint64_wrapper: 0u}.single_uint64_wrapper' is evaluated
+    Then value is celpy.celtypes.UintType(source=0)
 
+@wip
+Scenario: uint64/field_read_proto2_unset
 
-Scenario: field_assign_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_uint64_wrapper: 975u}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_uint64_wrapper:{value:975}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=975, single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto3_zero
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_uint64_wrapper: 0u}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_uint64_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=None, single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_read_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_uint64_wrapper: 5123123123u}.single_uint64_wrapper" is evaluated
-    #    uint64_value:5123123123
-    Then value is UintType(source=5123123123)
-
-
-Scenario: field_read_proto2_zero
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_uint64_wrapper: 0u}.single_uint64_wrapper" is evaluated
-    #    uint64_value:0
-    Then value is UintType(source=0)
-
-
-Scenario: field_read_proto2_unset
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{}.single_uint64_wrapper" is evaluated
-    #    null_value:NULL_VALUE
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{}.single_uint64_wrapper' is evaluated
     Then value is None
-
 
 
 # float -- Tests for float conversion.
 
-Scenario: literal
+@wip
+Scenario: float/literal
 
-    When CEL expression "google.protobuf.FloatValue{value: -1.5e3}" is evaluated
-    #    double_value:-1500
-    Then value is DoubleType(source=-1500)
+    When CEL expression 'google.protobuf.FloatValue{value: -1.5e3}' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=-1500.0)
 
+@wip
+Scenario: float/literal_not_double
+          Use a number with no exact representation to make sure we actually
+          narrow to a float.
 
-Scenario: literal_not_double
-          Use a number with no exact representation to make sure we actually narrow to a float.
-    When CEL expression "google.protobuf.FloatValue{value: 1.333} == 1.333" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+    When CEL expression 'google.protobuf.FloatValue{value: 1.333} == 1.333' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
+Scenario: float/literal_no_field_access
 
-Scenario: literal_no_field_access
-
-    When CEL expression "google.protobuf.FloatValue{value: 3.1416}.value" is evaluated
-    #    errors:{message:"no_matching_overload"}
+    Given disable_check parameter is True
+    When CEL expression 'google.protobuf.FloatValue{value: 3.1416}.value' is evaluated
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: float/literal_zero
 
-Scenario: literal_zero
+    When CEL expression 'google.protobuf.FloatValue{}' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=0.0)
 
-    When CEL expression "google.protobuf.FloatValue{}" is evaluated
-    #    double_value:0
-    Then value is DoubleType(source=0)
+Scenario: float/var
 
+    Given type_env parameter "x" is celpy.celtypes.DoubleType
+    and bindings parameter "x" is celpy.celtypes.DoubleType(source=-1250000.0)
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=-1250000.0)
 
-Scenario: var
+Scenario: float/field_assign_proto2
 
-   #     type:{message_type:"google.protobuf.FloatValue"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.FloatValue')
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_float_wrapper: 86.75}' is evaluated
+    Then value is TestAllTypes(single_float_wrapper=celpy.celtypes.DoubleType(source=86.75))
 
-   #     object_value:{[type.googleapis.com/google.protobuf.FloatValue]:{value:-1.25e+06}}
-   Given bindings parameter "x" is DoubleType(source=-1250000.0)
+Scenario: float/field_assign_proto2_zero
 
-    When CEL expression "x" is evaluated
-    #    double_value:-1.25e+06
-    Then value is DoubleType(source=-1250000.0)
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_float_wrapper: 0.0}' is evaluated
+    Then value is TestAllTypes(single_float_wrapper=celpy.celtypes.DoubleType(source=0.0))
 
+@wip
+Scenario: float/field_assign_proto2_subnorm
+          Subnormal single floats range from ~1e-38 to ~1e-45.
 
-Scenario: field_assign_proto2
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_float_wrapper: 1e-40}' is evaluated
+    Then value is TestAllTypes(single_float_wrapper=celpy.celtypes.DoubleType(source=9.99994610111476e-41))
 
-   Given container is "google.api.expr.test.v1.proto2"
+@wip
+Scenario: float/field_assign_proto2_round_to_zero
+          Subnormal single floats range from ~1e-38 to ~1e-45.
 
-    When CEL expression "TestAllTypes{single_float_wrapper: 86.75}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_float_wrapper:{value:86.75}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=86.75, single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_float_wrapper: 1e-50}' is evaluated
+    Then value is TestAllTypes(single_float_wrapper=celpy.celtypes.DoubleType(source=0.0))
 
+@wip
+Scenario: float/field_assign_proto2_range
+          Single float max is about 3.4e38
 
-Scenario: field_assign_proto2_zero
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_float_wrapper: 1.4e55}' is evaluated
+    Then value is TestAllTypes(single_float_wrapper=celpy.celtypes.DoubleType(source=float('inf')))
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: float/field_read_proto2
 
-    When CEL expression "TestAllTypes{single_float_wrapper: 0.0}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_float_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=None, single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_float_wrapper: -12.375}.single_float_wrapper' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=-12.375)
 
+Scenario: float/field_read_proto2_zero
 
-Scenario: field_assign_proto2_range
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_float_wrapper: 0.0}.single_float_wrapper' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=0.0)
 
-   Given container is "google.api.expr.test.v1.proto2"
+@wip
+Scenario: float/field_read_proto2_unset
 
-    When CEL expression "TestAllTypes{single_float_wrapper: 1.4e55}" is evaluated
-    #    errors:{message:"range error"}
-    Then eval_error is 'range error'
-
-
-Scenario: field_read_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_float_wrapper: -12.375}.single_float_wrapper" is evaluated
-    #    double_value:-12.375
-    Then value is DoubleType(source=-12.375)
-
-
-Scenario: field_read_proto2_zero
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_int32_wrapper: 0}.single_int32_wrapper" is evaluated
-    #    int64_value:0
-    Then value is IntType(source=0)
-
-
-Scenario: field_read_proto2_unset
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{}.single_float_wrapper" is evaluated
-    #    null_value:NULL_VALUE
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{}.single_float_wrapper' is evaluated
     Then value is None
 
+Scenario: float/field_assign_proto3
 
-Scenario: field_assign_proto3
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_float_wrapper: -9.75}' is evaluated
+    Then value is TestAllTypes(single_float_wrapper=celpy.celtypes.DoubleType(source=-9.75))
 
-   Given container is "google.api.expr.test.v1.proto3"
+Scenario: float/field_assign_proto3_zero
 
-    When CEL expression "TestAllTypes{single_float_wrapper: -9.75}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_float_wrapper:{value:-9.75}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=-9.75, single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_float_wrapper: 0.0}' is evaluated
+    Then value is TestAllTypes(single_float_wrapper=celpy.celtypes.DoubleType(source=0.0))
 
+@wip
+Scenario: float/field_assign_proto2_subnorm
+          Subnormal single floats range from ~1e-38 to ~1e-45.
 
-Scenario: field_assign_proto3_zero
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_float_wrapper: 1e-40}' is evaluated
+    Then value is TestAllTypes(single_float_wrapper=celpy.celtypes.DoubleType(source=9.99994610111476e-41))
 
-   Given container is "google.api.expr.test.v1.proto3"
+@wip
+Scenario: float/field_assign_proto3_round_to_zero
 
-    When CEL expression "TestAllTypes{single_float_wrapper: 0.0}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_float_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=None, single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_float_wrapper: -9.9e-100}' is evaluated
+    Then value is TestAllTypes(single_float_wrapper=celpy.celtypes.DoubleType(source=-0.0))
 
+@wip
+Scenario: float/field_assign_proto3_range
+          Single float min is about -3.4e38
 
-Scenario: field_assign_proto3_range
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_float_wrapper: -9.9e100}' is evaluated
+    Then value is TestAllTypes(single_float_wrapper=celpy.celtypes.DoubleType(source=float('-inf')))
 
-   Given container is "google.api.expr.test.v1.proto3"
+Scenario: float/field_read_proto3
 
-    When CEL expression "TestAllTypes{single_float_wrapper: -9.9e-100}" is evaluated
-    #    errors:{message:"range error"}
-    Then eval_error is 'range error'
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_float_wrapper: 64.25}.single_float_wrapper' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=64.25)
 
+Scenario: float/field_read_proto3_zero
 
-Scenario: field_read_proto3
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_float_wrapper: 0.0}.single_float_wrapper' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=0.0)
 
-   Given container is "google.api.expr.test.v1.proto3"
+@wip
+Scenario: float/field_read_proto3_unset
 
-    When CEL expression "TestAllTypes{single_float_wrapper: 64.25}.single_float_wrapper" is evaluated
-    #    double_value:64.25
-    Then value is DoubleType(source=64.25)
-
-
-Scenario: field_read_proto3_zero
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_float_wrapper: 0.0}.single_float_wrapper" is evaluated
-    #    double_value:0
-    Then value is DoubleType(source=0)
-
-
-Scenario: field_read_proto3_unset
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{}.single_float_wrapper" is evaluated
-    #    null_value:NULL_VALUE
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{}.single_float_wrapper' is evaluated
     Then value is None
-
 
 
 # double -- Tests for double conversion.
 
-Scenario: literal
+@wip
+Scenario: double/literal
 
-    When CEL expression "google.protobuf.DoubleValue{value: -1.5e3}" is evaluated
-    #    double_value:-1500
-    Then value is DoubleType(source=-1500)
+    When CEL expression 'google.protobuf.DoubleValue{value: -1.5e3}' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=-1500.0)
 
+Scenario: double/literal_no_field_access
 
-Scenario: literal_no_field_access
-
-    When CEL expression "google.protobuf.DoubleValue{value: 3.1416}.value" is evaluated
-    #    errors:{message:"no_matching_overload"}
+    Given disable_check parameter is True
+    When CEL expression 'google.protobuf.DoubleValue{value: 3.1416}.value' is evaluated
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: double/literal_zero
 
-Scenario: literal_zero
+    When CEL expression 'google.protobuf.DoubleValue{}' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=0.0)
 
-    When CEL expression "google.protobuf.DoubleValue{}" is evaluated
-    #    double_value:0
-    Then value is DoubleType(source=0)
+Scenario: double/var
 
+    Given type_env parameter "x" is celpy.celtypes.DoubleType
+    and bindings parameter "x" is celpy.celtypes.DoubleType(source=-1250000.0)
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=-1250000.0)
 
-Scenario: var
+Scenario: double/field_assign_proto2
 
-   #     type:{message_type:"google.protobuf.DoubleValue"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.DoubleValue')
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_double_wrapper: 86.75}' is evaluated
+    Then value is TestAllTypes(single_double_wrapper=celpy.celtypes.DoubleType(source=86.75))
 
-   #     object_value:{[type.googleapis.com/google.protobuf.DoubleValue]:{value:-1.25e+06}}
-   Given bindings parameter "x" is DoubleType(source=-1250000.0)
+Scenario: double/field_assign_proto2_zero
 
-    When CEL expression "x" is evaluated
-    #    double_value:-1.25e+06
-    Then value is DoubleType(source=-1250000.0)
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_double_wrapper: 0.0}' is evaluated
+    Then value is TestAllTypes(single_double_wrapper=celpy.celtypes.DoubleType(source=0.0))
 
+Scenario: double/field_assign_proto2_range
 
-Scenario: field_assign_proto2
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_double_wrapper: 1.4e55}' is evaluated
+    Then value is TestAllTypes(single_double_wrapper=celpy.celtypes.DoubleType(source=1.4e+55))
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: double/field_read_proto2
 
-    When CEL expression "TestAllTypes{single_double_wrapper: 86.75}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_double_wrapper:{value:86.75}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=86.75, single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_double_wrapper: -12.375}.single_double_wrapper' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=-12.375)
 
+Scenario: double/field_read_proto2_zero
 
-Scenario: field_assign_proto2_zero
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_int32_wrapper: 0}.single_int32_wrapper' is evaluated
+    Then value is celpy.celtypes.IntType(source=0)
 
-   Given container is "google.api.expr.test.v1.proto2"
+@wip
+Scenario: double/field_read_proto2_unset
 
-    When CEL expression "TestAllTypes{single_double_wrapper: 0.0}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_double_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=None, single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto2_range
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_double_wrapper: 1.4e55}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_double_wrapper:{value:1.4e+55}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=1.4e+55, single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_read_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_double_wrapper: -12.375}.single_double_wrapper" is evaluated
-    #    double_value:-12.375
-    Then value is DoubleType(source=-12.375)
-
-
-Scenario: field_read_proto2_zero
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_int32_wrapper: 0}.single_int32_wrapper" is evaluated
-    #    int64_value:0
-    Then value is IntType(source=0)
-
-
-Scenario: field_read_proto2_unset
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{}.single_double_wrapper" is evaluated
-    #    null_value:NULL_VALUE
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{}.single_double_wrapper' is evaluated
     Then value is None
 
+Scenario: double/field_assign_proto3
 
-Scenario: field_assign_proto3
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_double_wrapper: -9.75}' is evaluated
+    Then value is TestAllTypes(single_double_wrapper=celpy.celtypes.DoubleType(source=-9.75))
 
-   Given container is "google.api.expr.test.v1.proto3"
+Scenario: double/field_assign_proto3_zero
 
-    When CEL expression "TestAllTypes{single_double_wrapper: -9.75}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_double_wrapper:{value:-9.75}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=-9.75, single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_double_wrapper: 0.0}' is evaluated
+    Then value is TestAllTypes(single_double_wrapper=celpy.celtypes.DoubleType(source=0.0))
 
+Scenario: double/field_assign_proto3_range
 
-Scenario: field_assign_proto3_zero
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_double_wrapper: -9.9e100}' is evaluated
+    Then value is TestAllTypes(single_double_wrapper=celpy.celtypes.DoubleType(source=-9.9e+100))
 
-   Given container is "google.api.expr.test.v1.proto3"
+Scenario: double/field_read_proto3
 
-    When CEL expression "TestAllTypes{single_double_wrapper: 0.0}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_double_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=None, single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_double_wrapper: 64.25}.single_double_wrapper' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=64.25)
 
+Scenario: double/field_read_proto3_zero
 
-Scenario: field_assign_proto3_range
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_double_wrapper: 0.0}.single_double_wrapper' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=0.0)
 
-   Given container is "google.api.expr.test.v1.proto3"
+@wip
+Scenario: double/field_read_proto3_unset
 
-    When CEL expression "TestAllTypes{single_double_wrapper: -9.9e-100}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_double_wrapper:{value:-9.9e-100}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=-9.9e-100, single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_read_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_double_wrapper: 64.25}.single_double_wrapper" is evaluated
-    #    double_value:64.25
-    Then value is DoubleType(source=64.25)
-
-
-Scenario: field_read_proto3_zero
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_double_wrapper: 0.0}.single_double_wrapper" is evaluated
-    #    double_value:0
-    Then value is DoubleType(source=0)
-
-
-Scenario: field_read_proto3_unset
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{}.single_double_wrapper" is evaluated
-    #    null_value:NULL_VALUE
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{}.single_double_wrapper' is evaluated
     Then value is None
-
 
 
 # bool -- Tests for bool conversion.
 
-Scenario: literal
+@wip
+Scenario: bool/literal
 
-    When CEL expression "google.protobuf.BoolValue{value: true}" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    When CEL expression 'google.protobuf.BoolValue{value: true}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
+Scenario: bool/literal_no_field_access
 
-Scenario: literal_no_field_access
-
-    When CEL expression "google.protobuf.BoolValue{value: true}.value" is evaluated
-    #    errors:{message:"no_matching_overload"}
+    Given disable_check parameter is True
+    When CEL expression 'google.protobuf.BoolValue{value: true}.value' is evaluated
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: bool/literal_empty
 
-Scenario: literal_empty
+    When CEL expression 'google.protobuf.BoolValue{}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
-    When CEL expression "google.protobuf.BoolValue{}" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+Scenario: bool/var
 
+    Given type_env parameter "x" is celpy.celtypes.BoolType
+    and bindings parameter "x" is celpy.celtypes.BoolType(source=True)
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
-Scenario: var
+Scenario: bool/field_assign_proto2
 
-   #     type:{message_type:"google.protobuf.BoolValue"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.BoolValue')
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_bool_wrapper: true}' is evaluated
+    Then value is TestAllTypes(single_bool_wrapper=celpy.celtypes.BoolType(source=True))
 
-   #     object_value:{[type.googleapis.com/google.protobuf.BoolValue]:{value:true}}
-   Given bindings parameter "x" is BoolType(source=True)
+Scenario: bool/field_assign_proto2_false
 
-    When CEL expression "x" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_bool_wrapper: false}' is evaluated
+    Then value is TestAllTypes(single_bool_wrapper=celpy.celtypes.BoolType(source=False))
 
+Scenario: bool/field_assign_proto3
 
-Scenario: field_assign_proto2
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_bool_wrapper: true}' is evaluated
+    Then value is TestAllTypes(single_bool_wrapper=celpy.celtypes.BoolType(source=True))
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: bool/field_assign_proto3_false
 
-    When CEL expression "TestAllTypes{single_bool_wrapper: true}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_bool_wrapper:{value:true}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=True, single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto2_false
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_bool_wrapper: false}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_bool_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=None, single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_bool_wrapper: true}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_bool_wrapper:{value:true}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=True, single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto3_false
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_bool_wrapper: false}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_bool_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=None, single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_bool_wrapper: false}' is evaluated
+    Then value is TestAllTypes(single_bool_wrapper=celpy.celtypes.BoolType(source=False))
 
 
 # string -- Tests for string conversion.
 
-Scenario: literal
+@wip
+Scenario: string/literal
 
     When CEL expression "google.protobuf.StringValue{value: 'foo'}" is evaluated
-    #    string_value:"foo"
-    Then value is StringType(source='foo')
+    Then value is celpy.celtypes.StringType(source='foo')
 
+Scenario: string/literal_no_field_access
 
-Scenario: literal_no_field_access
-
+    Given disable_check parameter is True
     When CEL expression "google.protobuf.StringValue{value: 'foo'}.value" is evaluated
-    #    errors:{message:"no_matching_overload"}
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: string/literal_empty
 
-Scenario: literal_empty
+    When CEL expression 'google.protobuf.StringValue{}' is evaluated
+    Then value is celpy.celtypes.StringType(source='')
 
-    When CEL expression "google.protobuf.StringValue{}" is evaluated
-    #    string_value:""
-    Then value is StringType(source='')
-
-
-Scenario: literal_unicode
+@wip
+Scenario: string/literal_unicode
 
     When CEL expression "google.protobuf.StringValue{value: 'flambé'}" is evaluated
-    #    string_value:"flambé"
-    Then value is StringType(source='flambé')
+    Then value is celpy.celtypes.StringType(source='flambé')
 
+Scenario: string/var
 
-Scenario: var
+    Given type_env parameter "x" is celpy.celtypes.StringType
+    and bindings parameter "x" is celpy.celtypes.StringType(source='bar')
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.StringType(source='bar')
 
-   #     type:{message_type:"google.protobuf.StringValue"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.StringValue')
+Scenario: string/field_assign_proto2
 
-   #     object_value:{[type.googleapis.com/google.protobuf.StringValue]:{value:"bar"}}
-   Given bindings parameter "x" is StringType(source='bar')
-
-    When CEL expression "x" is evaluated
-    #    string_value:"bar"
-    Then value is StringType(source='bar')
-
-
-Scenario: field_assign_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_string_wrapper: 'baz'}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_string_wrapper:{value:"baz"}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper='baz', single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Then value is TestAllTypes(single_string_wrapper=celpy.celtypes.StringType(source='baz'))
 
+Scenario: string/field_assign_proto2_empty
 
-Scenario: field_assign_proto2_empty
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_string_wrapper: ''}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_string_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=None, single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Then value is TestAllTypes(single_string_wrapper=celpy.celtypes.StringType(source=''))
 
+Scenario: string/field_assign_proto3
 
-Scenario: field_assign_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_string_wrapper: 'bletch'}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_string_wrapper:{value:"bletch"}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper='bletch', single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Then value is TestAllTypes(single_string_wrapper=celpy.celtypes.StringType(source='bletch'))
 
+Scenario: string/field_assign_proto3_empty
 
-Scenario: field_assign_proto3_empty
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_string_wrapper: ''}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_string_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=None, single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
+    Then value is TestAllTypes(single_string_wrapper=celpy.celtypes.StringType(source=''))
 
 
 # bytes -- Tests for bytes conversion.
 
-Scenario: literal
+@wip
+Scenario: bytes/literal
 
-    When CEL expression "google.protobuf.BytesValue{value: b'foo\123'}" is evaluated
-    #    bytes_value:"fooS"
-    Then value is BytesType(source=b'fooS')
+    When CEL expression "google.protobuf.BytesValue{value: b'foo\\123'}" is evaluated
+    Then value is celpy.celtypes.BytesType(source=b'fooS')
 
+Scenario: bytes/literal_no_field_access
 
-Scenario: literal_no_field_access
-
+    Given disable_check parameter is True
     When CEL expression "google.protobuf.BytesValue{value: b'foo'}.value" is evaluated
-    #    errors:{message:"no_matching_overload"}
     Then eval_error is 'no_matching_overload'
 
+Scenario: bytes/literal_empty
 
-Scenario: literal_empty
+    When CEL expression 'google.protobuf.BytesValue{}' is evaluated
+    Then value is celpy.celtypes.BytesType(source=b'')
 
-    When CEL expression "google.protobuf.BytesValue{}" is evaluated
-    #    bytes_value:""
-    Then value is BytesType(source=b'')
-
-
-Scenario: literal_unicode
+@wip
+Scenario: bytes/literal_unicode
 
     When CEL expression "google.protobuf.BytesValue{value: b'flambé'}" is evaluated
-    #    bytes_value:"flambé"
-    Then value is BytesType(source=b'flamb\xc3\xa9')
+    Then value is celpy.celtypes.BytesType(source=b'flamb\xc3\xa9')
 
+Scenario: bytes/var
 
-Scenario: var
+    Given type_env parameter "x" is celpy.celtypes.BytesType
+    and bindings parameter "x" is celpy.celtypes.BytesType(source=b'bar')
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.BytesType(source=b'bar')
 
-   #     type:{message_type:"google.protobuf.BytesValue"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.BytesValue')
+Scenario: bytes/field_assign_proto2
 
-   #     object_value:{[type.googleapis.com/google.protobuf.BytesValue]:{value:"bar"}}
-   Given bindings parameter "x" is BytesType(source='bar')
-
-    When CEL expression "x" is evaluated
-    #    bytes_value:"bar"
-    Then value is BytesType(source=b'bar')
-
-
-Scenario: field_assign_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_bytes_wrapper: b'baz'}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_bytes_wrapper:{value:"baz"}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper='baz', list_value=[])
+    Then value is TestAllTypes(single_bytes_wrapper=celpy.celtypes.BytesType(source=b'baz'))
 
+Scenario: bytes/field_assign_proto2_empty
 
-Scenario: field_assign_proto2_empty
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_bytes_wrapper: b''}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_bytes_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=None, list_value=[])
+    Then value is TestAllTypes(single_bytes_wrapper=celpy.celtypes.BytesType(source=b''))
 
+Scenario: bytes/field_assign_proto3
 
-Scenario: field_assign_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_bytes_wrapper: b'bletch'}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_bytes_wrapper:{value:"bletch"}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper='bletch', list_value=[])
+    Then value is TestAllTypes(single_bytes_wrapper=celpy.celtypes.BytesType(source=b'bletch'))
 
+Scenario: bytes/field_assign_proto3_empty
 
-Scenario: field_assign_proto3_empty
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_bytes_wrapper: b''}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_bytes_wrapper:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=None, list_value=[])
-
+    Then value is TestAllTypes(single_bytes_wrapper=celpy.celtypes.BytesType(source=b''))
 
 
 # list -- Tests for list conversion.
 
-Scenario: literal
+@wip
+Scenario: list/literal
 
     When CEL expression "google.protobuf.ListValue{values: [3.0, 'foo', null]}" is evaluated
-    #    list_value:{values:{double_value:3} values:{string_value:"foo"} values:{null_value:NULL_VALUE}}
-    Then value is [DoubleType(source=3), StringType(source='foo'), None]
+    Then value is [celpy.celtypes.DoubleType(source=3.0), celpy.celtypes.StringType(source='foo'), None]
 
+Scenario: list/literal_no_field_access
 
-Scenario: literal_no_field_access
-
+    Given disable_check parameter is True
     When CEL expression "google.protobuf.ListValue{values: [3.0, 'foo', null]}.values" is evaluated
-    #    errors:{message:"no_matching_overload"}
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: list/literal_empty
 
-Scenario: literal_empty
-
-    When CEL expression "google.protobuf.ListValue{values: []}" is evaluated
-    #    list_value:{}
+    When CEL expression 'google.protobuf.ListValue{values: []}' is evaluated
     Then value is []
 
+Scenario: list/var
 
-Scenario: var
+    Given type_env parameter "x" is celpy.celtypes.ListType
+    and bindings parameter "x" is [celpy.celtypes.StringType(source='bar'), [celpy.celtypes.StringType(source='a'), celpy.celtypes.StringType(source='b')]]
+    When CEL expression 'x' is evaluated
+    Then value is [celpy.celtypes.StringType(source='bar'), [celpy.celtypes.StringType(source='a'), celpy.celtypes.StringType(source='b')]]
 
-   #     type:{message_type:"google.protobuf.ListValue"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.ListValue')
+Scenario: list/field_assign_proto2
 
-   #     object_value:{[type.googleapis.com/google.protobuf.ListValue]:{values:{string_value:"bar"} values:{list_value:{values:{string_value:"a"} values:{string_value:"b"}}}}}
-   Given bindings parameter "x" is [StringType(source='bar'), [StringType(source='a'), StringType(source='b')]]
-
-    When CEL expression "x" is evaluated
-    #    list_value:{values:{string_value:"bar"} values:{list_value:{values:{string_value:"a"} values:{string_value:"b"}}}}
-    Then value is [StringType(source='bar'), [StringType(source='a'), StringType(source='b')]]
-
-
-Scenario: field_assign_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{list_value: [1.0, 'one']}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{list_value:{values:{number_value:1} values:{string_value:"one"}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[DoubleType(source=1), StringType(source='one')])
+    Then value is TestAllTypes(list_value=[celpy.celtypes.DoubleType(source=1.0), celpy.celtypes.StringType(source='one')])
 
+Scenario: list/field_assign_proto2_empty
 
-Scenario: field_assign_proto2_empty
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{list_value: []}' is evaluated
+    Then value is TestAllTypes(list_value=[])
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: list/field_read_proto2
 
-    When CEL expression "TestAllTypes{list_value: []}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{list_value:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=None)
-
-
-Scenario: field_read_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{list_value: [1.0, 'one']}.list_value" is evaluated
-    #    list_value:{values:{double_value:1} values:{string_value:"one"}}
-    Then value is [DoubleType(source=1), StringType(source='one')]
+    Then value is [celpy.celtypes.DoubleType(source=1.0), celpy.celtypes.StringType(source='one')]
 
+Scenario: list/field_read_proto2_empty
 
-Scenario: field_read_proto2_empty
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{list_value: []}.list_value" is evaluated
-    #    list_value:{}
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{list_value: []}.list_value' is evaluated
     Then value is []
 
-
-Scenario: field_read_proto2_unset
+Scenario: list/field_read_proto2_unset
           Not a wrapper type, so doesn't convert to null.
-   Given container is "google.api.expr.test.v1.proto2"
 
-    When CEL expression "TestAllTypes{}.list_value" is evaluated
-    #    list_value:{}
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{}.list_value' is evaluated
     Then value is []
 
+Scenario: list/field_assign_proto3
 
-Scenario: field_assign_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{list_value: [1.0, 'one']}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{list_value:{values:{number_value:1} values:{string_value:"one"}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[DoubleType(source=1), StringType(source='one')])
+    Then value is TestAllTypes(list_value=[celpy.celtypes.DoubleType(source=1.0), celpy.celtypes.StringType(source='one')])
 
+Scenario: list/field_assign_proto3_empty
 
-Scenario: field_assign_proto3_empty
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{list_value: []}' is evaluated
+    Then value is TestAllTypes(list_value=[])
 
-   Given container is "google.api.expr.test.v1.proto3"
+Scenario: list/field_read_proto3
 
-    When CEL expression "TestAllTypes{list_value: []}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{list_value:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=None)
-
-
-Scenario: field_read_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{list_value: [1.0, 'one']}.list_value" is evaluated
-    #    list_value:{values:{double_value:1} values:{string_value:"one"}}
-    Then value is [DoubleType(source=1), StringType(source='one')]
+    Then value is [celpy.celtypes.DoubleType(source=1.0), celpy.celtypes.StringType(source='one')]
 
+Scenario: list/field_read_proto3_empty
 
-Scenario: field_read_proto3_empty
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{list_value: []}.list_value" is evaluated
-    #    list_value:{}
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{list_value: []}.list_value' is evaluated
     Then value is []
 
-
-Scenario: field_read_proto3_unset
+Scenario: list/field_read_proto3_unset
           Not a wrapper type, so doesn't convert to null.
-   Given container is "google.api.expr.test.v1.proto3"
 
-    When CEL expression "TestAllTypes{}.list_value" is evaluated
-    #    list_value:{}
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{}.list_value' is evaluated
     Then value is []
-
 
 
 # struct -- Tests for struct conversion.
 
-Scenario: literal
+@wip
+Scenario: struct/literal
 
     When CEL expression "google.protobuf.Struct{fields: {'uno': 1.0, 'dos': 2.0}}" is evaluated
-    #    map_value:{entries:{key:{string_value:"uno"} value:{double_value:1}} entries:{key:{string_value:"dos"} value:{double_value:2}}}
-    Then value is MapType({StringType(source='uno'): DoubleType(source=1), StringType(source='dos'): DoubleType(source=2)})
+    Then value is celpy.celtypes.MapType({'uno': celpy.celtypes.DoubleType(source=1.0), 'dos': celpy.celtypes.DoubleType(source=2.0)})
 
+@wip
+Scenario: struct/literal_no_field_access
 
-Scenario: literal_no_field_access
-
+    Given disable_check parameter is True
     When CEL expression "google.protobuf.Struct{fields: {'uno': 1.0, 'dos': 2.0}}.fields" is evaluated
-    #    errors:{message:"no_matching_overload"}
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: struct/literal_empty
 
-Scenario: literal_empty
+    When CEL expression 'google.protobuf.Struct{fields: {}}' is evaluated
+    Then value is celpy.celtypes.MapType({})
 
-    When CEL expression "google.protobuf.Struct{fields: {}}" is evaluated
-    #    map_value:{}
-    Then value is MapType({})
+Scenario: struct/var
 
+    Given type_env parameter "x" is celpy.celtypes.MapType
+    and bindings parameter "x" is celpy.celtypes.MapType({'last': celpy.celtypes.StringType(source='Lincoln'), 'first': celpy.celtypes.StringType(source='Abraham')})
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.MapType({'first': celpy.celtypes.StringType(source='Abraham'), 'last': celpy.celtypes.StringType(source='Lincoln')})
 
-Scenario: var
+Scenario: struct/field_assign_proto2
 
-   #     type:{message_type:"google.protobuf.Struct"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.Struct')
-
-   #     object_value:{[type.googleapis.com/google.protobuf.Struct]:{fields:{key:"first" value:{string_value:"Abraham"}} fields:{key:"last" value:{string_value:"Lincoln"}}}}
-   Given bindings parameter "x" is {'first': StringType(source='Abraham'), 'last': StringType(source='Lincoln')}
-
-    When CEL expression "x" is evaluated
-    #    map_value:{entries:{key:{string_value:"first"} value:{string_value:"Abraham"}} entries:{key:{string_value:"last"} value:{string_value:"Lincoln"}}}
-    Then value is MapType({StringType(source='first'): StringType(source='Abraham'), StringType(source='last'): StringType(source='Lincoln')})
-
-
-Scenario: field_assign_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_struct: {'un': 1.0, 'deux': 2.0}}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_struct:{fields:{key:"deux" value:{number_value:2}} fields:{key:"un" value:{number_value:1}}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({'deux': DoubleType(source=2), 'un': DoubleType(source=1)}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'deux': celpy.celtypes.DoubleType(source=2.0), 'un': celpy.celtypes.DoubleType(source=1.0)}))
 
+Scenario: struct/field_assign_proto2_empty
 
-Scenario: field_assign_proto2_empty
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_struct: {}}' is evaluated
+    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({}))
 
-   Given container is "google.api.expr.test.v1.proto2"
+@wip
+Scenario: struct/field_assign_proto2_bad
 
-    When CEL expression "TestAllTypes{single_struct: {}}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_struct:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=None, single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto2_bad
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given disable_check parameter is True
+    and container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_struct: {1: 'uno'}}" is evaluated
-    #    errors:{message:"bad key type"}
     Then eval_error is 'bad key type'
 
+Scenario: struct/field_read_proto2
 
-Scenario: field_read_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_struct: {'one': 1.0}}.single_struct" is evaluated
-    #    map_value:{entries:{key:{string_value:"one"} value:{double_value:1}}}
-    Then value is MapType({StringType(source='one'): DoubleType(source=1)})
+    Then value is celpy.celtypes.MapType({'one': celpy.celtypes.DoubleType(source=1.0)})
 
+Scenario: struct/field_read_proto2_empty
 
-Scenario: field_read_proto2_empty
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_struct: {}}.single_struct' is evaluated
+    Then value is celpy.celtypes.MapType({})
 
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_struct: {}}.single_struct" is evaluated
-    #    map_value:{}
-    Then value is MapType({})
-
-
-Scenario: field_read_proto2_unset
+Scenario: struct/field_read_proto2_unset
           Not a wrapper type, so doesn't convert to null.
-   Given container is "google.api.expr.test.v1.proto2"
 
-    When CEL expression "TestAllTypes{}.single_struct" is evaluated
-    #    map_value:{}
-    Then value is MapType({})
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{}.single_struct' is evaluated
+    Then value is celpy.celtypes.MapType({})
 
+Scenario: struct/field_assign_proto3
 
-Scenario: field_assign_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_struct: {'un': 1.0, 'deux': 2.0}}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_struct:{fields:{key:"deux" value:{number_value:2}} fields:{key:"un" value:{number_value:1}}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({'deux': DoubleType(source=2), 'un': DoubleType(source=1)}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'deux': celpy.celtypes.DoubleType(source=2.0), 'un': celpy.celtypes.DoubleType(source=1.0)}))
 
+Scenario: struct/field_assign_proto3_empty
 
-Scenario: field_assign_proto3_empty
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_struct: {}}' is evaluated
+    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({}))
 
-   Given container is "google.api.expr.test.v1.proto3"
+@wip
+Scenario: struct/field_assign_proto3_bad
 
-    When CEL expression "TestAllTypes{single_struct: {}}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_struct:{}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=None, single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto3_bad
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given disable_check parameter is True
+    and container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_struct: {1: 'uno'}}" is evaluated
-    #    errors:{message:"bad key type"}
     Then eval_error is 'bad key type'
 
+Scenario: struct/field_read_proto3
 
-Scenario: field_read_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_struct: {'one': 1.0}}.single_struct" is evaluated
-    #    map_value:{entries:{key:{string_value:"one"} value:{double_value:1}}}
-    Then value is MapType({StringType(source='one'): DoubleType(source=1)})
+    Then value is celpy.celtypes.MapType({'one': celpy.celtypes.DoubleType(source=1.0)})
 
+Scenario: struct/field_read_proto3_empty
 
-Scenario: field_read_proto3_empty
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_struct: {}}.single_struct' is evaluated
+    Then value is celpy.celtypes.MapType({})
 
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_struct: {}}.single_struct" is evaluated
-    #    map_value:{}
-    Then value is MapType({})
-
-
-Scenario: field_read_proto3_unset
+Scenario: struct/field_read_proto3_unset
           Not a wrapper type, so doesn't convert to null.
-   Given container is "google.api.expr.test.v1.proto3"
 
-    When CEL expression "TestAllTypes{}.single_struct" is evaluated
-    #    map_value:{}
-    Then value is MapType({})
-
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{}.single_struct' is evaluated
+    Then value is celpy.celtypes.MapType({})
 
 
 # value_null -- Tests for null conversions.
 
-Scenario: literal
+@wip
+Scenario: value_null/literal
 
-   Given container is "google.protobuf"
-
-    When CEL expression "Value{null_value: NullValue.NULL_VALUE}" is evaluated
-    #    null_value:NULL_VALUE
+    Given container is 'google.protobuf'
+    When CEL expression 'Value{null_value: NullValue.NULL_VALUE}' is evaluated
     Then value is None
 
+Scenario: value_null/literal_no_field_access
 
-Scenario: literal_no_field_access
-
-   Given container is "google.protobuf"
-
-    When CEL expression "Value{null_value: NullValue.NULL_VALUE}.null_value" is evaluated
-    #    errors:{message:"no_matching_overload"}
+    Given disable_check parameter is True
+    and container is 'google.protobuf'
+    When CEL expression 'Value{null_value: NullValue.NULL_VALUE}.null_value' is evaluated
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: value_null/literal_unset
 
-Scenario: literal_unset
-
-    When CEL expression "google.protobuf.Value{}" is evaluated
-    #    null_value:NULL_VALUE
+    When CEL expression 'google.protobuf.Value{}' is evaluated
     Then value is None
 
+Scenario: value_null/var
 
-Scenario: var
-
-   #     type:{message_type:"google.protobuf.Value"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.Value')
-
-   #     object_value:{[type.googleapis.com/google.protobuf.Value]:{null_value:NULL_VALUE}}
-   Given bindings parameter "x" is None
-
-    When CEL expression "x" is evaluated
-    #    null_value:NULL_VALUE
+    Given type_env parameter "x" is celpy.celtypes.MessageType
+    and bindings parameter "x" is None
+    When CEL expression 'x' is evaluated
     Then value is None
 
+Scenario: value_null/field_assign_proto2
 
-Scenario: field_assign_proto2
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: null}' is evaluated
+    Then value is TestAllTypes(single_value=None)
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: value_null/field_read_proto2
 
-    When CEL expression "TestAllTypes{single_value: null}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_value:{null_value:NULL_VALUE}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_read_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_value: null}.single_value" is evaluated
-    #    null_value:NULL_VALUE
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: null}.single_value' is evaluated
     Then value is None
 
+@wip
+Scenario: value_null/field_read_proto2_unset
 
-Scenario: field_read_proto2_unset
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{}.single_value" is evaluated
-    #    null_value:NULL_VALUE
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{}.single_value' is evaluated
     Then value is None
 
+Scenario: value_null/field_assign_proto3
 
-Scenario: field_assign_proto3
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: null}' is evaluated
+    Then value is TestAllTypes(single_value=None)
 
-   Given container is "google.api.expr.test.v1.proto3"
+Scenario: value_null/field_read_proto3
 
-    When CEL expression "TestAllTypes{single_value: null}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_value:{null_value:NULL_VALUE}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_read_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_value: null}.single_value" is evaluated
-    #    null_value:NULL_VALUE
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: null}.single_value' is evaluated
     Then value is None
 
+@wip
+Scenario: value_null/field_read_proto3_unset
 
-Scenario: field_read_proto3_unset
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{}.single_value" is evaluated
-    #    null_value:NULL_VALUE
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{}.single_value' is evaluated
     Then value is None
-
 
 
 # value_number -- Tests for number conversions in Value.
 
-Scenario: literal
+@wip
+Scenario: value_number/literal
 
-    When CEL expression "google.protobuf.Value{number_value: 12.5}" is evaluated
-    #    double_value:12.5
-    Then value is DoubleType(source=12.5)
+    When CEL expression 'google.protobuf.Value{number_value: 12.5}' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=12.5)
 
+Scenario: value_number/literal_no_field_access
 
-Scenario: literal_no_field_access
-
-    When CEL expression "google.protobuf.Value{number_value: 12.5}.number_value" is evaluated
-    #    errors:{message:"no_matching_overload"}
+    Given disable_check parameter is True
+    When CEL expression 'google.protobuf.Value{number_value: 12.5}.number_value' is evaluated
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: value_number/literal_zero
 
-Scenario: literal_zero
+    When CEL expression 'google.protobuf.Value{number_value: 0.0}' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=0.0)
 
-    When CEL expression "google.protobuf.Value{number_value: 0.0}" is evaluated
-    #    double_value:0
-    Then value is DoubleType(source=0)
+Scenario: value_number/var
 
+    Given type_env parameter "x" is celpy.celtypes.MessageType
+    and bindings parameter "x" is celpy.celtypes.DoubleType(source=-26.375)
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=-26.375)
 
-Scenario: var
+Scenario: value_number/field_assign_proto2
 
-   #     type:{message_type:"google.protobuf.Value"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.Value')
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: 7e23}' is evaluated
+    Then value is TestAllTypes(single_value=celpy.celtypes.DoubleType(source=7e+23))
 
-   #     object_value:{[type.googleapis.com/google.protobuf.Value]:{number_value:-26.375}}
-   Given bindings parameter "x" is DoubleType(source=-26.375)
+Scenario: value_number/field_assign_proto2_zero
 
-    When CEL expression "x" is evaluated
-    #    double_value:-26.375
-    Then value is DoubleType(source=-26.375)
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: 0.0}' is evaluated
+    Then value is TestAllTypes(single_value=celpy.celtypes.DoubleType(source=0.0))
 
+Scenario: value_number/field_read_proto2
 
-Scenario: field_assign_proto2
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: 7e23}.single_value' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=7e+23)
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: value_number/field_read_proto2_zero
 
-    When CEL expression "TestAllTypes{single_value: 7e23}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_value:{number_value:7e+23}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=DoubleType(source=7e+23), single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: 0.0}.single_value' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=0.0)
 
+Scenario: value_number/field_assign_proto3
 
-Scenario: field_assign_proto2_zero
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: 7e23}' is evaluated
+    Then value is TestAllTypes(single_value=celpy.celtypes.DoubleType(source=7e+23))
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: value_number/field_assign_proto3_zero
 
-    When CEL expression "TestAllTypes{single_value: 0.0}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_value:{number_value:0}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=DoubleType(source=0), single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: 0.0}' is evaluated
+    Then value is TestAllTypes(single_value=celpy.celtypes.DoubleType(source=0.0))
 
+Scenario: value_number/field_read_proto3
 
-Scenario: field_read_proto2
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: 7e23}.single_value' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=7e+23)
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: value_number/field_read_proto3_zero
 
-    When CEL expression "TestAllTypes{single_value: 7e23}.single_value" is evaluated
-    #    double_value:7e+23
-    Then value is DoubleType(source=7e+23)
-
-
-Scenario: field_read_proto2_zero
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_value: 0.0}.single_value" is evaluated
-    #    double_value:0
-    Then value is DoubleType(source=0)
-
-
-Scenario: field_assign_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_value: 7e23}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_value:{number_value:7e+23}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=DoubleType(source=7e+23), single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto3_zero
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_value: 0.0}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_value:{number_value:0}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=DoubleType(source=0), single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_read_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_value: 7e23}.single_value" is evaluated
-    #    double_value:7e+23
-    Then value is DoubleType(source=7e+23)
-
-
-Scenario: field_read_proto3_zero
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_value: 0.0}.single_value" is evaluated
-    #    double_value:0
-    Then value is DoubleType(source=0)
-
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: 0.0}.single_value' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=0.0)
 
 
 # value_string -- Tests for string conversions in Value.
 
-Scenario: literal
+@wip
+Scenario: value_string/literal
 
     When CEL expression "google.protobuf.Value{string_value: 'foo'}" is evaluated
-    #    string_value:"foo"
-    Then value is StringType(source='foo')
+    Then value is celpy.celtypes.StringType(source='foo')
 
+Scenario: value_string/literal_no_field_access
 
-Scenario: literal_no_field_access
-
+    Given disable_check parameter is True
     When CEL expression "google.protobuf.Value{string_value: 'foo'}.string_value" is evaluated
-    #    errors:{message:"no_matching_overload"}
     Then eval_error is 'no_matching_overload'
 
-
-Scenario: literal_empty
+@wip
+Scenario: value_string/literal_empty
 
     When CEL expression "google.protobuf.Value{string_value: ''}" is evaluated
-    #    string_value:""
-    Then value is StringType(source='')
+    Then value is celpy.celtypes.StringType(source='')
 
+Scenario: value_string/var
 
-Scenario: var
+    Given type_env parameter "x" is celpy.celtypes.MessageType
+    and bindings parameter "x" is celpy.celtypes.StringType(source='bar')
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.StringType(source='bar')
 
-   #     type:{message_type:"google.protobuf.Value"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.Value')
+Scenario: value_string/field_assign_proto2
 
-   #     object_value:{[type.googleapis.com/google.protobuf.Value]:{string_value:"bar"}}
-   Given bindings parameter "x" is StringType(source='bar')
-
-    When CEL expression "x" is evaluated
-    #    string_value:"bar"
-    Then value is StringType(source='bar')
-
-
-Scenario: field_assign_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_value: 'baz'}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_value:{string_value:"baz"}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=StringType(source='baz'), single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Then value is TestAllTypes(single_value=celpy.celtypes.StringType(source='baz'))
 
+Scenario: value_string/field_assign_proto2_empty
 
-Scenario: field_assign_proto2_empty
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_value: ''}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_value:{string_value:""}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=StringType(source=''), single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Then value is TestAllTypes(single_value=celpy.celtypes.StringType(source=''))
 
+Scenario: value_string/field_read_proto2
 
-Scenario: field_read_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_value: 'bletch'}.single_value" is evaluated
-    #    string_value:"bletch"
-    Then value is StringType(source='bletch')
+    Then value is celpy.celtypes.StringType(source='bletch')
 
+Scenario: value_string/field_read_proto2_zero
 
-Scenario: field_read_proto2_zero
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_value: ''}.single_value" is evaluated
-    #    string_value:""
-    Then value is StringType(source='')
+    Then value is celpy.celtypes.StringType(source='')
 
+Scenario: value_string/field_assign_proto3
 
-Scenario: field_assign_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_value: 'baz'}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_value:{string_value:"baz"}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=StringType(source='baz'), single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Then value is TestAllTypes(single_value=celpy.celtypes.StringType(source='baz'))
 
+Scenario: value_string/field_assign_proto3_empty
 
-Scenario: field_assign_proto3_empty
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_value: ''}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_value:{string_value:""}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=StringType(source=''), single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Then value is TestAllTypes(single_value=celpy.celtypes.StringType(source=''))
 
+Scenario: value_string/field_read_proto3
 
-Scenario: field_read_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_value: 'bletch'}.single_value" is evaluated
-    #    string_value:"bletch"
-    Then value is StringType(source='bletch')
+    Then value is celpy.celtypes.StringType(source='bletch')
 
+Scenario: value_string/field_read_proto3_zero
 
-Scenario: field_read_proto3_zero
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_value: ''}.single_value" is evaluated
-    #    string_value:""
-    Then value is StringType(source='')
-
+    Then value is celpy.celtypes.StringType(source='')
 
 
 # value_bool -- Tests for boolean conversions in Value.
 
-Scenario: literal
+@wip
+Scenario: value_bool/literal
 
-    When CEL expression "google.protobuf.Value{bool_value: true}" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    When CEL expression 'google.protobuf.Value{bool_value: true}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
+Scenario: value_bool/literal_no_field_access
 
-Scenario: literal_no_field_access
-
-    When CEL expression "google.protobuf.Value{bool_value: true}.bool_value" is evaluated
-    #    errors:{message:"no_matching_overload"}
+    Given disable_check parameter is True
+    When CEL expression 'google.protobuf.Value{bool_value: true}.bool_value' is evaluated
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: value_bool/literal_false
 
-Scenario: literal_false
+    When CEL expression 'google.protobuf.Value{bool_value: false}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
-    When CEL expression "google.protobuf.Value{bool_value: false}" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+Scenario: value_bool/var
 
+    Given type_env parameter "x" is celpy.celtypes.MessageType
+    and bindings parameter "x" is celpy.celtypes.BoolType(source=True)
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
-Scenario: var
+Scenario: value_bool/field_assign_proto2
 
-   #     type:{message_type:"google.protobuf.Value"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.Value')
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: true}' is evaluated
+    Then value is TestAllTypes(single_value=celpy.celtypes.BoolType(source=True))
 
-   #     object_value:{[type.googleapis.com/google.protobuf.Value]:{bool_value:true}}
-   Given bindings parameter "x" is BoolType(source=True)
+Scenario: value_bool/field_assign_proto2_false
 
-    When CEL expression "x" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: false}' is evaluated
+    Then value is TestAllTypes(single_value=celpy.celtypes.BoolType(source=False))
 
+Scenario: value_bool/field_read_proto2
 
-Scenario: field_assign_proto2
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: true}.single_value' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: value_bool/field_read_proto2_false
 
-    When CEL expression "TestAllTypes{single_value: true}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_value:{bool_value:true}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=BoolType(source=True), single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: false}.single_value' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
+Scenario: value_bool/field_assign_proto3
 
-Scenario: field_assign_proto2_false
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: true}' is evaluated
+    Then value is TestAllTypes(single_value=celpy.celtypes.BoolType(source=True))
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: value_bool/field_assign_proto3_false
 
-    When CEL expression "TestAllTypes{single_value: false}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_value:{bool_value:false}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=BoolType(source=False), single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: false}' is evaluated
+    Then value is TestAllTypes(single_value=celpy.celtypes.BoolType(source=False))
 
+Scenario: value_bool/field_read_proto3
 
-Scenario: field_read_proto2
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: true}.single_value' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: value_bool/field_read_proto3_false
 
-    When CEL expression "TestAllTypes{single_value: true}.single_value" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
-
-
-Scenario: field_read_proto2_false
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_value: false}.single_value" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
-
-
-Scenario: field_assign_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_value: true}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_value:{bool_value:true}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=BoolType(source=True), single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto3_false
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_value: false}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_value:{bool_value:false}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=BoolType(source=False), single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_read_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_value: true}.single_value" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
-
-
-Scenario: field_read_proto3_false
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_value: false}.single_value" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
-
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: false}.single_value' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
 
 # value_struct -- Tests for struct conversions in Value.
 
-Scenario: literal
+@wip
+Scenario: value_struct/literal
 
     When CEL expression "google.protobuf.Value{struct_value: {'a': 1.0, 'b': 'two'}}" is evaluated
-    #    map_value:{entries:{key:{string_value:"a"} value:{double_value:1}} entries:{key:{string_value:"b"} value:{string_value:"two"}}}
-    Then value is MapType({StringType(source='a'): DoubleType(source=1), StringType(source='b'): StringType(source='two')})
+    Then value is celpy.celtypes.MapType({'a': celpy.celtypes.DoubleType(source=1.0), 'b': celpy.celtypes.StringType(source='two')})
 
+Scenario: value_struct/literal_no_field_access
 
-Scenario: literal_no_field_access
-
+    Given disable_check parameter is True
     When CEL expression "google.protobuf.Value{struct_value: {'a': 1.0, 'b': 'two'}}.struct_value" is evaluated
-    #    errors:{message:"no_matching_overload"}
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: value_struct/literal_empty
 
-Scenario: literal_empty
+    When CEL expression 'google.protobuf.Value{struct_value: {}}' is evaluated
+    Then value is celpy.celtypes.MapType({})
 
-    When CEL expression "google.protobuf.Value{struct_value: {}}" is evaluated
-    #    map_value:{}
-    Then value is MapType({})
+Scenario: value_struct/var
 
+    Given type_env parameter "x" is celpy.celtypes.MessageType
+    and bindings parameter "x" is celpy.celtypes.MapType({'y': celpy.celtypes.BoolType(source=False), 'x': None})
+    When CEL expression 'x' is evaluated
+    Then value is celpy.celtypes.MapType({'x': None, 'y': celpy.celtypes.BoolType(source=False)})
 
-Scenario: var
+Scenario: value_struct/field_assign_proto2
 
-   #     type:{message_type:"google.protobuf.Value"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.Value')
-
-   #     object_value:{[type.googleapis.com/google.protobuf.Value]:{struct_value:{fields:{key:"x" value:{null_value:NULL_VALUE}} fields:{key:"y" value:{bool_value:false}}}}}
-   Given bindings parameter "x" is {'x': None, 'y': BoolType(source=False)}
-
-    When CEL expression "x" is evaluated
-    #    map_value:{entries:{key:{string_value:"x"} value:{null_value:NULL_VALUE}} entries:{key:{string_value:"y"} value:{bool_value:false}}}
-    Then value is MapType({StringType(source='x'): None, StringType(source='y'): BoolType(source=False)})
-
-
-Scenario: field_assign_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_value: {'un': 1.0, 'deux': 2.0}}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_value:{struct_value:{fields:{key:"deux" value:{number_value:2}} fields:{key:"un" value:{number_value:1}}}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value={'deux': DoubleType(source=2), 'un': DoubleType(source=1)}, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Then value is TestAllTypes(single_value=celpy.celtypes.MapType({'deux': celpy.celtypes.DoubleType(source=2.0), 'un': celpy.celtypes.DoubleType(source=1.0)}))
 
+Scenario: value_struct/field_assign_proto2_empty
 
-Scenario: field_assign_proto2_empty
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: {}}' is evaluated
+    Then value is TestAllTypes(single_value=celpy.celtypes.MapType({}))
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: value_struct/field_read_proto2
 
-    When CEL expression "TestAllTypes{single_value: {}}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_value:{struct_value:{}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value={}, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_read_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_value: {'i': true}}.single_value" is evaluated
-    #    map_value:{entries:{key:{string_value:"i"} value:{bool_value:true}}}
-    Then value is MapType({StringType(source='i'): BoolType(source=True)})
+    Then value is celpy.celtypes.MapType({'i': celpy.celtypes.BoolType(source=True)})
 
+Scenario: value_struct/field_read_proto2_empty
 
-Scenario: field_read_proto2_empty
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: {}}.single_value' is evaluated
+    Then value is celpy.celtypes.MapType({})
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: value_struct/field_assign_proto3
 
-    When CEL expression "TestAllTypes{single_value: {}}.single_value" is evaluated
-    #    map_value:{}
-    Then value is MapType({})
-
-
-Scenario: field_assign_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_value: {'un': 1.0, 'deux': 2.0}}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_value:{struct_value:{fields:{key:"deux" value:{number_value:2}} fields:{key:"un" value:{number_value:1}}}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value={'deux': DoubleType(source=2), 'un': DoubleType(source=1)}, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Then value is TestAllTypes(single_value=celpy.celtypes.MapType({'deux': celpy.celtypes.DoubleType(source=2.0), 'un': celpy.celtypes.DoubleType(source=1.0)}))
 
+Scenario: value_struct/field_assign_proto3_empty
 
-Scenario: field_assign_proto3_empty
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: {}}' is evaluated
+    Then value is TestAllTypes(single_value=celpy.celtypes.MapType({}))
 
-   Given container is "google.api.expr.test.v1.proto3"
+Scenario: value_struct/field_read_proto3
 
-    When CEL expression "TestAllTypes{single_value: {}}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_value:{struct_value:{}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value={}, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_read_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_value: {'i': true}}.single_value" is evaluated
-    #    map_value:{entries:{key:{string_value:"i"} value:{bool_value:true}}}
-    Then value is MapType({StringType(source='i'): BoolType(source=True)})
+    Then value is celpy.celtypes.MapType({'i': celpy.celtypes.BoolType(source=True)})
 
+Scenario: value_struct/field_read_proto3_empty
 
-Scenario: field_read_proto3_empty
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_value: {}}.single_value" is evaluated
-    #    map_value:{}
-    Then value is MapType({})
-
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: {}}.single_value' is evaluated
+    Then value is celpy.celtypes.MapType({})
 
 
 # value_list -- Tests for list conversions in Value.
 
-Scenario: literal
+@wip
+Scenario: value_list/literal
 
     When CEL expression "google.protobuf.Value{list_value: ['a', 3.0]}" is evaluated
-    #    list_value:{values:{string_value:"a"} values:{double_value:3}}
-    Then value is [StringType(source='a'), DoubleType(source=3)]
+    Then value is [celpy.celtypes.StringType(source='a'), celpy.celtypes.DoubleType(source=3.0)]
 
+Scenario: value_list/literal_no_field_access
 
-Scenario: literal_no_field_access
-
-    When CEL expression "google.protobuf.Value{list_value: []}.list_value" is evaluated
-    #    errors:{message:"no_matching_overload"}
+    Given disable_check parameter is True
+    When CEL expression 'google.protobuf.Value{list_value: []}.list_value' is evaluated
     Then eval_error is 'no_matching_overload'
 
+@wip
+Scenario: value_list/literal_empty
 
-Scenario: literal_empty
-
-    When CEL expression "google.protobuf.Value{list_value: []}" is evaluated
-    #    list_value:{}
+    When CEL expression 'google.protobuf.Value{list_value: []}' is evaluated
     Then value is []
 
+Scenario: value_list/var
 
-Scenario: var
+    Given type_env parameter "x" is celpy.celtypes.MessageType
+    and bindings parameter "x" is [celpy.celtypes.DoubleType(source=1.0), celpy.celtypes.BoolType(source=True), celpy.celtypes.StringType(source='hi')]
+    When CEL expression 'x' is evaluated
+    Then value is [celpy.celtypes.DoubleType(source=1.0), celpy.celtypes.BoolType(source=True), celpy.celtypes.StringType(source='hi')]
 
-   #     type:{message_type:"google.protobuf.Value"}
-   Given type_env parameter "x" is TypeType(value='google.protobuf.Value')
+Scenario: value_list/field_assign_proto2
 
-   #     object_value:{[type.googleapis.com/google.protobuf.Value]:{list_value:{values:{number_value:1} values:{bool_value:true} values:{string_value:"hi"}}}}
-   Given bindings parameter "x" is [DoubleType(source=1), BoolType(source=True), StringType(source='hi')]
-
-    When CEL expression "x" is evaluated
-    #    list_value:{values:{double_value:1} values:{bool_value:true} values:{string_value:"hi"}}
-    Then value is [DoubleType(source=1), BoolType(source=True), StringType(source='hi')]
-
-
-Scenario: field_assign_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_value: ['un', 1.0]}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_value:{list_value:{values:{string_value:"un"} values:{number_value:1}}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=[StringType(source='un'), DoubleType(source=1)], single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Then value is TestAllTypes(single_value=[celpy.celtypes.StringType(source='un'), celpy.celtypes.DoubleType(source=1.0)])
 
+Scenario: value_list/field_assign_proto2_empty
 
-Scenario: field_assign_proto2_empty
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: []}' is evaluated
+    Then value is TestAllTypes(single_value=[])
 
-   Given container is "google.api.expr.test.v1.proto2"
+Scenario: value_list/field_read_proto2
 
-    When CEL expression "TestAllTypes{single_value: []}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_value:{list_value:{}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=[], single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_read_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_value: ['i', true]}.single_value" is evaluated
-    #    list_value:{values:{string_value:"i"} values:{bool_value:true}}
-    Then value is [StringType(source='i'), BoolType(source=True)]
+    Then value is [celpy.celtypes.StringType(source='i'), celpy.celtypes.BoolType(source=True)]
 
+Scenario: value_list/field_read_proto2_empty
 
-Scenario: field_read_proto2_empty
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_value: []}.single_value" is evaluated
-    #    list_value:{}
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_value: []}.single_value' is evaluated
     Then value is []
 
+Scenario: value_list/field_assign_proto3
 
-Scenario: field_assign_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_value: ['un', 1.0]}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_value:{list_value:{values:{string_value:"un"} values:{number_value:1}}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=[StringType(source='un'), DoubleType(source=1)], single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Then value is TestAllTypes(single_value=[celpy.celtypes.StringType(source='un'), celpy.celtypes.DoubleType(source=1.0)])
 
+Scenario: value_list/field_assign_proto3_empty
 
-Scenario: field_assign_proto3_empty
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: []}' is evaluated
+    Then value is TestAllTypes(single_value=[])
 
-   Given container is "google.api.expr.test.v1.proto3"
+Scenario: value_list/field_read_proto3
 
-    When CEL expression "TestAllTypes{single_value: []}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_value:{list_value:{}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=[], single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_read_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_value: ['i', true]}.single_value" is evaluated
-    #    list_value:{values:{string_value:"i"} values:{bool_value:true}}
-    Then value is [StringType(source='i'), BoolType(source=True)]
+    Then value is [celpy.celtypes.StringType(source='i'), celpy.celtypes.BoolType(source=True)]
 
+Scenario: value_list/field_read_proto3_empty
 
-Scenario: field_read_proto3_empty
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_value: []}.single_value" is evaluated
-    #    list_value:{}
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_value: []}.single_value' is evaluated
     Then value is []
-
 
 
 # any -- Tests for Any conversion.
 
-Scenario: literal
+@wip
+Scenario: any/literal
 
-    When CEL expression "google.protobuf.Any{type_url: 'type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes', value: b'\x08\x96\x01'}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_int32:150}}
-    Then value is TestAllTypes(single_int32=150, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    When CEL expression "google.protobuf.Any{type_url: 'type.googleapis.com/cel.expr.conformance.proto2.TestAllTypes', value: b'\\x08\\x96\\x01'}" is evaluated
+    Then value is TestAllTypes(single_int32=150)
 
+Scenario: any/literal_no_field_access
 
-Scenario: literal_no_field_access
-
-    When CEL expression "google.protobuf.Any{type_url: 'type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes', value: b'\x08\x96\x01'}.type_url" is evaluated
-    #    errors:{message:"no_matching_overload"}
+    Given disable_check parameter is True
+    When CEL expression "google.protobuf.Any{type_url: 'type.googleapis.com/cel.expr.conformance.proto2.TestAllTypes', value: b'\\x08\\x96\\x01'}.type_url" is evaluated
     Then eval_error is 'no_matching_overload'
 
+Scenario: any/literal_empty
 
-Scenario: literal_empty
-
-    When CEL expression "google.protobuf.Any{}" is evaluated
-    #    errors:{message:"conversion"}
+    When CEL expression 'google.protobuf.Any{}' is evaluated
     Then eval_error is 'conversion'
 
+Scenario: any/var
 
-Scenario: var
+    Given type_env parameter "x" is celpy.celtypes.MessageType
+    and bindings parameter "x" is TestAllTypes(single_int32=150)
+    When CEL expression 'x' is evaluated
+    Then value is TestAllTypes(single_int32=150)
 
-   #     type:{message_type:"google.protubuf.Any"}
-   Given type_env parameter "x" is TypeType(value='google.protubuf.Any')
+Scenario: any/field_assign_proto2
 
-   #     object_value:{[type.googleapis.com/google.protobuf.Any]:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_int32:150}}}
-   Given bindings parameter "x" is TestAllTypes(single_int32=150, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_any: TestAllTypes{single_int32: 150}}' is evaluated
+    Then value is TestAllTypes(single_any=TestAllTypes(single_int32=150))
 
-    When CEL expression "x" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_int32:150}}
-    Then value is TestAllTypes(single_int32=150, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+Scenario: any/field_read_proto2
 
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{single_any: TestAllTypes{single_int32: 150}}.single_any' is evaluated
+    Then value is TestAllTypes(single_int32=150)
 
-Scenario: field_assign_proto2
+Scenario: any/field_assign_proto3
 
-   Given container is "google.api.expr.test.v1.proto2"
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_any: TestAllTypes{single_int32: 150}}' is evaluated
+    Then value is TestAllTypes(single_any=TestAllTypes(single_int32=150))
 
-    When CEL expression "TestAllTypes{single_any: TestAllTypes{single_int32: 150}}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_any:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_int32:150}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=TestAllTypes(single_int32=150, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[]), single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
+Scenario: any/field_read_proto3
 
-
-Scenario: field_read_proto2
-
-   Given container is "google.api.expr.test.v1.proto2"
-
-    When CEL expression "TestAllTypes{single_any: TestAllTypes{single_int32: 150}}.single_any" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto2.TestAllTypes]:{single_int32:150}}
-    Then value is TestAllTypes(single_int32=150, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_assign_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_any: TestAllTypes{single_int32: 150}}" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_any:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_int32:150}}}}
-    Then value is TestAllTypes(single_int32=0, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=TestAllTypes(single_int32=150, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[]), single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
-
-Scenario: field_read_proto3
-
-   Given container is "google.api.expr.test.v1.proto3"
-
-    When CEL expression "TestAllTypes{single_any: TestAllTypes{single_int32: 150}}.single_any" is evaluated
-    #    object_value:{[type.googleapis.com/google.api.expr.test.v1.proto3.TestAllTypes]:{single_int32:150}}
-    Then value is TestAllTypes(single_int32=150, single_int64=0, single_uint32=0, single_uint64=0, single_sint32=0, single_sint64=0, single_fixed32=0, single_fixed64=0, single_sfixed32=0, single_sfixed64=0, single_float=0, single_double=0, single_bool=0, single_string='', single_bytes=b'', single_any=None, single_duration=None, single_timestamp=None, single_struct=MapType({}), single_value=None, single_int64_wrapper=IntType(source=0), single_int32_wrapper=IntType(source=0), single_double_wrapper=DoubleType(source=0), single_float_wrapper=DoubleType(source=0), single_uint64_wrapper=UintType(source=0), single_uint32_wrapper=UintType(source=0), single_string_wrapper=StringType(source=''), single_bool_wrapper=BoolType(source=False), single_bytes_wrapper=BytesType(source=b''), list_value=[])
-
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{single_any: TestAllTypes{single_int32: 150}}.single_any' is evaluated
+    Then value is TestAllTypes(single_int32=150)
 
 
 # complex -- Tests combining various dynamic conversions.
 
-Scenario: any_list_map
+Scenario: complex/any_list_map
 
-   Given container is "google.api.expr.test.v1.proto3"
-
+    Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_any: [{'almost': 'done'}]}.single_any" is evaluated
-    #    list_value:{values:{map_value:{entries:{key:{string_value:"almost"} value:{string_value:"done"}}}}}
-    Then value is [MapType({StringType(source='almost'): StringType(source='done')})]
+    Then value is [celpy.celtypes.MapType({'almost': celpy.celtypes.StringType(source='done')})]
+

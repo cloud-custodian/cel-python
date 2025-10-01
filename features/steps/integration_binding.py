@@ -72,19 +72,10 @@ from behave import *
 import celpy.celtypes
 import celpy.evaluation
 from celpy import CELEvalError, Environment
+from celpy.celparser import CELParseError
 from celpy.celtypes import *
 
 logger = logging.getLogger(__name__)
-
-
-class TypeKind(str, Enum):
-    PRIMITIVE = "primitive"
-    MAP_TYPE = "map_type"
-    STRING = "STRING"
-    INT64 = "INT64"
-    MAP_TYPE_SPEC = "map_type_spec"
-    ELEM_TYPE = "elem_type"
-    TYPE_SPEC = "type_spec"
 
 
 class Bindings(NamedTuple):
@@ -341,78 +332,25 @@ class NestedMessage(celpy.celtypes.MessageType):
     """
     pass
 
-# From Protobuf definitions, these are the CEL types implement them.
-TYPE_NAMES = {
-    "google.protobuf.Any": MessageType,
-    "google.protubuf.Any": MessageType,  # Note spelling anomaly.
-    "google.protobuf.BoolValue": BoolType,
-    "google.protobuf.BytesValue": BytesType,
-    "google.protobuf.DoubleValue": DoubleType,
-    "google.protobuf.Duration": DurationType,
-    "google.protobuf.FloatValue": DoubleType,
-    "google.protobuf.Int32Value": IntType,
-    "google.protobuf.Int64Value": IntType,
-    "google.protobuf.ListValue": ListType,
-    "google.protobuf.StringValue": StringType,
-    "google.protobuf.Struct": MessageType,
-    "google.protobuf.Timestamp": TimestampType,
-    "google.protobuf.UInt32Value": UintType,
-    "google.protobuf.UInt64Value": UintType,
-    "google.protobuf.Value": MessageType,
-    "type": TypeType,
-    "list_type": ListType,
-    "map_type": MapType,
-    "map": MapType,
-    "list": ListType,
-    "string": StringType,
-    "bytes": BytesType,
-    "bool": BoolType,
-    "int": IntType,
-    "uint": UintType,
-    "double": DoubleType,
-    "null_type": NoneType,
-    "STRING": StringType,
-    "BOOL": BoolType,
-    "INT64": IntType,
-    "UINT64": UintType,
-    "INT32": IntType,
-    "UINT32": UintType,
-    "BYTES": BytesType,
-    "DOUBLE": DoubleType,
-}
 
 @given(u'disable_check parameter is {disable_check}')
 def step_impl(context, disable_check):
-    context.data['disable_check'] = disable_check == "true"
+    context.data['disable_check'] = eval(disable_check)
 
 
-@given(u'type_env parameter "{name}" is {type_env}')
+@given(u'type_env parameter {name} is {type_env}')
 def step_impl(context, name, type_env):
-    """
-    type_env has name and type information used to create the environment.
-    Generally, it should be one of the type names, e.g. ``INT64``.
-    These need to be mapped to celpy.celtypes types.
-
-    Sometimes it already is a ``celpy.celtypes`` name.
-    """
-    if type_env.startswith("celpy"):
-        context.data['type_env'][name] = eval(type_env)
-    if type_env.startswith('"'):
-        context.data['type_env'][name] = TYPE_NAMES[type_env[1:-1]]
-    else:
-        context.data['type_env'][name] = TYPE_NAMES[type_env]
+    context.data['type_env'][eval(name)] = eval(type_env)
 
 
-@given(u'bindings parameter "{name}" is {binding}')
+@given(u'bindings parameter {name} is {binding}')
 def step_impl(context, name, binding):
-    # Bindings is a Bindings literal value, interpret it to create a Value object.
-    new_binding = eval(binding)
-    context.data['bindings'][name] = new_binding
+    context.data['bindings'][eval(name)] = eval(binding)
 
 
-@given(u'container is "{container}"')
+@given(u'container is {container}')
 def step_impl(context, container):
-    context.data['container'] = container
+    context.data['container'] = eval(container)
 
 
 def cel(context):
@@ -438,8 +376,13 @@ def cel(context):
         package=context.data['container'],
         annotations=context.data['type_env'],
         runner_class=context.data['runner'])
-    ast = env.compile(context.data['expr'])
-    prgm = env.program(ast)
+    try:
+        ast = env.compile(context.data['expr'])
+        prgm = env.program(ast)
+    except CELParseError as ex:
+        context.data['exc_info'] = sys.exc_info()
+        context.data['error'] = ex.args[0]
+        return None
 
     activation = context.data['bindings']
     print(f"GIVEN activation={activation!r}")
@@ -454,15 +397,9 @@ def cel(context):
         context.data['error'] = ex.args[0]
 
 
-@when(u'CEL expression "{expr}" is evaluated')
+@when(u'CEL expression {expr} is evaluated')
 def step_impl(context, expr):
-    context.data['expr'] = expr
-    cel(context)
-
-
-@when(u'CEL expression \'{expr}\' is evaluated')
-def step_impl(context, expr):
-    context.data['expr'] = expr
+    context.data['expr'] = eval(expr)
     cel(context)
 
 
@@ -552,22 +489,14 @@ def error_category(text: str) -> ErrorCategory:
         print(f"***No error category for {text!r}***")
         return ErrorCategory.other
 
-@then(u"eval_error is {quoted_text}")
-def step_impl(context, quoted_text):
-    """Tests appear to have inconsistent identifcation for exceptions.
-
-    Option 1 -- (default) any error will do.
-
-    Option 2 -- exact match required. This can be difficult in a few cases.
-    Use -D match=exact to enable this
-
-    """
-    if quoted_text == "None":
+@then(u"eval_error is {error_text}")
+def step_impl(context, error_text):
+    error = eval(error_text)
+    if error is None:
         assert context.data['error'] is None, f"error not None in {context.data}"
     else:
         print(f"*** Analyzing context.data = {context.data!r}***")
-        text = quoted_text[1:-1] if quoted_text[0] in ["'", '"'] else quoted_text
-        expected_ec = error_category(text)
+        expected_ec = error_category(error)
         actual_ec = error_category(context.data['error'] or "")
         if context.config.userdata.get("match", "any") == "exact":
             assert expected_ec == actual_ec, f"{expected_ec} != {actual_ec} in {context.data}"

@@ -443,7 +443,7 @@ class BytesType(bytes):
         return f"{self.__class__.__name__}({super().__repr__()})"
 
     def contains(self, item: Value) -> BoolType:
-        return BoolType(cast(BytesType, item) in self)
+        return BoolType(cast(BytesType, item) in self)  # type: ignore [comparison-overlap]
 
 
 class DoubleType(float):
@@ -853,7 +853,7 @@ class ListType(List[Value]):
         result_value = len(self) == len(other) and reduce(
             logical_and,  # type: ignore [arg-type]
             (equal(item_s, item_o) for item_s, item_o in zip(self, other)),
-            BoolType(True),  # type: ignore [arg-type]
+            BoolType(True),
         )
         if isinstance(result_value, TypeError):
             raise result_value
@@ -872,7 +872,7 @@ class ListType(List[Value]):
         result_value = len(self) != len(other) or reduce(
             logical_or,  # type: ignore [arg-type]
             (not_equal(item_s, item_o) for item_s, item_o in zip(self, other)),
-            BoolType(False),  # type: ignore [arg-type]
+            BoolType(False),
         )
         if isinstance(result_value, TypeError):
             raise result_value
@@ -942,7 +942,7 @@ class MapType(Dict[Value, Value]):
         result_value = keys_s == keys_o and reduce(
             logical_and,  # type: ignore [arg-type]
             (equal(self[k], other[k]) for k in keys_s),
-            BoolType(True),  # type: ignore [arg-type]
+            BoolType(True),
         )
         if isinstance(result_value, TypeError):
             raise result_value
@@ -970,7 +970,7 @@ class MapType(Dict[Value, Value]):
         result_value = keys_s != keys_o or reduce(
             logical_or,  # type: ignore [arg-type]
             (not_equal(self[k], other[k]) for k in keys_s),
-            BoolType(False),  # type: ignore [arg-type]
+            BoolType(False),
         )
         if isinstance(result_value, TypeError):
             raise result_value

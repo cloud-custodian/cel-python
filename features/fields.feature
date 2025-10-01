@@ -1,321 +1,371 @@
-
+@conformance
 Feature: fields
          Tests for field access in maps.
 
+
 # map_fields -- select an element in a map
 
-Scenario: map_key_int64
+Scenario: map_fields/map_key_int64
 
-    When CEL expression "{0:1,2:2,5:true}[5]" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    When CEL expression '{0:1,2:2,5:true}[5]' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
-
-Scenario: map_key_uint64
+Scenario: map_fields/map_key_uint64
 
     When CEL expression "{0u:1u,2u:'happy',5u:3u}[2u]" is evaluated
-    #    string_value:"happy"
-    Then value is StringType(source='happy')
+    Then value is celpy.celtypes.StringType(source='happy')
 
-
-Scenario: map_key_string
+Scenario: map_fields/map_key_string
 
     When CEL expression "{'name':100u}['name']" is evaluated
-    #    uint64_value:100
-    Then value is UintType(source=100)
+    Then value is celpy.celtypes.UintType(source=100)
 
+Scenario: map_fields/map_key_bool
 
-Scenario: map_key_bool
+    When CEL expression '{true:5}[true]' is evaluated
+    Then value is celpy.celtypes.IntType(source=5)
 
-    When CEL expression "{true:5}[true]" is evaluated
-    #    int64_value:5
-    Then value is IntType(source=5)
+Scenario: map_fields/map_key_mixed_type
 
+    When CEL expression '{true:1,2:2,5u:3}[true]' is evaluated
+    Then value is celpy.celtypes.IntType(source=1)
 
-Scenario: map_key_mix_type
+@wip
+Scenario: map_fields/map_key_mixed_numbers_double_key
 
-    When CEL expression "{true:1,2:2,5u:3}[true]" is evaluated
-    #    int64_value:1
-    Then value is IntType(source=1)
+    When CEL expression '{1u: 1.0, 2: 2.0, 3u: 3.0}[3.0]' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=3.0)
 
+Scenario: map_fields/map_key_mixed_numbers_lossy_double_key
 
-Scenario: map_field_access
-
-   #     type:{map_type:{key_type:{primitive:STRING} value_type:{primitive:INT64}}}
-   # Given type_env parameter "x" is TypeType(value='map_type')
-   Given type_env parameter "x" is map_type
-
-   #     map_value:{entries:{key:{string_value:"name"} value:{int64_value:1024}}}
-   Given bindings parameter "x" is MapType({StringType(source='name'): IntType(source=1024)})
-
-    When CEL expression "x.name" is evaluated
-    #    int64_value:1024
-    Then value is IntType(source=1024)
-
-
-Scenario: map_no_such_key
-
-    When CEL expression "{0:1,2:2,5:3}[1]" is evaluated
-    #    errors:{message:"no such key"}
+    When CEL expression '{1u: 1.0, 2: 2.0, 3u: 3.0}[3.1]' is evaluated
     Then eval_error is 'no such key'
 
+@wip
+Scenario: map_fields/map_key_mixed_numbers_uint_key
 
-Scenario: map_field_select_no_such_key
+    When CEL expression '{1u: 1.0, 2: 2.0, 3u: 3.0}[2u]' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=2.0)
 
-   #     type:{map_type:{key_type:{primitive:STRING} value_type:{primitive:STRING}}}
-   # Given type_env parameter "x" is TypeType(value='map_type')
-   Given type_env parameter "x" is map_type
+@wip
+Scenario: map_fields/map_key_mixed_numbers_int_key
 
-   #     map_value:{entries:{key:{string_value:"holiday"} value:{string_value:"field"}}}
-   Given bindings parameter "x" is MapType({StringType(source='holiday'): StringType(source='field')})
+    When CEL expression '{1u: 1.0, 2: 2.0, 3u: 3.0}[1]' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=1.0)
 
-    When CEL expression "x.name" is evaluated
-    #    errors:{message:"no such key: 'name'"}
+Scenario: map_fields/map_field_access
+
+    Given type_env parameter "x" is celpy.celtypes.MapType
+    and bindings parameter "x" is celpy.celtypes.MapType({'name': celpy.celtypes.IntType(source=1024)})
+    When CEL expression 'x.name' is evaluated
+    Then value is celpy.celtypes.IntType(source=1024)
+
+Scenario: map_fields/map_no_such_key
+
+    When CEL expression '{0:1,2:2,5:3}[1]' is evaluated
+    Then eval_error is 'no such key'
+
+Scenario: map_fields/map_no_such_key_or_false
+
+    When CEL expression 'dyn({0:1,2:2,5:3}[1]) || false' is evaluated
+    Then eval_error is 'no such key'
+
+Scenario: map_fields/map_no_such_key_or_true
+
+    When CEL expression 'dyn({0:1,2:2,5:3}[1]) || true' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+Scenario: map_fields/map_no_such_key_and_false
+
+    When CEL expression 'dyn({0:1,2:2,5:3}[1]) && false' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
+
+Scenario: map_fields/map_no_such_key_and_true
+
+    When CEL expression 'dyn({0:1,2:2,5:3}[1]) && true' is evaluated
+    Then eval_error is 'no such key'
+
+Scenario: map_fields/map_bad_key_type
+
+    When CEL expression "{0:1,2:2,5:3}[dyn(b'')]" is evaluated
+    Then eval_error is 'no such key'
+
+Scenario: map_fields/map_bad_key_type_or_false
+
+    When CEL expression "dyn({0:1,2:2,5:3}[dyn(b'')]) || false" is evaluated
+    Then eval_error is 'no such key'
+
+Scenario: map_fields/map_bad_key_type_or_true
+
+    When CEL expression "dyn({0:1,2:2,5:3}[dyn(b'')]) || true" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+Scenario: map_fields/map_bad_key_type_and_false
+
+    When CEL expression "dyn({0:1,2:2,5:3}[dyn(b'')]) && false" is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
+
+Scenario: map_fields/map_bad_key_type_and_true
+
+    When CEL expression "dyn({0:1,2:2,5:3}[dyn(b'')]) && true" is evaluated
+    Then eval_error is 'no such key'
+
+Scenario: map_fields/map_field_select_no_such_key
+
+    Given type_env parameter "x" is celpy.celtypes.MapType
+    and bindings parameter "x" is celpy.celtypes.MapType({'holiday': celpy.celtypes.StringType(source='field')})
+    When CEL expression 'x.name' is evaluated
     Then eval_error is "no such key: 'name'"
 
+Scenario: map_fields/map_field_select_no_such_key_or_false
 
-Scenario: map_value_null
+    Given type_env parameter "x" is celpy.celtypes.MapType
+    and bindings parameter "x" is celpy.celtypes.MapType({'holiday': celpy.celtypes.StringType(source='field')})
+    When CEL expression 'dyn(x.name) || false' is evaluated
+    Then eval_error is "no such key: 'name'"
 
-    When CEL expression "{true:null}[true]" is evaluated
-    #    null_value:NULL_VALUE
+Scenario: map_fields/map_field_select_no_such_key_or_true
+
+    Given type_env parameter "x" is celpy.celtypes.MapType
+    and bindings parameter "x" is celpy.celtypes.MapType({'holiday': celpy.celtypes.StringType(source='field')})
+    When CEL expression 'dyn(x.name) || true' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+Scenario: map_fields/map_field_select_no_such_key_and_false
+
+    Given type_env parameter "x" is celpy.celtypes.MapType
+    and bindings parameter "x" is celpy.celtypes.MapType({'holiday': celpy.celtypes.StringType(source='field')})
+    When CEL expression 'dyn(x.name) && false' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
+
+Scenario: map_fields/map_field_select_no_such_key_and_true
+
+    Given type_env parameter "x" is celpy.celtypes.MapType
+    and bindings parameter "x" is celpy.celtypes.MapType({'holiday': celpy.celtypes.StringType(source='field')})
+    When CEL expression 'dyn(x.name) && true' is evaluated
+    Then eval_error is "no such key: 'name'"
+
+Scenario: map_fields/map_value_null
+
+    When CEL expression '{true:null}[true]' is evaluated
     Then value is None
 
+Scenario: map_fields/map_value_bool
 
-Scenario: map_value_bool
+    When CEL expression '{27:false}[27]' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
-    When CEL expression "{27:false}[27]" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
-
-
-Scenario: map_value_string
+Scenario: map_fields/map_value_string
 
     When CEL expression "{'n':'x'}['n']" is evaluated
-    #    string_value:"x"
-    Then value is StringType(source='x')
+    Then value is celpy.celtypes.StringType(source='x')
 
+Scenario: map_fields/map_value_float
 
-Scenario: map_value_float
+    When CEL expression '{3:15.15}[3]' is evaluated
+    Then value is celpy.celtypes.DoubleType(source=15.15)
 
-    When CEL expression "{3:15.15}[3]" is evaluated
-    #    double_value:15.15
-    Then value is DoubleType(source=15.15)
+Scenario: map_fields/map_value_uint64
 
+    When CEL expression '{0u:1u,2u:2u,5u:3u}[0u]' is evaluated
+    Then value is celpy.celtypes.UintType(source=1)
 
-Scenario: map_value_uint64
+Scenario: map_fields/map_value_int64
 
-    When CEL expression "{0u:1u,2u:2u,5u:3u}[0u]" is evaluated
-    #    uint64_value:1
-    Then value is UintType(source=1)
+    When CEL expression '{true:1,false:2}[true]' is evaluated
+    Then value is celpy.celtypes.IntType(source=1)
 
+Scenario: map_fields/map_value_bytes
 
-Scenario: map_value_int64
+    When CEL expression "{0:b''}[0]" is evaluated
+    Then value is celpy.celtypes.BytesType(source=b'')
 
-    When CEL expression "{true:1,false:2}[true]" is evaluated
-    #    int64_value:1
-    Then value is IntType(source=1)
+Scenario: map_fields/map_value_list
 
+    When CEL expression '{0u:[1]}[0u]' is evaluated
+    Then value is [celpy.celtypes.IntType(source=1)]
 
-Scenario: map_value_bytes
+Scenario: map_fields/map_value_map
 
-    When CEL expression '{0:b""}[0]' is evaluated
-    #    bytes_value:""
-    Then value is BytesType(source=b'')
+    When CEL expression "{'map': {'k': 'v'}}['map']" is evaluated
+    Then value is celpy.celtypes.MapType({'k': celpy.celtypes.StringType(source='v')})
 
+Scenario: map_fields/map_value_mix_type
 
-Scenario: map_value_list
-
-    When CEL expression "{0u:[1]}[0u]" is evaluated
-    #    list_value:{values:{int64_value:1}}
-    Then value is [IntType(source=1)]
-
-
-Scenario: map_value_map
-
-    When CEL expression '{"map": {"k": "v"}}["map"]' is evaluated
-    #    map_value:{entries:{key:{string_value:"k"} value:{string_value:"v"}}}
-    Then value is MapType({StringType(source='k'): StringType(source='v')})
-
-
-Scenario: map_value_mix_type
-
-    When CEL expression '{"map": {"k": "v"}, "list": [1]}["map"]' is evaluated
-    #    map_value:{entries:{key:{string_value:"k"} value:{string_value:"v"}}}
-    Then value is MapType({StringType(source='k'): StringType(source='v')})
-
+    When CEL expression "{'map': {'k': 'v'}, 'list': [1]}['map']" is evaluated
+    Then value is celpy.celtypes.MapType({'k': celpy.celtypes.StringType(source='v')})
 
 
 # map_has -- Has macro for map entries.
 
-Scenario: has
+Scenario: map_has/has
 
     When CEL expression "has({'a': 1, 'b': 2}.a)" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    Then value is celpy.celtypes.BoolType(source=True)
 
-
-Scenario: has_not
+Scenario: map_has/has_not
 
     When CEL expression "has({'a': 1, 'b': 2}.c)" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+    Then value is celpy.celtypes.BoolType(source=False)
+
+Scenario: map_has/has_empty
+
+    When CEL expression 'has({}.a)' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
 
-Scenario: has_empty
+# quoted_map_fields -- Field accesses using the quote syntax
 
-    When CEL expression "has({}.a)" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+@wip
+Scenario: quoted_map_fields/field_access_slash
 
+    When CEL expression "{'/api/v1': true, '/api/v2': false}.`/api/v1`" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: quoted_map_fields/field_access_dash
+
+    When CEL expression "{'content-type': 'application/json', 'content-length': 145}.`content-type` == 'application/json'" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: quoted_map_fields/field_access_dot
+
+    When CEL expression "{'foo.txt': 32, 'bar.csv': 1024}.`foo.txt`" is evaluated
+    Then value is celpy.celtypes.IntType(source=32)
+
+@wip
+Scenario: quoted_map_fields/has_field_slash
+
+    When CEL expression "has({'/api/v1': true, '/api/v2': false}.`/api/v3`)" is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
+
+@wip
+Scenario: quoted_map_fields/has_field_dash
+
+    When CEL expression "has({'content-type': 'application/json', 'content-length': 145}.`content-type`)" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: quoted_map_fields/has_field_dot
+
+    When CEL expression "has({'foo.txt': 32, 'bar.csv': 1024}.`foo.txt`)" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # qualified_identifier_resolution -- Tests for qualified identifier resolution.
 
-Scenario: qualified_ident
+Scenario: qualified_identifier_resolution/qualified_ident
 
-   #     type:{primitive:STRING}
-   # Given type_env parameter "a.b.c" is TypeType(value='STRING')
-   Given type_env parameter "a.b.c" is STRING
+    Given type_env parameter "a.b.c" is celpy.celtypes.StringType
+    and bindings parameter "a.b.c" is celpy.celtypes.StringType(source='yeah')
+    When CEL expression 'a.b.c' is evaluated
+    Then value is celpy.celtypes.StringType(source='yeah')
 
-   #     string_value:"yeah"
-   Given bindings parameter "a.b.c" is StringType(source='yeah')
+Scenario: qualified_identifier_resolution/map_field_select
 
-    When CEL expression "a.b.c" is evaluated
-    #    string_value:"yeah"
-    Then value is StringType(source='yeah')
+    Given type_env parameter "a.b" is celpy.celtypes.MapType
+    and bindings parameter "a.b" is celpy.celtypes.MapType({'c': celpy.celtypes.StringType(source='yeah')})
+    When CEL expression 'a.b.c' is evaluated
+    Then value is celpy.celtypes.StringType(source='yeah')
 
+Scenario: qualified_identifier_resolution/qualified_identifier_resolution_unchecked
+          namespace resolution should try to find the longest prefix for the
+          evaluator.
 
-Scenario: map_field_select
+    Given disable_check parameter is True
+    and type_env parameter "a.b.c" is celpy.celtypes.StringType
+    and type_env parameter "a.b" is celpy.celtypes.MapType
+    and bindings parameter "a.b.c" is celpy.celtypes.StringType(source='yeah')
+    and bindings parameter "a.b" is celpy.celtypes.MapType({'c': celpy.celtypes.StringType(source='oops')})
+    When CEL expression 'a.b.c' is evaluated
+    Then value is celpy.celtypes.StringType(source='yeah')
 
-   #     type:{map_type:{key_type:{primitive:STRING} value_type:{primitive:STRING}}}
-   # Given type_env parameter "a.b" is TypeType(value='map_type')
-   Given type_env parameter "a.b" is map_type
+Scenario: qualified_identifier_resolution/list_field_select_unsupported
 
-   #     map_value:{entries:{key:{string_value:"c"} value:{string_value:"yeah"}}}
-   Given bindings parameter "a.b" is MapType({StringType(source='c'): StringType(source='yeah')})
-
-    When CEL expression "a.b.c" is evaluated
-    #    string_value:"yeah"
-    Then value is StringType(source='yeah')
-
-
-Scenario: qualified_identifier_resolution_unchecked
-          namespace resolution should try to find the longest prefix for the evaluator.
-   #     type:{primitive:STRING}
-   # Given type_env parameter "a.b.c" is TypeType(value='STRING')
-   Given type_env parameter "a.b.c" is STRING
-
-   #     type:{map_type:{key_type:{primitive:STRING} value_type:{primitive:STRING}}}
-   # Given type_env parameter "a.b" is TypeType(value='map_type')
-   Given type_env parameter "a.b" is map_type
-
-   #     map_value:{entries:{key:{string_value:"c"} value:{string_value:"oops"}}}
-   Given bindings parameter "a.b" is MapType({StringType(source='c'): StringType(source='oops')})
-
-   #     string_value:"yeah"
-   Given bindings parameter "a.b.c" is StringType(source='yeah')
-
-    When CEL expression "a.b.c" is evaluated
-    #    string_value:"yeah"
-    Then value is StringType(source='yeah')
-
-
-Scenario: list_field_select_unsupported
-
-   #     type:{list_type:{elem_type:{primitive:STRING}}}
-   # Given type_env parameter "a.b" is TypeType(value='list_type')
-   Given type_env parameter "a.b" is list_type
-
-   #     list_value:{values:{string_value:"pancakes"}}
-   Given bindings parameter "a.b" is [StringType(source='pancakes')]
-
-    When CEL expression "a.b.pancakes" is evaluated
-    #    errors:{message:"type 'list_type:<elem_type:<primitive:STRING > > ' does not support field selection"}
+    Given disable_check parameter is True
+    and type_env parameter "a.b" is celpy.celtypes.ListType
+    and bindings parameter "a.b" is [celpy.celtypes.StringType(source='pancakes')]
+    When CEL expression 'a.b.pancakes' is evaluated
     Then eval_error is "type 'list_type:<elem_type:<primitive:STRING > > ' does not support field selection"
 
+Scenario: qualified_identifier_resolution/int64_field_select_unsupported
 
-Scenario: int64_field_select_unsupported
-
-   #     type:{primitive:INT64}
-   # Given type_env parameter "a" is TypeType(value='INT64')
-   Given type_env parameter "a" is INT64
-
-   #     int64_value:15
-   Given bindings parameter "a" is IntType(source=15)
-
-    When CEL expression "a.pancakes" is evaluated
-    #    errors:{message:"type 'int64_type' does not support field selection"}
+    Given disable_check parameter is True
+    and type_env parameter "a" is celpy.celtypes.IntType
+    and bindings parameter "a" is celpy.celtypes.IntType(source=15)
+    When CEL expression 'a.pancakes' is evaluated
     Then eval_error is "type 'int64_type' does not support field selection"
 
+Scenario: qualified_identifier_resolution/ident_with_longest_prefix_check
+          namespace resolution should try to find the longest prefix for the
+          checker.
 
-Scenario: ident_with_longest_prefix_check
-          namespace resolution should try to find the longest prefix for the checker.
-   #     type:{primitive:STRING}
-   # Given type_env parameter "a.b.c" is TypeType(value='STRING')
-   Given type_env parameter "a.b.c" is STRING
+    Given type_env parameter "a.b.c" is celpy.celtypes.StringType
+    and type_env parameter "a.b" is celpy.celtypes.MapType
+    and bindings parameter "a.b.c" is celpy.celtypes.StringType(source='yeah')
+    and bindings parameter "a.b" is celpy.celtypes.MapType({'c': celpy.celtypes.StringType(source='oops')})
+    When CEL expression 'a.b.c' is evaluated
+    Then value is celpy.celtypes.StringType(source='yeah')
 
-   #     type:{map_type:{key_type:{primitive:STRING} value_type:{primitive:STRING}}}
-   # Given type_env parameter "a.b" is TypeType(value='map_type')
-   Given type_env parameter "a.b" is map_type
-
-   #     map_value:{entries:{key:{string_value:"c"} value:{string_value:"oops"}}}
-   Given bindings parameter "a.b" is MapType({StringType(source='c'): StringType(source='oops')})
-
-   #     string_value:"yeah"
-   Given bindings parameter "a.b.c" is StringType(source='yeah')
-
-    When CEL expression "a.b.c" is evaluated
-    #    string_value:"yeah"
-    Then value is StringType(source='yeah')
-
-
-Scenario: map_key_float
+Scenario: qualified_identifier_resolution/map_key_float
           map should not support float as the key.
-    When CEL expression "{3.3:15.15, 1.0: 5}[1.0]" is evaluated
-    #    errors:{message:"unsupported key type"}
+
+    Given disable_check parameter is True
+    When CEL expression '{3.3:15.15, 1.0: 5}[1.0]' is evaluated
     Then eval_error is 'unsupported key type'
 
-
-Scenario: map_key_null
+Scenario: qualified_identifier_resolution/map_key_null
           map should not support null as the key.
-    When CEL expression "{null:false}[null]" is evaluated
-    #    errors:{message:"unsupported key type"}
+
+    Given disable_check parameter is True
+    When CEL expression '{null:false}[null]' is evaluated
     Then eval_error is 'unsupported key type'
 
-
-Scenario: map_value_repeat_key
+Scenario: qualified_identifier_resolution/map_value_repeat_key
           map should not support repeated key.
-    When CEL expression "{true:1,false:2,true:3}[true]" is evaluated
-    #    errors:{message:"Failed with repeated key"}
+
+    When CEL expression '{true:1,false:2,true:3}[true]' is evaluated
     Then eval_error is 'Failed with repeated key'
 
+Scenario: qualified_identifier_resolution/map_value_repeat_key_heterogeneous
+          map should not support repeated key.
+
+    When CEL expression '{0: 1, 0u: 2}[0.0]' is evaluated
+    Then eval_error is 'Failed with repeated key'
 
 
 # in -- Tests for 'in' operator for maps.
 
-Scenario: empty
+Scenario: in/empty
 
-    When CEL expression "7 in {}" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+    When CEL expression '7 in {}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
 
+Scenario: in/singleton
 
-Scenario: singleton
+    When CEL expression 'true in {true: 1}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
-    When CEL expression "true in {true: 1}" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
-
-
-Scenario: present
+Scenario: in/present
 
     When CEL expression "'George' in {'John': 'smart', 'Paul': 'cute', 'George': 'quiet', 'Ringo': 'funny'}" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
+    Then value is celpy.celtypes.BoolType(source=True)
 
-
-Scenario: absent
+Scenario: in/absent
 
     When CEL expression "'spider' in {'ant': 6, 'fly': 6, 'centipede': 100}" is evaluated
-    #    bool_value:false
-    Then value is BoolType(source=False)
+    Then value is celpy.celtypes.BoolType(source=False)
+
+@wip
+Scenario: in/mixed_numbers_and_keys_present
+
+    When CEL expression '3.0 in {1: 1, 2: 2, 3u: 3} && 2u in {1u: 1, 2: 2} && 1 in {1u: 1, 2: 2}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: in/mixed_numbers_and_keys_absent
+
+    When CEL expression '3.1 in {1: 1, 2: 2, 3u: 3}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=False)
+

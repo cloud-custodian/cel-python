@@ -17,18 +17,28 @@
 # Either have https://github.com/google/cel-spec checked out adjacent to cel-python
 # OR set CEL_SPEC_PATH to be location of the cel-spec project.
 
+HELP_TEXT := ""
+HELP_TEXT += "Available commands:\n"
+
+.PHONY: help
+help:
+	@echo $(HELP_TEXT)
+
 HERE := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 TOOLS = $(HERE)../tools
-CEL_SPEC_PATH ?= $(HERE)../../cel-spec
+CEL_SPEC_PATH ?= $(HERE)../../../google/cel-spec
 CEL_SIMPLE_TESTDATA ?= $(CEL_SPEC_PATH)/tests/simple/testdata
 
 # This is most -- but not all -- the feature files.
 # Some are built manually. These are built from textproto files.
 FEATURES = \
 	basic.feature \
+	bindings_ext.feature \
+	block_ext.feature \
 	comparisons.feature \
 	conversions.feature \
 	dynamic.feature \
+	encoders_ext.feature \
 	enums.feature \
 	fields.feature \
 	fp_math.feature \
@@ -36,14 +46,21 @@ FEATURES = \
 	lists.feature \
 	logic.feature \
 	macros.feature \
+	macros2.feature \
+	math_ext.feature \
 	namespace.feature \
+	optionals.feature \
 	parse.feature \
 	plumbing.feature \
 	proto2.feature \
+	proto2_ext.feature \
 	proto3.feature \
 	string.feature \
+	string_ext.feature \
 	timestamps.feature \
-	unknowns.feature
+	type_deduction.feature \
+	unknowns.feature \
+	wrappers.feature
 
 
 SOURCES := $(patsubst %.feature,%.textproto,$(FEATURES))
@@ -54,36 +71,25 @@ SOURCES := $(patsubst %.feature,%.textproto,$(FEATURES))
 
 all : $(FEATURES)
 
-# Copy the textproto from the cel-spec directory to keep our reference copy.
+HELP_TEXT += "  %.textproto   copies the .textproto from the cel-spec directory\n"
 %.textproto : $(CEL_SIMPLE_TESTDATA)/%.textproto
 	cp $(CEL_SIMPLE_TESTDATA)/$@ $@
 
-# Create Gherkin from the textproto serialization.
+HELP_TEXT += "  %.feature     generates Gherkin feature from %.textproto source\n"
 %.feature : %.textproto
-	python $(TOOLS)/pb2g.py $^ -o $@
+	uv run $(TOOLS)/gherkinize.py -v $^ -o $@
 
-# Run the lark scanner to be sure the grammar works for *all* of the textproto files.
-# This is necessary because we don't have a full textproto implementation.
-scan : $(SOURCES)
-	@python $(TOOLS)/pb2g.py
-	@for name in $(SOURCES); do \
-		python $(TOOLS)/pb2g.py $$name >/dev/null; \
-	done
-	@echo "\nAll files scanned successfully"
-
-# When the grammar was incomplete, we sometimes had empty .feature files.
-# It helps to remove them before rerunning.
-clean-broken:
-	@for name in $(FEATURES); do \
-		if [ -f $$name -a ! -s $$name ]; then \
-		   echo empty $$name; \
-		   rm $$name; \
-		fi; \
-	done
-
+HELP_TEXT += "  clean         cleans generated feature files\n"
+.PHONY: clean-features
 clean-features:
 	rm $(FEATURES)
 
+HELP_TEXT += "  clean         cleans generated feature files and textproto sources\n"
+.PHONY: clean
 clean:
 	rm $(FEATURES)
 	rm $(SOURCES)
+
+.PHONY: conformance-feature-list
+conformance-feature-list:
+	@$(foreach file, $(FEATURES), echo $(file);)

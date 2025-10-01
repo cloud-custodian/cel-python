@@ -1,67 +1,38 @@
-
+@conformance
 Feature: namespace
          Uses of qualified identifiers and namespaces.
 
+
 # qualified -- Qualified variable lookups.
 
-Scenario: self_eval_qualified_lookup
+Scenario: qualified/self_eval_qualified_lookup
 
-   #     type:{primitive:BOOL}
-   # Given type_env parameter "x.y" is TypeType(value='BOOL')
-   Given type_env parameter "x.y" is BOOL
-
-   #     bool_value:true
-   Given bindings parameter "x.y" is BoolType(source=True)
-
-    When CEL expression "x.y" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
-
+    Given type_env parameter "x.y" is celpy.celtypes.BoolType
+    and bindings parameter "x.y" is celpy.celtypes.BoolType(source=True)
+    When CEL expression 'x.y' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # namespace -- Namespaced identifiers.
 
-Scenario: self_eval_container_lookup
+Scenario: namespace/self_eval_container_lookup
 
-   #     type:{primitive:BOOL}
-   # Given type_env parameter "x.y" is TypeType(value='BOOL')
-   Given type_env parameter "x.y" is BOOL
+    Given type_env parameter "x.y" is celpy.celtypes.BoolType
+    and type_env parameter "y" is celpy.celtypes.StringType
+    and bindings parameter "y" is celpy.celtypes.StringType(source='false')
+    and bindings parameter "x.y" is celpy.celtypes.BoolType(source=True)
+    and container is 'x'
+    When CEL expression 'y' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
-   #     type:{primitive:STRING}
-   # Given type_env parameter "y" is TypeType(value='STRING')
-   Given type_env parameter "y" is STRING
+Scenario: namespace/self_eval_container_lookup_unchecked
 
-   #     bool_value:true
-   Given bindings parameter "x.y" is BoolType(source=True)
+    Given disable_check parameter is True
+    and type_env parameter "x.y" is celpy.celtypes.BoolType
+    and type_env parameter "y" is celpy.celtypes.BoolType
+    and bindings parameter "y" is celpy.celtypes.BoolType(source=False)
+    and bindings parameter "x.y" is celpy.celtypes.BoolType(source=True)
+    and container is 'x'
+    When CEL expression 'y' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 
-   #     string_value:"false"
-   Given bindings parameter "y" is StringType(source='false')
-
-   Given container is "x"
-
-    When CEL expression "y" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)
-
-
-Scenario: self_eval_container_lookup_unchecked
-
-   #     type:{primitive:BOOL}
-   # Given type_env parameter "x.y" is TypeType(value='BOOL')
-   Given type_env parameter "x.y" is BOOL
-
-   #     type:{primitive:BOOL}
-   # Given type_env parameter "y" is TypeType(value='BOOL')
-   Given type_env parameter "y" is BOOL
-
-   #     bool_value:true
-   Given bindings parameter "x.y" is BoolType(source=True)
-
-   #     bool_value:false
-   Given bindings parameter "y" is BoolType(source=False)
-
-   Given container is "x"
-
-    When CEL expression "y" is evaluated
-    #    bool_value:true
-    Then value is BoolType(source=True)

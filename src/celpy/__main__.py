@@ -35,9 +35,9 @@ import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 try:
-    import tomllib
+    import tomllib  # type: ignore [import-not-found, unused-ignore]
 except ImportError:  # pragma: no cover
-    import tomli as tomllib  # type: ignore [no-redef]
+    import tomli as tomllib  # type: ignore [no-redef, import-not-found, unused-import, unused-ignore]
 
 from celpy import Environment, Runner, celtypes
 from celpy.adapter import CELJSONDecoder, CELJSONEncoder
@@ -287,13 +287,15 @@ def stat(path: Union[Path, str]) -> Optional[celtypes.MapType]:
         try:
             extra = {
                 "st_birthtime": celtypes.TimestampType(
-                    datetime.datetime.fromtimestamp(status.st_birthtime)
+                    datetime.datetime.fromtimestamp(
+                        status.st_birthtime  # type:ignore [attr-defined, unused-ignore]
+                    )
                 ),
                 "st_blksize": celtypes.IntType(status.st_blksize),
                 "st_blocks": celtypes.IntType(status.st_blocks),
-                "st_flags": celtypes.IntType(status.st_flags),
+                "st_flags": celtypes.IntType(status.st_flags),  # type: ignore [attr-defined, unused-ignore]
                 "st_rdev": celtypes.IntType(status.st_rdev),
-                "st_gen": celtypes.IntType(status.st_gen),
+                "st_gen": celtypes.IntType(status.st_gen),  # type: ignore [attr-defined, unused-ignore]
             }
         except AttributeError:  # pragma: no cover
             extra = {}

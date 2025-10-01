@@ -1,3 +1,6 @@
+# proto-file: ../../../proto/cel/expr/conformance/test/simple.proto
+# proto-message: cel.expr.conformance.test.SimpleTestFile
+
 name: "conversions"
 description: "Tests for type conversions."
 section {
@@ -43,6 +46,18 @@ section {
     value: { double_value: -1e15 }
   }
   test {
+    name: "int_min_exact"
+    description: "Smallest contiguous representable int (-2^53)."
+    expr: "double(-9007199254740992)"
+    value { double_value: -9.007199254740992e15 }
+  }
+  test {
+    name: "int_max_exact"
+    description: "Largest contiguous representable int (2^53)."
+    expr: "double(9007199254740992)"
+    value { double_value: 9.007199254740992e15 }
+  }
+  test {
     name: "int_range"
     description: "Largest signed 64-bit. Rounds to nearest double."
     expr: "double(9223372036854775807)"
@@ -57,6 +72,12 @@ section {
     name: "uint_pos"
     expr: "double(123u)"
     value: { double_value: 123.0 }
+  }
+  test {
+    name: "uint_max_exact"
+    description: "Largest contiguous representable int (2^53)."
+    expr: "double(9007199254740992u)"
+    value { double_value: 9.007199254740992e15 }
   }
   test {
     name: "uint_range"
@@ -139,6 +160,11 @@ section {
     value: { int64_value: 0 }
   }
   test {
+    name: "uint_max_exact"
+    expr: "int(9223372036854775807u)"
+    value { int64_value: 9223372036854775807 }
+  }
+  test {
     name: "uint_range"
     expr: "int(18446744073709551615u)"
     eval_error {
@@ -151,24 +177,52 @@ section {
     value: { int64_value: -123 }
   }
   test {
-    name: "double_nearest"
+    name: "double_truncate"
     expr: "int(1.9)"
-    value: { int64_value: 2 }
+    value: { int64_value: 1 }
   }
   test {
-    name: "double_nearest_neg"
+    name: "double_truncate_neg"
     expr: "int(-7.9)"
-    value: { int64_value: -8 }
+    value: { int64_value: -7 }
   }
   test {
-    name: "double_half_away_pos"
+    name: "double_half_pos"
     expr: "int(11.5)"
-    value: { int64_value: 12 }
+    value: { int64_value: 11 }
   }
   test {
-    name: "double_half_away_neg"
+    name: "double_half_neg"
     expr: "int(-3.5)"
-    value: { int64_value: -4 }
+    value: { int64_value: -3 }
+  }
+  test {
+    name: "double_big_exact"
+    description: "Beyond exact range (2^53), but no loss of precision (2^55)."
+    expr: "int(double(36028797018963968))"
+    value { int64_value: 36028797018963968 }
+  }
+  test {
+    name: "double_big_precision"
+    description: "Beyond exact range (2^53), but loses precision (2^55 + 1)."
+    expr: "int(double(36028797018963969))"
+    value { int64_value: 36028797018963968 }
+  }
+  test {
+    name: "double_int_max_range"
+    description: "The double(2^63-1) cast produces a floating point value outside the int range"
+    expr: "int(9223372036854775807.0)"
+    eval_error {
+      errors: { message: "range" }
+    }
+  }
+  test {
+    name: "double_int_min_range"
+    description: "The double(-2^63) cast produces a floating point value outside the int range"
+    expr: "int(-9223372036854775808.0)"
+    eval_error {
+      errors: { message: "range" }
+    }
   }
   test {
     name: "double_range"
@@ -252,7 +306,7 @@ section {
     expr: "dyn"
     disable_check: true
     eval_error {
-      errors { message: "unknown varaible" }
+      errors { message: "unknown variable" }
     }
   }
   test {
@@ -395,6 +449,11 @@ section {
     value: { uint64_value: 1729 }
   }
   test {
+    name: "int_max"
+    expr: "uint(9223372036854775807)"
+    value { uint64_value: 9223372036854775807 }
+  }
+  test {
     name: "int_neg"
     expr: "uint(-1)"
     eval_error {
@@ -407,22 +466,37 @@ section {
     value: { uint64_value: 3 }
   }
   test {
-    name: "double_nearest_int"
-    expr: "int(1.9)"
-    value: { int64_value: 2 }
-  }
-  test {
-    name: "double_nearest"
+    name: "double_truncate"
     expr: "uint(1.9)"
-    value: { uint64_value: 2 }
+    value: { uint64_value: 1 }
   }
   test {
-    name: "double_half_away"
+    name: "double_half"
     expr: "uint(25.5)"
-    value: { uint64_value: 26 }
+    value: { uint64_value: 25 }
   }
   test {
-    name: "double_range"
+    name: "double_big_exact"
+    description: "Beyond exact range (2^53), but no loss of precision (2^55)."
+    expr: "uint(double(36028797018963968u))"
+    value { uint64_value: 36028797018963968 }
+  }
+  test {
+    name: "double_big_precision"
+    description: "Beyond exact range (2^53), but loses precision (2^55 + 1)."
+    expr: "uint(double(36028797018963969u))"
+    value { uint64_value: 36028797018963968 }
+  }
+  test {
+    name: "double_uint_max_range"
+    description: "The exact conversion of uint max as a double does not round trip."
+    expr: "int(18446744073709551615.0)"
+    eval_error {
+      errors: { message: "range" }
+    }
+  }
+  test {
+    name: "double_range_beyond_uint"
     expr: "uint(6.022e23)"
     eval_error {
       errors { message: "range" }
@@ -432,5 +506,117 @@ section {
     name: "string"
     expr: "uint('300')"
     value: { uint64_value: 300 }
+  }
+}
+section {
+  name: "bool"
+  description: "Conversions to bool"
+  test {
+    name: "string_1"
+    expr: "bool('1')"
+    value: { bool_value: true }
+  }
+  test {
+    name: "string_t"
+    expr: "bool('t')"
+    value: { bool_value: true }
+  }
+  test {
+    name: "string_true_lowercase"
+    expr: "bool('true')"
+    value: { bool_value: true }
+  }
+  test {
+    name: "string_true_uppercase"
+    expr: "bool('TRUE')"
+    value: { bool_value: true }
+  }
+  test {
+    name: "string_true_pascalcase"
+    expr: "bool('True')"
+    value: { bool_value: true }
+  }
+  test {
+    name: "string_0"
+    expr: "bool('0')"
+    value: { bool_value: false }
+  }
+  test {
+    name: "string_f"
+    expr: "bool('f')"
+    value: { bool_value: false }
+  }
+  test {
+    name: "string_false_lowercase"
+    expr: "bool('false')"
+    value: { bool_value: false }
+  }
+  test {
+    name: "string_false_uppercase"
+    expr: "bool('FALSE')"
+    value: { bool_value: false }
+  }
+  test {
+    name: "string_false_pascalcase"
+    expr: "bool('False')"
+    value: { bool_value: false }
+  }
+  test {
+    name: "string_true_badcase"
+    expr: "bool('TrUe')"
+    eval_error {
+      errors { message: "Type conversion error" }
+    }
+  }
+  test {
+    name: "string_false_badcase"
+    expr: "bool('FaLsE')"
+    eval_error {
+      errors { message: "Type conversion error" }
+    }
+  }
+}
+section {
+  name: "identity"
+  description: "Identity functions"
+  test {
+    name: "bool"
+    expr: "bool(true)"
+    value: { bool_value: true }
+  }
+  test {
+    name: "int"
+    expr: "int(1)"
+    value: { int64_value: 1 }
+  }
+  test {
+    name: "uint"
+    expr: "uint(1u)"
+    value: { uint64_value: 1 }
+  }
+  test {
+    name: "double"
+    expr: "double(5.5)"
+    value: { double_value: 5.5 }
+  }
+  test {
+    name: "string"
+    expr: "string('hello')"
+    value: { string_value: "hello" }
+  }
+  test {
+    name: "bytes"
+    expr: "bytes(b'abc')"
+    value: { bytes_value: "abc" }
+  }
+  test {
+    name: "duration"
+    expr: "duration(duration('100s')) == duration('100s')"
+    value: { bool_value: true }
+  }
+  test {
+    name: "timestamp"
+    expr: "timestamp(timestamp(1000000000)) == timestamp(1000000000)"
+    value: { bool_value: true }
   }
 }

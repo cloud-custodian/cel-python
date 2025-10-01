@@ -7,7 +7,7 @@
 
     <title>Development Tools &#8212; CEL in Python  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
-    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
     <script src="_static/documentation_options.js?v=5929fcd5"></script>
     <script src="_static/doctools.js?v=9bcbadda"></script>
@@ -45,60 +45,36 @@ This is in the <code class="docutils literal notranslate"><span class="pre">src/
 This changes very slowly.
 Any changes must be reflected (manually) by revising the lark version of the EBNF.</p>
 <p>The test cases present a more challenging problem.</p>
-<p>A tool, <code class="docutils literal notranslate"><span class="pre">pb2g.py</span></code>, converts the test cases from Protobuf messages to Gherkin scenarios.</p>
-<p class="plantuml">
-<img src="_images/plantuml-59894b154086c2a2ebe8ae46d280279ecce7cf8f.png" alt="&#64;startuml
-
-file source as &quot;source protobuf test cases&quot;
-file features as &quot;Gherkin feature files&quot;
-
-source --&gt; [pb2g.py]
-[pb2g.py] --&gt; [Docker] : &quot;Uses&quot;
-[Docker] ..&gt; [mkgherkin.go] : &quot;Runs&quot;
-[pb2g.py] --&gt; features
-&#64;enduml"/>
-</p>
-<section id="the-pb2g-tool">
-<h2>The pb2g Tool<a class="headerlink" href="#the-pb2g-tool" title="Link to this heading">¶</a></h2>
-<p>The <code class="docutils literal notranslate"><span class="pre">pb2g.py</span></code> Python application converts a protobuf test case collection into a Gherkin Feature file.
-These can be used to update the <code class="docutils literal notranslate"><span class="pre">features</span></code> directory.</p>
+<p>A tool, <code class="docutils literal notranslate"><span class="pre">gherkinize.py</span></code>, converts the test cases from Protobuf messages to Gherkin scenarios.</p>
+<section id="module-gherkinize">
+<span id="the-gherkinize-py-tool"></span><h2>The <code class="docutils literal notranslate"><span class="pre">gherkinize.py</span></code> Tool<a class="headerlink" href="#module-gherkinize" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">gherkinize.py</span></code> tool converts a <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> test case collection into a Gherkin <code class="docutils literal notranslate"><span class="pre">.feature</span></code> file.
+This can be used to update the conformance tests in the <code class="docutils literal notranslate"><span class="pre">features</span></code> directory.</p>
 <section id="synopsis">
-<h3>SYNOPSIS<a class="headerlink" href="#synopsis" title="Link to this heading">¶</a></h3>
+<h3>Synopsis<a class="headerlink" href="#synopsis" title="Link to this heading">¶</a></h3>
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-g">
-<span id="cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-gherkinizer"></span><span class="sig-name descname"><span class="pre">-g</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;docker</span> <span class="pre">|</span> <span class="pre">local&gt;</span></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--gherkinizer</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;docker</span> <span class="pre">|</span> <span class="pre">local</span></span><a class="headerlink" href="#cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-g" title="Link to this definition">¶</a></dt>
-<dd><p>Sets the method for converting the Protobuf messages to interim JSON documents.
-Either a local Go binary can be run,
-or a Docker image, using the <code class="docutils literal notranslate"><span class="pre">tools/Dockerfile</span></code> can be run.
-Using <code class="docutils literal notranslate"><span class="pre">-g</span> <span class="pre">docker</span></code> requires installing <strong>Docker</strong> (<a class="reference external" href="https://www.docker.com">https://www.docker.com</a>)</p>
-<p>Using <code class="docutils literal notranslate"><span class="pre">-g</span> <span class="pre">local</span></code> requires a local version compiled for your platform.
-Install the <strong>Go</strong> tools (<a class="reference external" href="https://go.dev/learn/">https://go.dev/learn/</a>) and compile <code class="docutils literal notranslate"><span class="pre">tools/mkgherkin.go</span></code>.</p>
-<p>Docker is the default.</p>
-</dd></dl>
-
-<dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-o">
-<span id="cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-output"></span><span class="sig-name descname"><span class="pre">-o</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;output&gt;</span></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--output</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;output&gt;</span></span><a class="headerlink" href="#cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-o" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-python-tools-gherkinize.py-o-output-sv-source-o">
+<span id="cmdoption-python-tools-gherkinize.py-o-output-sv-source-output"></span><span class="sig-name descname"><span class="pre">-o</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;output&gt;</span></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--output</span></span><span class="sig-prename descclassname"> <span class="pre">&lt;output&gt;</span></span><a class="headerlink" href="#cmdoption-python-tools-gherkinize.py-o-output-sv-source-o" title="Link to this definition">¶</a></dt>
 <dd><p>Where to write the feature file.
 Generally, it’s helpful to have the <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> and <code class="docutils literal notranslate"><span class="pre">.feature</span></code> stems match.
 The <code class="docutils literal notranslate"><span class="pre">Makefile</span></code> assures this.</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-s">
-<span id="cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-silent"></span><span class="sig-name descname"><span class="pre">-s</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--silent</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-s" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-python-tools-gherkinize.py-o-output-sv-source-s">
+<span id="cmdoption-python-tools-gherkinize.py-o-output-sv-source-silent"></span><span class="sig-name descname"><span class="pre">-s</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--silent</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-python-tools-gherkinize.py-o-output-sv-source-s" title="Link to this definition">¶</a></dt>
 <dd><p>No console output is produced</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-v">
-<span id="cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-verbose"></span><span class="sig-name descname"><span class="pre">-v</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--verbose</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-v" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-python-tools-gherkinize.py-o-output-sv-source-v">
+<span id="cmdoption-python-tools-gherkinize.py-o-output-sv-source-verbose"></span><span class="sig-name descname"><span class="pre">-v</span></span><span class="sig-prename descclassname"></span><span class="sig-prename descclassname"><span class="pre">,</span> </span><span class="sig-name descname"><span class="pre">--verbose</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-python-tools-gherkinize.py-o-output-sv-source-v" title="Link to this definition">¶</a></dt>
 <dd><p>Verbose debugging output on the console.</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-arg-source">
-<span class="sig-name descname"><span class="pre">source</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-python-tools-pb2g.py-g-docker-local-o-output-sv-source-arg-source" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-python-tools-gherkinize.py-o-output-sv-source-arg-source">
+<span class="sig-name descname"><span class="pre">source</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-python-tools-gherkinize.py-o-output-sv-source-arg-source" title="Link to this definition">¶</a></dt>
 <dd><p>A source  <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> file.
 This is often the path to a file in a local download of <a class="reference external" href="https://github.com/google/cel-spec/tree/master/tests/simple/testdata">https://github.com/google/cel-spec/tree/master/tests/simple/testdata</a>.</p>
 <p>A URL for the source is <strong>not</strong> supported.</p>
@@ -106,35 +82,23 @@ This is often the path to a file in a local download of <a class="reference exte
 
 </section>
 <section id="description">
-<h3>DESCRIPTION<a class="headerlink" href="#description" title="Link to this heading">¶</a></h3>
-<p>Convert one <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> file to a Gherkin <code class="docutils literal notranslate"><span class="pre">.feature</span></code> file.
-There are two steps to the conversion:</p>
-<ol class="arabic simple">
-<li><p>Rewrite the <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> into JSON.
-This relies on common Go libraries, and is little more than a syntactic conversion.</p></li>
-<li><p>Rewrite the JSON copy of the <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> into Gherkin.
-This a little more fraught with special cases and exceptions.
-The <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> semantics can be confusing.</p></li>
-</ol>
+<h3>Description<a class="headerlink" href="#description" title="Link to this heading">¶</a></h3>
+<p>Convert one <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> file to a Gherkin <code class="docutils literal notranslate"><span class="pre">.feature</span></code> file.</p>
 </section>
 <section id="files">
-<h3>FILES<a class="headerlink" href="#files" title="Link to this heading">¶</a></h3>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading">¶</a></h3>
 <dl class="field-list simple">
 <dt class="field-odd">source<span class="colon">:</span></dt>
-<dd class="field-odd"><p>A <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> test case file from the CEL-spec repository.</p>
+<dd class="field-odd"><p>A <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> test case file from the <code class="docutils literal notranslate"><span class="pre">cel-spec</span></code> repository.</p>
 </dd>
 <dt class="field-even">output<span class="colon">:</span></dt>
 <dd class="field-even"><p>A <code class="docutils literal notranslate"><span class="pre">.feature</span></code> file with the same stem as the source file is written to the output directory.
 <code class="docutils literal notranslate"><span class="pre">basic.textproto</span></code> will create <code class="docutils literal notranslate"><span class="pre">basic.feature</span></code>.</p>
 </dd>
-<dt class="field-odd">interim<span class="colon">:</span></dt>
-<dd class="field-odd"><p>An interim JSON-format file is created and deleted.
-These are only visible in the event of a fatal error creating the Gherkin output.</p>
-</dd>
 </dl>
 </section>
 <section id="examples">
-<h3>EXAMPLES<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h3>
+<h3>Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">basic.textproto</span></code> starts like this:</p>
 <div class="highlight-protobuf notranslate"><div class="highlight"><pre><span></span><span class="n">name</span><span class="o">:</span><span class="w"> </span><span class="s">&quot;basic&quot;</span>
 <span class="n">description</span><span class="o">:</span><span class="w"> </span><span class="s">&quot;Basic conformance tests that all implementations should pass.&quot;</span>
@@ -153,70 +117,102 @@ These are only visible in the event of a fatal error creating the Gherkin output
 <span class="w">  </span><span class="p">}</span>
 </pre></div>
 </div>
-<p>The Feature file created looks like this:</p>
-<div class="highlight-gherkin notranslate"><div class="highlight"><pre><span></span><span class="k">Feature:</span><span class="nf"> basic</span>
-<span class="nf">         Basic conformance tests that all implementations should pass.</span>
+<p>The <code class="docutils literal notranslate"><span class="pre">basic.feature</span></code> file created looks like this:</p>
+<div class="highlight-gherkin notranslate"><div class="highlight"><pre><span></span><span class="nt">@conformance</span>
+<span class="k">Feature:</span><span class="nf"> basic</span>
+<span class="nf">        Basic conformance tests that all implementations should pass.</span>
+
 
 <span class="c"># self_eval_zeroish -- Simple self-evaluating forms to zero-ish values.</span>
 
-<span class="k">Scenario:</span><span class="nf"> self_eval_int_zero</span>
+<span class="k">Scenario:</span><span class="nf"> self_eval_zeroish/self_eval_int_zero</span>
 
-<span class="k">    When </span><span class="nf">CEL expression &quot;</span><span class="s">0</span><span class="nf">&quot; is evaluated</span>
-<span class="c">    #    int64_value:0</span>
-<span class="nf">    </span><span class="k">Then </span><span class="nf">value is IntType(source=</span><span class="s">0</span><span class="nf">)</span>
+<span class="k">    When </span><span class="nf">CEL expression &#39;</span><span class="s">0</span><span class="nf">&#39; is evaluated</span>
+<span class="nf">    </span><span class="k">Then </span><span class="nf">value is celpy.celtypes.IntType(source=</span><span class="s">0</span><span class="nf">)</span>
 
+<span class="k">Scenario:</span><span class="nf"> self_eval_zeroish/self_eval_uint_zero</span>
 
-<span class="k">Scenario:</span><span class="nf"> self_eval_uint_zero</span>
-
-<span class="k">    When </span><span class="nf">CEL expression &quot;</span><span class="s">0u</span><span class="nf">&quot; is evaluated</span>
-<span class="c">    #    uint64_value:0</span>
-<span class="nf">    </span><span class="k">Then </span><span class="nf">value is UintType(source=</span><span class="s">0</span><span class="nf">)</span>
+<span class="k">    When </span><span class="nf">CEL expression &#39;</span><span class="s">0</span><span class="nf">u&#39; is evaluated</span>
+<span class="nf">    </span><span class="k">Then </span><span class="nf">value is celpy.celtypes.UintType(source=</span><span class="s">0</span><span class="nf">)</span>
 </pre></div>
 </div>
-<p>The source files have a “section” heading which doesn’t have a precise parallel in the Gherkin language.
-The sections become comments in the Feature file.</p>
+<p>The source <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> files have a “section” heading which doesn’t have a precise parallel in the Gherkin language.
+The sections become comments in the <code class="docutils literal notranslate"><span class="pre">.feature</span></code> file, and the section name is used to prefix each feature name.</p>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="gherkinize.Config">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">gherkinize.</span></span><span class="sig-name descname"><span class="pre">Config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/gherkinize.html#Config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gherkinize.Config" title="Link to this definition">¶</a></dt>
+<dd><p>This class reads in optional configuration for conformance tests. Each scenario
+is within a feature and a section.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"></th>
+<th class="head"><p>feature</p></th>
+<th class="head"><p>section</p></th>
+<th class="head"><p>scenario</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>example</strong></p></td>
+<td><p>string_ext</p></td>
+<td><p>ascii_casing</p></td>
+<td><p>lowerascii_unicode</p></td>
+</tr>
+</tbody>
+</table>
+<p>The value for each scenario can be a string tag (which must begin with
+<code class="docutils literal notranslate"><span class="pre">&#64;</span></code>), an array of tags (each of which must begin with <code class="docutils literal notranslate"><span class="pre">&#64;</span></code>) or a dictionary
+with a <code class="docutils literal notranslate"><span class="pre">tags</span></code> key containing an array of tags (each of which… y’know).</p>
+<p>For example, each of the following are valid:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">bindings_ext</span><span class="o">.</span><span class="n">bind</span><span class="p">]</span>
+<span class="n">bind_nested</span> <span class="o">=</span> <span class="s2">&quot;@wip&quot;</span>
+<span class="n">boolean_literal</span> <span class="o">=</span> <span class="p">[</span> <span class="s2">&quot;@wip&quot;</span> <span class="p">]</span>
+
+<span class="p">[</span><span class="n">bindings_ext</span><span class="o">.</span><span class="n">bind</span><span class="o">.</span><span class="n">macro_exists</span><span class="p">]</span>
+<span class="n">tags</span> <span class="o">=</span> <span class="p">[</span> <span class="s2">&quot;@wip&quot;</span> <span class="p">]</span>
+</pre></div>
+</div>
+<p>In the future, dictionaries with additional features may be supported.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="gherkinize.Config.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/gherkinize.html#Config.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gherkinize.Config.__init__" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gherkinize.Config.tags_for">
+<span class="sig-name descname"><span class="pre">tags_for</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feature</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">section</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scenario</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/gherkinize.html#Config.tags_for"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gherkinize.Config.tags_for" title="Link to this definition">¶</a></dt>
+<dd><p>Get a list of tags for a given scenario.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="the-features-steps-directory">
+<h2>The <code class="docutils literal notranslate"><span class="pre">features/steps</span></code> Directory<a class="headerlink" href="#the-features-steps-directory" title="Link to this heading">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">features/steps</span></code> directory has step definition modules that implement the <code class="docutils literal notranslate"><span class="pre">Given</span></code>, <code class="docutils literal notranslate"><span class="pre">When</span></code>, and <code class="docutils literal notranslate"><span class="pre">Then</span></code> clauses.</p>
 <p id="module-features.steps.c7n_integration">Provides step definitions for the <code class="docutils literal notranslate"><span class="pre">c7n_interface.feature</span></code>.
 This is not part of the CEL language specification.</p>
 <p id="module-features.steps.cli_binding">Provides step definitions for the <code class="docutils literal notranslate"><span class="pre">expr_test_bc.feature</span></code>, <code class="docutils literal notranslate"><span class="pre">json_query.feature</span></code>, neither of which are part of the CEL language specificaiton.</p>
-<p id="module-features.steps.integration_binding">Provides step definitions for the features generated by the <code class="docutils literal notranslate"><span class="pre">pb2g.py</span></code> tool.</p>
-</section>
+<p id="module-features.steps.integration_binding">Provides step definitions for the features generated by the <code class="docutils literal notranslate"><span class="pre">gherkinize.py</span></code> tool.</p>
 </section>
 <section id="the-features-makefile">
 <h2>The <code class="docutils literal notranslate"><span class="pre">features/Makefile</span></code><a class="headerlink" href="#the-features-makefile" title="Link to this heading">¶</a></h2>
 <p>This Makefile has the following targets:</p>
-<dl class="field-list">
-<dt class="field-odd">%.textproto<span class="colon">:</span></dt>
-<dd class="field-odd"><p>This copies textproto files from the source directory
-to the <code class="docutils literal notranslate"><span class="pre">features</span></code> directory.
-The source is defined by the <span class="target" id="index-0"></span><code class="xref std std-envvar docutils literal notranslate"><span class="pre">CEL_SIMPLE_TESTDATA</span></code> environment variable.
-This will overwrite out-of-date files in the <code class="docutils literal notranslate"><span class="pre">features</span></code> directory.</p>
-<p>It’s important to use <strong>git</strong> wisely and start with a clean branch of the project so changes can be rolled back.</p>
-</dd>
-<dt class="field-even">%.feature<span class="colon">:</span></dt>
-<dd class="field-even"><p>This creates the <code class="docutils literal notranslate"><span class="pre">.feature</span></code> file from the <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> file.</p>
-</dd>
-<dt class="field-odd">scan<span class="colon">:</span></dt>
-<dd class="field-odd"><p>This phony target reads <strong>all</strong> of the <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> files to be sure they can be converted to Gherkin.
-If it concludes with the output <code class="docutils literal notranslate"><span class="pre">&quot;All</span> <span class="pre">files</span> <span class="pre">scanned</span> <span class="pre">successfully&quot;</span></code>, then there are no surprising or unexpected features in the <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> files.</p>
-</dd>
-<dt class="field-even">clean-broken<span class="colon">:</span></dt>
-<dd class="field-even"><p>This phony target removes empty <code class="docutils literal notranslate"><span class="pre">.feature</span></code> files that may be left over when the conversion process crashes with a fatal error.</p>
-</dd>
-<dt class="field-odd">clean-features<span class="colon">:</span></dt>
-<dd class="field-odd"><p>This phony target removes all of the <code class="docutils literal notranslate"><span class="pre">.textproto</span></code>-based <code class="docutils literal notranslate"><span class="pre">.feature</span></code> files.
-Manually created <code class="docutils literal notranslate"><span class="pre">.feature</span></code> files are left intact.</p>
-</dd>
-<dt class="field-even">clean<span class="colon">:</span></dt>
-<dd class="field-even"><p>This phony target removes all <code class="docutils literal notranslate"><span class="pre">.textproto</span></code> and <code class="docutils literal notranslate"><span class="pre">.feature</span></code> files that are built from the CEL specification.
-Manually created <code class="docutils literal notranslate"><span class="pre">.feature</span></code> files are left intact.</p>
-</dd>
-</dl>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span> Available commands:
+   %.textproto   copies the .textproto from the cel-spec directory
+   %.feature     generates Gherkin feature from %.textproto source
+   clean         cleans generated feature files
+   clean         cleans generated feature files and textproto sources
+</pre></div>
+</div>
 <p>Currently, the following feature files are built from the CEL specification.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>basic.feature
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>basic.feature
+bindings_ext.feature
+block_ext.feature
 comparisons.feature
 conversions.feature
 dynamic.feature
+encoders_ext.feature
 enums.feature
 fields.feature
 fp_math.feature
@@ -224,14 +220,21 @@ integer_math.feature
 lists.feature
 logic.feature
 macros.feature
+macros2.feature
+math_ext.feature
 namespace.feature
+optionals.feature
 parse.feature
 plumbing.feature
 proto2.feature
+proto2_ext.feature
 proto3.feature
 string.feature
+string_ext.feature
 timestamps.feature
+type_deduction.feature
 unknowns.feature
+wrappers.feature
 </pre></div>
 </div>
 </section>
@@ -239,58 +242,80 @@ unknowns.feature
 <h2>The <code class="docutils literal notranslate"><span class="pre">docs/Makefile</span></code><a class="headerlink" href="#the-docs-makefile" title="Link to this heading">¶</a></h2>
 <p>This is a Sphinx <code class="docutils literal notranslate"><span class="pre">Makefile</span></code> to build documentation.
 For more information, see <a class="reference external" href="https://www.sphinx-doc.org/en/master/index.html">https://www.sphinx-doc.org/en/master/index.html</a></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Sphinx v8.1.3
+Please use `make target&#39; where target is one of
+  html        to make standalone HTML files
+  dirhtml     to make HTML files named index.html in directories
+  singlehtml  to make a single large HTML file
+  pickle      to make pickle files
+  json        to make JSON files
+  htmlhelp    to make HTML files and an HTML help project
+  qthelp      to make HTML files and a qthelp project
+  devhelp     to make HTML files and a Devhelp project
+  epub        to make an epub
+  latex       to make LaTeX files, you can set PAPER=a4 or PAPER=letter
+  latexpdf    to make LaTeX and PDF files (default pdflatex)
+  latexpdfja  to make LaTeX files and run them through platex/dvipdfmx
+  text        to make text files
+  man         to make manual pages
+  texinfo     to make Texinfo files
+  info        to make Texinfo files and run them through makeinfo
+  gettext     to make PO message catalogs
+  changes     to make an overview of all changed/added/deprecated items
+  xml         to make Docutils-native XML files
+  pseudoxml   to make pseudoxml-XML files for display purposes
+  linkcheck   to check all external links for integrity
+  doctest     to run all doctests embedded in the documentation (if enabled)
+  coverage    to run coverage check of the documentation (if enabled)
+  clean       to remove everything in the build directory
+</pre></div>
+</div>
 </section>
 <section id="the-project-makefile">
 <h2>The Project <code class="docutils literal notranslate"><span class="pre">Makefile</span></code><a class="headerlink" href="#the-project-makefile" title="Link to this heading">¶</a></h2>
 <p>A top-level Makefile has a number of phony targets:</p>
-<dl class="field-list simple">
-<dt class="field-odd">build<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Runs <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">build</span></code> to create a distribution kit.</p>
-</dd>
-<dt class="field-even">install-tools<span class="colon">:</span></dt>
-<dd class="field-even"><p>Pulls a <code class="docutils literal notranslate"><span class="pre">golang</span></code> Docker image and builds the <code class="docutils literal notranslate"><span class="pre">mkgherkin</span></code> image.</p>
-</dd>
-<dt class="field-odd">test<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Runs the Python 3.12 test environment to execute a quick test.</p>
-</dd>
-<dt class="field-even">test-all<span class="colon">:</span></dt>
-<dd class="field-even"><p>Update the <code class="docutils literal notranslate"><span class="pre">features</span></code> files and run the full test suite.</p>
-</dd>
-<dt class="field-odd">test-wip<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Update the <code class="docutils literal notranslate"><span class="pre">features</span></code> files and run the WIP test environment – these are tests flagged with &#64;WIP markers.</p>
-</dd>
-<dt class="field-even">test-tools<span class="colon">:</span></dt>
-<dd class="field-even"><p>Run a test of only the tools, then scan the <code class="docutils literal notranslate"><span class="pre">features</span></code> files to be sure they’re still valid after the tool change.</p>
-</dd>
-<dt class="field-odd">docs<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Build the HTML documentation.</p>
-</dd>
-<dt class="field-even">lint<span class="colon">:</span></dt>
-<dd class="field-even"><p>Runs the <code class="docutils literal notranslate"><span class="pre">lint</span></code> test environment to get code coverage, type hint checking, and other lint checks.</p>
-</dd>
-<dt class="field-odd">coverage<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Reproduce the most recent coverage report.</p>
-</dd>
-<dt class="field-even">clean<span class="colon">:</span></dt>
-<dd class="field-even"><p>Remove a number of directories and their files:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">.tox</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">.Python</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">bin</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">include</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">lib</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">pip-selfcheck</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">.json</span></code></p></li>
-</ul>
-</dd>
-<dt class="field-odd">benchmarks<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Run the applications in the <code class="docutils literal notranslate"><span class="pre">benches</span></code> directory to gather performance benchmark data.</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">large_resource_set.py</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">complex_expression.py</span></code></p></li>
-</ul>
-</dd>
-</dl>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span> Available commands:
+   build         runs uv build to create a distribution kit
+   build-all     alias of build, conformance, and docs
+ 
+   test          runs the Python 3.12 test environment to execute a quick test
+   test-all      runs the full test suite
+   test-&lt;env&gt;    runs tests for any of the available tox environments:
+ 
+     default environments:
+     py39                     -&gt; test suite
+     py310                    -&gt; test suite
+     py311                    -&gt; test suite
+     py312                    -&gt; test suite
+     py313                    -&gt; test suite
+     lint                     -&gt; check types, formatting, and best practices
+     tools                    -&gt; conformance suite conversion tools
+     
+     additional environments:
+     wip                      -&gt; work-in-progress test suite
+     conformance              -&gt; test suite
+     conformance-compiled     -&gt; compiled runner
+     conformance-wip          -&gt; work in progress
+     conformance-wip-compiled -&gt; work in progress + compiled runner
+     coverage                 -&gt; generate coverage reports
+ 
+   conformance   generates conformance tests
+   conf-clean    cleans generated conformance tests
+ 
+   docs          generates HTML documentation
+   docs-clean    lints documentation sources
+   docs-clean    cleans generated HTML documentation
+ 
+   lint          runs code coverage, type hint checking, and other lint checks
+                 (alias of test-lint)
+ 
+   format        runs code formatting
+   coverage      generates code coverage reports
+   clean         cleans all content ignored by git
+   clean-all     alias of clean, conformance-clean, and docs-clean
+   benchmarks    runs performance benchmarks
+</pre></div>
+</div>
 </section>
 </section>
 
@@ -329,7 +354,8 @@ For more information, see <a class="reference external" href="https://www.sphinx
 <li class="toctree-l1"><a class="reference internal" href="structure.html">Architecture and Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Development Tools</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#the-pb2g-tool">The pb2g Tool</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-gherkinize">The <code class="docutils literal notranslate"><span class="pre">gherkinize.py</span></code> Tool</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-features-steps-directory">The <code class="docutils literal notranslate"><span class="pre">features/steps</span></code> Directory</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#the-features-makefile">The <code class="docutils literal notranslate"><span class="pre">features/Makefile</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#the-docs-makefile">The <code class="docutils literal notranslate"><span class="pre">docs/Makefile</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="#the-project-makefile">The Project <code class="docutils literal notranslate"><span class="pre">Makefile</span></code></a></li>
@@ -363,7 +389,7 @@ For more information, see <a class="reference external" href="https://www.sphinx
       &#169;2020, CapitalOne.
       
       |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
       &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
       
       |
