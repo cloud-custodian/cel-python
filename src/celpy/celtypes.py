@@ -349,12 +349,6 @@ def logical_or(x: Value, y: Value) -> Value:
 
     Example 1::
 
-        false || 1/0 != 0
-
-    is a "no matching overload" error.
-
-    Example 2::
-
         (2 / 0 > 3 ? false : true) || true
 
     is a "True"

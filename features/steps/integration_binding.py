@@ -44,6 +44,7 @@ We have an error matching problem.
 
     -  error_case:  ``"2 / 0 > 4 ? 'baz' : 'quux'"`` --> "division by zero"
 
+    TODO: update this example; this no longer results in "no matching overload".
     -  error_right:  ``"true && 1/0 != 0"``  --> "no matching overload"
 
     Sometimes (``2 / 0 > 4``) the first exception is preserved.
