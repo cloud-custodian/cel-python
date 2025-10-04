@@ -49,47 +49,8 @@ ternary = "@wip"
 timestamp = "@wip"
 
 [comparisons.eq_literal]
-eq_double_int = "@wip"
-eq_double_uint = "@wip"
-eq_dyn_double_int = "@wip"
-eq_dyn_double_uint = "@wip"
-eq_dyn_int_double = "@wip"
-eq_dyn_int_uint = "@wip"
 eq_dyn_json_null = "@wip"
-eq_dyn_uint_double = "@wip"
-eq_dyn_uint_int = "@wip"
-eq_int_double = "@wip"
-eq_int_uint = "@wip"
-eq_list_elem_mixed_types = "@wip"
-eq_list_mixed_type_numbers = "@wip"
-eq_map_mixed_type_numbers = "@wip"
-eq_map_value_mixed_types = "@wip"
-eq_mixed_types = "@wip"
-eq_uint_double = "@wip"
-eq_uint_int = "@wip"
-not_eq_double_int = "@wip"
 not_eq_double_nan = "@wip"
-not_eq_double_uint = "@wip"
-not_eq_dyn_double_int = "@wip"
-not_eq_dyn_double_null = "@wip"
-not_eq_dyn_double_uint = "@wip"
-not_eq_dyn_int_double = "@wip"
-not_eq_dyn_int_null = "@wip"
-not_eq_dyn_int_uint = "@wip"
-not_eq_dyn_list_null = "@wip"
-not_eq_dyn_map_null = "@wip"
-not_eq_dyn_timestamp_null = "@wip"
-not_eq_dyn_uint_double = "@wip"
-not_eq_dyn_uint_int = "@wip"
-not_eq_int_double = "@wip"
-not_eq_int_double_nan = "@wip"
-not_eq_int_uint = "@wip"
-not_eq_list_elem_null = "@wip"
-not_eq_list_mixed_type_numbers = "@wip"
-not_eq_map_null = "@wip"
-not_eq_uint_double = "@wip"
-not_eq_uint_double_nan = "@wip"
-not_eq_uint_int = "@wip"
 
 [comparisons.eq_wrapper]
 eq_bool = "@wip"
@@ -146,125 +107,51 @@ eq_uint64_proto2_null = "@wip"
 eq_uint64_proto3_null = "@wip"
 
 [comparisons.gt_literal]
-gt_dyn_int_double = "@wip"
 gt_dyn_int_small_lossy_double_greater = "@wip"
-gt_dyn_int_uint = "@wip"
 not_gt_dyn_big_double_int = "@wip"
 not_gt_dyn_int_big_double = "@wip"
 not_gt_dyn_int_big_uint = "@wip"
-not_gt_dyn_int_double = "@wip"
 not_gt_dyn_int_small_lossy_double = "@wip"
-not_gt_dyn_int_uint = "@wip"
 not_gt_dyn_small_double_int = "@wip"
-not_gt_dyn_small_int_uint = "@wip"
 
 [comparisons.gte_literal]
 gte_dyn_int_big_lossy_double = "@wip"
-gte_dyn_int_double = "@wip"
 gte_dyn_int_small_lossy_double_equal = "@wip"
 gte_dyn_int_small_lossy_double_greater = "@wip"
-gte_dyn_int_uint = "@wip"
 gte_dyn_small_double_int = "@wip"
 not_gte_dyn_int_big_double = "@wip"
 not_gte_dyn_int_big_uint = "@wip"
-not_gte_dyn_int_double = "@wip"
-not_gte_dyn_int_uint = "@wip"
-not_gte_dyn_small_int_uint = "@wip"
-
-[comparisons.in_list_literal]
-elem_in_mixed_type_list_cross_type = "@wip"
-
-[comparisons.in_map_literal]
-key_in_mixed_key_type_map_cross_type = "@wip"
 
 [comparisons.lt_literal]
-lt_dyn_int_big_lossy_double = "@wip"
-lt_dyn_int_big_uint = "@wip"
-lt_dyn_int_double = "@wip"
-lt_dyn_int_uint = "@wip"
-lt_dyn_small_int_uint = "@wip"
 not_lt_dyn_int_big_lossy_double = "@wip"
-not_lt_dyn_int_double = "@wip"
-not_lt_dyn_int_small_double = "@wip"
 not_lt_dyn_int_small_lossy_double = "@wip"
-not_lt_dyn_int_uint = "@wip"
 not_lt_dyn_small_double_int = "@wip"
 
 [comparisons.lte_literal]
 lte_dyn_big_double_int = "@wip"
-lte_dyn_int_big_double = "@wip"
-lte_dyn_int_big_uint = "@wip"
-lte_dyn_int_double = "@wip"
 lte_dyn_int_small_lossy_double = "@wip"
-lte_dyn_int_uint = "@wip"
 lte_dyn_small_double_int = "@wip"
-lte_dyn_small_int_uint = "@wip"
-not_lte_dyn_int_double = "@wip"
 not_lte_dyn_int_small_lossy_double_less = "@wip"
-not_lte_dyn_int_uint = "@wip"
 
 [comparisons.ne_literal]
-ne_double_int = "@wip"
 ne_double_nan = "@wip"
-ne_double_uint = "@wip"
-ne_int_double = "@wip"
-ne_int_uint = "@wip"
-ne_mixed_types = "@wip"
-ne_proto2_any_unpack = "@wip"
 ne_proto2_any_unpack_bytewise_fallback = "@wip"
-ne_proto3_any_unpack = "@wip"
 ne_proto3_any_unpack_bytewise_fallback = "@wip"
 ne_proto_different_types = "@wip"
-ne_uint_double = "@wip"
-not_ne_double_int = "@wip"
 not_ne_double_nan = "@wip"
-not_ne_double_uint = "@wip"
-not_ne_int_double = "@wip"
-not_ne_int_double_nan = "@wip"
-not_ne_int_uint = "@wip"
-not_ne_uint_double = "@wip"
-not_ne_uint_double_nan = "@wip"
-
-[conversions.bool]
-string_f = "@wip"
-string_false_lowercase = "@wip"
-string_false_pascalcase = "@wip"
-string_false_uppercase = "@wip"
-string_t = "@wip"
-string_true_lowercase = "@wip"
-string_true_pascalcase = "@wip"
-string_true_uppercase = "@wip"
 
 [conversions.identity]
 timestamp = "@wip"
 
 [conversions.int]
-double_half_neg = "@wip"
-double_half_pos = "@wip"
 double_int_min_range = "@wip"
-double_truncate = "@wip"
-double_truncate_neg = "@wip"
-
-[conversions.uint]
-double_half = "@wip"
-double_truncate = "@wip"
 
 [dynamic.any]
 literal = "@wip"
 
-[dynamic.bool]
-literal = "@wip"
-literal_empty = "@wip"
-
-[dynamic.bytes]
-literal = "@wip"
-literal_unicode = "@wip"
-
 [dynamic.double]
 field_read_proto2_unset = "@wip"
 field_read_proto3_unset = "@wip"
-literal = "@wip"
-literal_zero = "@wip"
 
 [dynamic.float]
 field_assign_proto2_range = "@wip"
@@ -406,15 +293,6 @@ comparison_false = "@wip"
 comparison_true = "@wip"
 convert_symbol_to_int = "@wip"
 
-[fields.in]
-mixed_numbers_and_keys_absent = "@wip"
-mixed_numbers_and_keys_present = "@wip"
-
-[fields.map_fields]
-map_key_mixed_numbers_double_key = "@wip"
-map_key_mixed_numbers_int_key = "@wip"
-map_key_mixed_numbers_uint_key = "@wip"
-
 [fields.quoted_map_fields]
 field_access_dash = "@wip"
 field_access_dot = "@wip"
@@ -422,14 +300,6 @@ field_access_slash = "@wip"
 has_field_dash = "@wip"
 has_field_dot = "@wip"
 has_field_slash = "@wip"
-
-[lists.in]
-double_in_ints = "@wip"
-double_in_uints = "@wip"
-int_in_doubles = "@wip"
-int_in_uints = "@wip"
-uint_in_doubles = "@wip"
-uint_in_ints = "@wip"
 
 [lists.index]
 zero_based_double = "@wip"

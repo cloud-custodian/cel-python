@@ -190,7 +190,7 @@ import datetime
 import logging
 import re
 from functools import reduce, wraps
-from math import fsum
+from math import fsum, trunc
 from typing import (
     Any,
     Callable,
@@ -210,9 +210,8 @@ from typing import (
 )
 
 import pendulum
-from pendulum import timezone
 import pendulum.tz.exceptions
-
+from pendulum import timezone
 
 logger = logging.getLogger(f"celpy.{__name__}")
 
@@ -398,6 +397,12 @@ class BoolType(int):
             return source
         elif isinstance(source, MessageType):
             return super().__new__(cls, cast(int, source.get(StringType("value"))))
+        elif isinstance(source, (str, StringType)):
+            if source in ("False", "f", "FALSE", "false"):
+                return super().__new__(cls, 0)
+            if source in ("True", "t", "TRUE", "true"):
+                return super().__new__(cls, 1)
+            return super().__new__(cls, source)
         else:
             return super().__new__(cls, source)
 
@@ -495,11 +500,9 @@ class DoubleType(float):
         else:
             return DoubleType(super().__rtruediv__(other))
 
-    @type_matched
     def __eq__(self, other: Any) -> bool:
         return super().__eq__(other)
 
-    @type_matched
     def __ne__(self, other: Any) -> bool:
         return super().__ne__(other)
 
@@ -562,7 +565,7 @@ class IntType(int):
             # Used by protobuf.
             return super().__new__(cls, cast(int, source.get(StringType("value"))))
         elif isinstance(source, (float, DoubleType)):
-            convert = int64(round)
+            convert = int64(trunc)
         elif isinstance(source, TimestampType):
             convert = int64(lambda src: src.timestamp())
         elif isinstance(source, (str, StringType)) and source[:2] in {"0x", "0X"}:
@@ -642,27 +645,21 @@ class IntType(int):
         go_mod = left_sign * (abs(other) % abs(self))
         return IntType(go_mod)
 
-    @type_matched
     def __eq__(self, other: Any) -> bool:
         return super().__eq__(other)
 
-    @type_matched
     def __ne__(self, other: Any) -> bool:
         return super().__ne__(other)
 
-    @type_matched
     def __lt__(self, other: Any) -> bool:
         return super().__lt__(other)
 
-    @type_matched
     def __le__(self, other: Any) -> bool:
         return super().__le__(other)
 
-    @type_matched
     def __gt__(self, other: Any) -> bool:
         return super().__gt__(other)
 
-    @type_matched
     def __ge__(self, other: Any) -> bool:
         return super().__ge__(other)
 
@@ -729,7 +726,7 @@ class UintType(int):
         if isinstance(source, UintType):
             return source
         elif isinstance(source, (float, DoubleType)):
-            convert = uint64(round)
+            convert = uint64(trunc)
         elif isinstance(source, TimestampType):
             convert = uint64(lambda src: src.timestamp())
         elif isinstance(source, (str, StringType)) and source[:2] in {"0x", "0X"}:
@@ -799,11 +796,9 @@ class UintType(int):
     def __rmod__(self, other: Any) -> "UintType":
         return UintType(super().__rmod__(cast(IntType, other)))
 
-    @type_matched
     def __eq__(self, other: Any) -> bool:
         return super().__eq__(other)
 
-    @type_matched
     def __ne__(self, other: Any) -> bool:
         return super().__ne__(other)
 
@@ -841,6 +836,8 @@ class ListType(List[Value]):
         raise TypeError("no such overload")
 
     def __eq__(self, other: Any) -> bool:
+        if other is None:
+            return False
         if not isinstance(other, (list, ListType)):
             raise TypeError(f"no such overload: ListType == {type(other)}")
 
@@ -928,6 +925,8 @@ class MapType(Dict[Value, Value]):
         return super().__getitem__(key)
 
     def __eq__(self, other: Any) -> bool:
+        if other is None:
+            return False
         if not isinstance(other, (Mapping, MapType)):
             raise TypeError(f"no such overload: MapType == {type(other)}")
 
@@ -990,7 +989,9 @@ class MapType(Dict[Value, Value]):
     @staticmethod
     def valid_key_type(key: Any) -> bool:
         """Valid CEL key types. Plus native str for tokens in the source when evaluating ``e.f``"""
-        return isinstance(key, (IntType, UintType, BoolType, StringType, str))
+        return isinstance(
+            key, (IntType, UintType, BoolType, StringType, str, DoubleType)
+        )
 
     def contains(self, item: Value) -> BoolType:
         return BoolType(item in self)
