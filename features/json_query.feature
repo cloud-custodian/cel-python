@@ -264,7 +264,7 @@ And   JSON document '1.0'
 And   JSON document '"1"'
 And   JSON document '"banana"'
 When  echo document | celpy --json-document=_ '_ == 1' is run
-Then  stdout is 'true\nnull\nnull\nnull\n'
+Then  stdout is 'true\ntrue\nfalse\nfalse\n'
 And   stderr is ''
 And   exit status is 0
 
