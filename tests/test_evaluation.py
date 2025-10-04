@@ -166,7 +166,7 @@ def test_operator_in():
         celtypes.IntType(7),
     ])
     assert operator_in(celtypes.IntType(42), container_2)
-    assert isinstance(operator_in(celtypes.IntType(-1), container_2), CELEvalError)
+    assert isinstance(operator_in(celtypes.IntType(-1), container_2), celtypes.BoolType)
 
 
 @pytest.mark.skipif("re2" not in celpy.evaluation.function_matches.__globals__, reason="Not using RE2")

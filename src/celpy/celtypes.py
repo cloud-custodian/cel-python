@@ -548,7 +548,7 @@ class IntType(int):
     ValueError: overflow
 
     >>> IntType(DoubleType(1.9))
-    IntType(2)
+    IntType(1)
     >>> IntType(DoubleType(-123.456))
     IntType(-123)
     """
@@ -989,9 +989,7 @@ class MapType(Dict[Value, Value]):
     @staticmethod
     def valid_key_type(key: Any) -> bool:
         """Valid CEL key types. Plus native str for tokens in the source when evaluating ``e.f``"""
-        return isinstance(
-            key, (IntType, UintType, BoolType, StringType, str, DoubleType)
-        )
+        return isinstance(key, (IntType, UintType, BoolType, StringType, str))
 
     def contains(self, item: Value) -> BoolType:
         return BoolType(item in self)

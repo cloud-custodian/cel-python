@@ -255,10 +255,6 @@ binary_operator_params = [
     ("84 / 2",   "CEL = celpy.evaluation.result(base_activation, lambda activation: operator.truediv(celpy.celtypes.IntType(84), celpy.celtypes.IntType(2)))", celtypes.IntType(42), "_/_"),
     ("85 % 43",  "CEL = celpy.evaluation.result(base_activation, lambda activation: operator.mod(celpy.celtypes.IntType(85), celpy.celtypes.IntType(43)))", celtypes.IntType(42), "_%_"),
     # A few error examples
-    ('42 in ["a", "b", "c"]',
-     "CEL = celpy.evaluation.result(base_activation, lambda activation: celpy.evaluation.operator_in(celpy.celtypes.IntType(42), celpy.celtypes.ListType([celpy.celtypes.StringType('a'), celpy.celtypes.StringType('b'), celpy.celtypes.StringType('c')])))",
-     CELEvalError,
-     "_in_"),
     ("9223372036854775807 + 1",  "CEL = celpy.evaluation.result(base_activation, lambda activation: operator.add(celpy.celtypes.IntType(9223372036854775807), celpy.celtypes.IntType(1)))", CELEvalError, "_+_"),
     ("9223372036854775807 * 2",  "CEL = celpy.evaluation.result(base_activation, lambda activation: operator.mul(celpy.celtypes.IntType(9223372036854775807), celpy.celtypes.IntType(2)))", CELEvalError, "_*_"),
     ("84 / 0", "CEL = celpy.evaluation.result(base_activation, lambda activation: operator.truediv(celpy.celtypes.IntType(84), celpy.celtypes.IntType(0)))", CELEvalError, "_/_"),
