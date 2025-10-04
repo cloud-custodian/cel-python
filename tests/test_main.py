@@ -132,9 +132,7 @@ def test_arg_combo_bad(capsys, monkeypatch):
         "             [expr]",
     ]
     with pytest.raises(SystemExit) as exc_info:
-        options = celpy.__main__.get_options(
-            ["-i", "-n", "355./113."]
-        )
+        options = celpy.__main__.get_options(["-i", "-n", "355./113."])
     assert exc_info.value.args == (2,)
     out, err = capsys.readouterr()
     assert err.splitlines() == error_prefix + [
@@ -142,9 +140,7 @@ def test_arg_combo_bad(capsys, monkeypatch):
     ]
 
     with pytest.raises(SystemExit) as exc_info:
-        options = celpy.__main__.get_options(
-            ["-n"]
-        )
+        options = celpy.__main__.get_options(["-n"])
     assert exc_info.value.args == (2,)
     out, err = capsys.readouterr()
     assert err.splitlines() == error_prefix + [
@@ -203,7 +199,13 @@ def test_main_1(mock_cel_environment, caplog, capsys):
     status = celpy.__main__.main(argv)
     assert status == 0
     assert mock_cel_environment.mock_calls == [
-        call(package=None, annotations={"name": celtypes.StringType, "stat": celpy.celtypes.FunctionType})
+        call(
+            package=None,
+            annotations={
+                "name": celtypes.StringType,
+                "stat": celpy.celtypes.FunctionType,
+            },
+        )
     ]
     env = mock_cel_environment.return_value
     assert env.compile.mock_calls == [call('"Hello world! I\'m " + name + "."')]
@@ -228,7 +230,7 @@ def test_main_pipe(mock_cel_environment, caplog, capsys):
     ]
     env = mock_cel_environment.return_value
     assert env.compile.mock_calls == [call('"Hello world! I\'m " + name + "."')]
-    assert env.program.mock_calls == [call(sentinel.AST, functions={'stat': ANY})]
+    assert env.program.mock_calls == [call(sentinel.AST, functions={"stat": ANY})]
     prgm = env.program.return_value
     assert prgm.evaluate.mock_calls == [
         call(
@@ -244,6 +246,7 @@ def test_main_pipe(mock_cel_environment, caplog, capsys):
     assert out == '"sentinel.OUTPUT"\n'
     assert err == ""
 
+
 def test_main_0_non_boolean(mock_cel_environment, caplog, capsys):
     """
     GIVEN null-input AND boolean option and AND non-bool expr
@@ -258,7 +261,7 @@ def test_main_0_non_boolean(mock_cel_environment, caplog, capsys):
     ]
     env = mock_cel_environment.return_value
     assert env.compile.mock_calls == [call('"Hello world! I\'m " + name + "."')]
-    assert env.program.mock_calls == [call(sentinel.AST, functions={'stat': ANY})]
+    assert env.program.mock_calls == [call(sentinel.AST, functions={"stat": ANY})]
     prgm = env.program.return_value
     assert prgm.evaluate.mock_calls == [call({})]
     assert caplog.messages == [
@@ -294,7 +297,7 @@ def test_main_0_boolean(mock_cel_environment_false, caplog, capsys):
     ]
     env = mock_cel_environment_false.return_value
     assert env.compile.mock_calls == [call("2 == 1")]
-    assert env.program.mock_calls == [call(sentinel.AST, functions={'stat': ANY})]
+    assert env.program.mock_calls == [call(sentinel.AST, functions={"stat": ANY})]
     prgm = env.program.return_value
     assert prgm.evaluate.mock_calls == [call({})]
     assert caplog.messages == []
@@ -326,19 +329,26 @@ def test_main_slurp_int_format(mock_cel_environment_integer, caplog, capsys):
     sys.stdin = sys.__stdin__
     assert status == 0
     assert mock_cel_environment_integer.mock_calls == [
-        call(package='jq', annotations={"stat": celpy.celtypes.FunctionType})
+        call(package="jq", annotations={"stat": celpy.celtypes.FunctionType})
     ]
     env = mock_cel_environment_integer.return_value
     assert env.compile.mock_calls == [call("339629869*11")]
-    assert env.program.mock_calls == [call(sentinel.AST, functions={'stat': ANY})]
+    assert env.program.mock_calls == [call(sentinel.AST, functions={"stat": ANY})]
     prgm = env.program.return_value
     assert prgm.evaluate.mock_calls == [
-        call({'jq': celtypes.MapType({celtypes.StringType('name'): celtypes.StringType('CEL')})})
+        call(
+            {
+                "jq": celtypes.MapType(
+                    {celtypes.StringType("name"): celtypes.StringType("CEL")}
+                )
+            }
+        )
     ]
     assert caplog.messages == []
     out, err = capsys.readouterr()
     assert out == "0xdeadbeef\n"
     assert err == ""
+
 
 @pytest.fixture
 def mock_cel_environment_bool(monkeypatch):
@@ -363,14 +373,20 @@ def test_main_slurp_bool_status(mock_cel_environment_bool, caplog, capsys):
     sys.stdin = sys.__stdin__
     assert status == 1
     assert mock_cel_environment_bool.mock_calls == [
-        call(package='jq', annotations={"stat": celpy.celtypes.FunctionType})
+        call(package="jq", annotations={"stat": celpy.celtypes.FunctionType})
     ]
     env = mock_cel_environment_bool.return_value
     assert env.compile.mock_calls == [call('.name == "not CEL"')]
-    assert env.program.mock_calls == [call(sentinel.AST, functions={'stat': ANY})]
+    assert env.program.mock_calls == [call(sentinel.AST, functions={"stat": ANY})]
     prgm = env.program.return_value
     assert prgm.evaluate.mock_calls == [
-        call({'jq': celtypes.MapType({celtypes.StringType('name'): celtypes.StringType('CEL')})})
+        call(
+            {
+                "jq": celtypes.MapType(
+                    {celtypes.StringType("name"): celtypes.StringType("CEL")}
+                )
+            }
+        )
     ]
     assert caplog.messages == []
     out, err = capsys.readouterr()
@@ -388,13 +404,11 @@ def test_main_0_int_format(mock_cel_environment_integer, caplog, capsys):
     status = celpy.__main__.main(argv)
     assert status == 0
     assert mock_cel_environment_integer.mock_calls == [
-        call(package=None, annotations={'stat': celpy.celtypes.FunctionType})
+        call(package=None, annotations={"stat": celpy.celtypes.FunctionType})
     ]
     env = mock_cel_environment_integer.return_value
     assert env.compile.mock_calls == [call("339629869*11")]
-    assert env.program.mock_calls == [
-        call(sentinel.AST, functions={"stat": ANY})
-    ]
+    assert env.program.mock_calls == [call(sentinel.AST, functions={"stat": ANY})]
     prgm = env.program.return_value
     assert prgm.evaluate.mock_calls == [call({})]
     assert caplog.messages == []
@@ -402,13 +416,14 @@ def test_main_0_int_format(mock_cel_environment_integer, caplog, capsys):
     assert out == "0xdeadbeef\n"
     assert err == ""
 
+
 def test_main_verbose(mock_cel_environment, caplog, capsys):
     """GIVEN verbose AND expression; WHEN eval; THEN correct log output."""
     argv = ["-v", "[2, 4, 5].map(x, x/2)"]
     status = celpy.__main__.main(argv)
     assert status == 0
     assert mock_cel_environment.mock_calls == [
-        call(package="jq", annotations={'stat': celpy.celtypes.FunctionType})
+        call(package="jq", annotations={"stat": celpy.celtypes.FunctionType})
     ]
     assert caplog.messages == ["Expr: '[2, 4, 5].map(x, x/2)'"]
     out, err = capsys.readouterr()
@@ -422,13 +437,19 @@ def test_main_very_verbose(mock_cel_environment, caplog, capsys):
     status = celpy.__main__.main(argv)
     assert status == 0
     assert mock_cel_environment.mock_calls == [
-        call(package="jq", annotations={'stat': celpy.celtypes.FunctionType})
+        call(package="jq", annotations={"stat": celpy.celtypes.FunctionType})
     ]
     expected_namespace = argparse.Namespace(
-        verbose=2, arg=None, null_input=False, slurp=False, interactive=False,
-        package='jq', document=None,
-        boolean=False, format=None,
-        expr='[2, 4, 5].map(x, x/2)'
+        verbose=2,
+        arg=None,
+        null_input=False,
+        slurp=False,
+        interactive=False,
+        package="jq",
+        document=None,
+        boolean=False,
+        format=None,
+        expr="[2, 4, 5].map(x, x/2)",
     )
     assert caplog.messages == [
         str(expected_namespace),
@@ -457,13 +478,19 @@ def test_main_parse_error(mock_cel_environment_syntax_error, caplog, capsys):
     status = celpy.__main__.main(argv)
     assert status == 1
     assert mock_cel_environment_syntax_error.mock_calls == [
-        call(package=None, annotations={'stat': celpy.celtypes.FunctionType})
+        call(package=None, annotations={"stat": celpy.celtypes.FunctionType})
     ]
     expected_namespace = argparse.Namespace(
-        verbose=0, arg=None, null_input=True, slurp=False, interactive=False,
-        package='jq', document=None,
-        boolean=False, format=None,
-        expr='[nope++]'
+        verbose=0,
+        arg=None,
+        null_input=True,
+        slurp=False,
+        interactive=False,
+        package="jq",
+        document=None,
+        boolean=False,
+        format=None,
+        expr="[nope++]",
     )
     assert caplog.messages == [
         str(expected_namespace),
@@ -495,13 +522,19 @@ def test_main_0_eval_error(mock_cel_environment_eval_error, caplog, capsys):
     status = celpy.__main__.main(argv)
     assert status == 2
     assert mock_cel_environment_eval_error.mock_calls == [
-        call(package=None, annotations={'stat': celpy.celtypes.FunctionType})
+        call(package=None, annotations={"stat": celpy.celtypes.FunctionType})
     ]
     expected_namespace = argparse.Namespace(
-        verbose=0, arg=None, null_input=True, slurp=False, interactive=False,
-        package='jq', document=None,
-        boolean=False, format=None,
-        expr='2 / 0'
+        verbose=0,
+        arg=None,
+        null_input=True,
+        slurp=False,
+        interactive=False,
+        package="jq",
+        document=None,
+        boolean=False,
+        format=None,
+        expr="2 / 0",
     )
     assert caplog.messages == [
         str(expected_namespace),
@@ -520,18 +553,24 @@ def test_main_pipe_eval_error(mock_cel_environment_eval_error, caplog, capsys):
     sys.stdin = sys.__stdin__
     assert status == 0
     assert mock_cel_environment_eval_error.mock_calls == [
-        call(package='jq', annotations={'stat': celpy.celtypes.FunctionType})
+        call(package="jq", annotations={"stat": celpy.celtypes.FunctionType})
     ]
     expected_namespace = argparse.Namespace(
-        verbose=0, arg=None, null_input=False, slurp=False, interactive=False,
-        package='jq', document=None,
-        boolean=False, format=None,
-        expr='.json.field / 0'
+        verbose=0,
+        arg=None,
+        null_input=False,
+        slurp=False,
+        interactive=False,
+        package="jq",
+        document=None,
+        boolean=False,
+        format=None,
+        expr=".json.field / 0",
     )
     assert caplog.messages == [
         str(expected_namespace),
         "Expr: '.json.field / 0'",
-        "Encountered (sentinel.arg0, sentinel.arg1) on document '{\"name\": \"CEL\"}\\n'",
+        'Encountered (sentinel.arg0, sentinel.arg1) on document \'{"name": "CEL"}\\n\'',
     ]
     out, err = capsys.readouterr()
     assert out == "null\n"
@@ -541,18 +580,24 @@ def test_main_pipe_eval_error(mock_cel_environment_eval_error, caplog, capsys):
 def test_main_pipe_json_error(mock_cel_environment_eval_error, caplog, capsys):
     """GIVEN piped input AND bad expression; WHEN eval; THEN correct stderr output."""
     argv = [".json.field / 0"]
-    sys.stdin = io.StringIO('nope, not json\n')
+    sys.stdin = io.StringIO("nope, not json\n")
     status = celpy.__main__.main(argv)
     sys.stdin = sys.__stdin__
     assert status == 3
     assert mock_cel_environment_eval_error.mock_calls == [
-        call(package='jq', annotations={'stat': celpy.celtypes.FunctionType})
+        call(package="jq", annotations={"stat": celpy.celtypes.FunctionType})
     ]
     expected_namespace = argparse.Namespace(
-        verbose=0, arg=None, null_input=False, slurp=False, interactive=False,
-        package='jq', document=None,
-        boolean=False, format=None,
-        expr='.json.field / 0'
+        verbose=0,
+        arg=None,
+        null_input=False,
+        slurp=False,
+        interactive=False,
+        package="jq",
+        document=None,
+        boolean=False,
+        format=None,
+        expr=".json.field / 0",
     )
     assert caplog.messages == [
         str(expected_namespace),
@@ -567,16 +612,12 @@ def test_main_pipe_json_error(mock_cel_environment_eval_error, caplog, capsys):
 def test_main_repl(monkeypatch, capsys):
     mock_repl = Mock()
     mock_repl_class = Mock(return_value=mock_repl)
-    monkeypatch.setattr(celpy.__main__, 'CEL_REPL', mock_repl_class)
+    monkeypatch.setattr(celpy.__main__, "CEL_REPL", mock_repl_class)
     argv = ["-i"]
     status = celpy.__main__.main(argv)
     assert status == 0
-    assert mock_repl_class.mock_calls == [
-        call()
-    ]
-    assert mock_repl.cmdloop.mock_calls == [
-        call()
-    ]
+    assert mock_repl_class.mock_calls == [call()]
+    assert mock_repl.cmdloop.mock_calls == [call()]
 
 
 def test_repl_class_good_interaction(capsys):
@@ -601,7 +642,7 @@ def test_repl_class_good_interaction(capsys):
     assert lines[0].startswith("3.14159")
     assert lines[1].startswith("{'pi': DoubleType(3.14159")
     assert lines[2].startswith("6.28318")
-    assert c.state == {"pi": celpy.celtypes.DoubleType(355./113.)}
+    assert c.state == {"pi": celpy.celtypes.DoubleType(355.0 / 113.0)}
 
 
 def test_repl_class_bad_interaction(capsys):
@@ -611,40 +652,35 @@ def test_repl_class_bad_interaction(capsys):
     c.onecmd("this! isn't! valid!!")
     out, err = capsys.readouterr()
     lines = err.splitlines()
-    assert (
-            lines[0] ==
-            "ERROR: <input>:1:5 pi ++ nope | not & proper \ CEL"
-    )
-    assert (
-            lines[4] ==
-            "    | ....^"
-    )
+    assert lines[0] == "ERROR: <input>:1:5 pi ++ nope | not & proper \ CEL"
+    assert lines[4] == "    | ....^"
     assert c.state == {}
 
 
 def test_stat_good():
     cwd = Path.cwd()
     doc = celpy.__main__.stat(str(cwd))
-    assert doc['st_atime'] == celtypes.TimestampType(
-        datetime.datetime.fromtimestamp(
-            cwd.stat().st_atime))
-    assert doc['st_ctime'] == celtypes.TimestampType(
-        datetime.datetime.fromtimestamp(
-            cwd.stat().st_ctime))
-    assert doc['st_mtime'] == celtypes.TimestampType(
-        datetime.datetime.fromtimestamp(
-            cwd.stat().st_mtime))
+    assert doc["st_atime"] == celtypes.TimestampType(
+        datetime.datetime.fromtimestamp(cwd.stat().st_atime)
+    )
+    assert doc["st_ctime"] == celtypes.TimestampType(
+        datetime.datetime.fromtimestamp(cwd.stat().st_ctime)
+    )
+    assert doc["st_mtime"] == celtypes.TimestampType(
+        datetime.datetime.fromtimestamp(cwd.stat().st_mtime)
+    )
     # Not on all versions of Python.
     # assert doc['st_birthtime'] == celtypes.TimestampType(
     #     datetime.datetime.fromtimestamp(
     #         cwd.stat().st_birthtime))
-    assert doc['st_ino'] == celtypes.IntType(cwd.stat().st_ino)
-    assert doc['st_size'] == celtypes.IntType(cwd.stat().st_size)
-    assert doc['st_nlink'] == celtypes.IntType(cwd.stat().st_nlink)
-    assert doc['kind'] == 'd'
-    assert doc['setuid'] == celtypes.BoolType(os_stat.S_ISUID & cwd.stat().st_mode != 0)
-    assert doc['setgid'] == celtypes.BoolType(os_stat.S_ISGID & cwd.stat().st_mode != 0)
-    assert doc['sticky'] == celtypes.BoolType(os_stat.S_ISVTX & cwd.stat().st_mode != 0)
+    assert doc["st_ino"] == celtypes.IntType(cwd.stat().st_ino)
+    assert doc["st_size"] == celtypes.IntType(cwd.stat().st_size)
+    assert doc["st_nlink"] == celtypes.IntType(cwd.stat().st_nlink)
+    assert doc["kind"] == "d"
+    assert doc["setuid"] == celtypes.BoolType(os_stat.S_ISUID & cwd.stat().st_mode != 0)
+    assert doc["setgid"] == celtypes.BoolType(os_stat.S_ISGID & cwd.stat().st_mode != 0)
+    assert doc["sticky"] == celtypes.BoolType(os_stat.S_ISVTX & cwd.stat().st_mode != 0)
+
 
 def test_stat_does_not_exist():
     path = Path.cwd() / "does_not_exist.tmp"

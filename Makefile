@@ -93,7 +93,7 @@ HELP_TEXT += "\n"
 HELP_TEXT += "  format        runs code formatting\n"
 .PHONY: format
 format:
-	uv run ruff format src tools
+	uv run ruff format src tools tests
 
 HELP_TEXT += "  coverage      generates code coverage reports\n"
 .PHONY: coverage
