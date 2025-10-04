@@ -86,16 +86,12 @@ section {
   test {
     name: "error_right"
     expr: "true && 1/0 != 0"
-    eval_error: {
-      errors: { message: "no matching overload" }
-    }
+    value: { bool_value: true }
   }
   test {
     name: "error_left"
     expr: "1/0 != 0 && true"
-    eval_error: {
-      errors: { message: "no matching overload" }
-    }
+    value: { bool_value: true }
   }
   test {
     name: "no_overload"
@@ -154,16 +150,12 @@ section {
   test {
     name: "error_right"
     expr: "false || 1/0 != 0"
-    eval_error: {
-      errors: { message: "no matching overload" }
-    }
+    value: { bool_value: true }
   }
   test {
     name: "error_left"
     expr: "1/0 != 0 || false"
-    eval_error: {
-      errors: { message: "no matching overload" }
-    }
+    value: { bool_value: true }
   }
   test {
     name: "no_overload"

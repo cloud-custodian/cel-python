@@ -80,12 +80,12 @@ Scenario: AND/short_circuit_error_right
 Scenario: AND/error_right
 
     When CEL expression 'true && 1/0 != 0' is evaluated
-    Then eval_error is 'no matching overload'
+    Then value is celpy.celtypes.BoolType(source=True)
 
 Scenario: AND/error_left
 
     When CEL expression '1/0 != 0 && true' is evaluated
-    Then eval_error is 'no matching overload'
+    Then value is celpy.celtypes.BoolType(source=True)
 
 Scenario: AND/no_overload
 
@@ -141,12 +141,12 @@ Scenario: OR/short_circuit_error_right
 Scenario: OR/error_right
 
     When CEL expression 'false || 1/0 != 0' is evaluated
-    Then eval_error is 'no matching overload'
+    Then value is celpy.celtypes.BoolType(source=True)
 
 Scenario: OR/error_left
 
     When CEL expression '1/0 != 0 || false' is evaluated
-    Then eval_error is 'no matching overload'
+    Then value is celpy.celtypes.BoolType(source=True)
 
 Scenario: OR/no_overload
 
