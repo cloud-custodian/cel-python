@@ -111,7 +111,7 @@ def test_double_type():
 def test_int_type():
     i_42 = IntType(42)
     i_max = IntType(9223372036854775807)
-    assert IntType(DoubleType(1.9)) == IntType(2)
+    assert IntType(DoubleType(1.9)) == IntType(1)
     assert IntType(DoubleType(-123.456)) == IntType(-123)
     assert IntType(TimestampType("2009-02-13T23:31:30Z")) == 1234567890
     assert IntType("0x2a") == 42
@@ -160,7 +160,7 @@ def test_int_type():
 def test_uint_type():
     u_42 = UintType(42)
     u_max = UintType(18446744073709551615)
-    assert UintType(DoubleType(1.9)) == UintType(2)
+    assert UintType(DoubleType(1.9)) == UintType(1)
     with pytest.raises(ValueError):
         assert UintType(DoubleType(-123.456)) == UintType(-123)
     assert UintType(TimestampType("2009-02-13T23:31:30Z")) == 1234567890

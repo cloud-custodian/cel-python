@@ -239,16 +239,7 @@ string_true_uppercase = "@wip"
 timestamp = "@wip"
 
 [conversions.int]
-double_half_neg = "@wip"
-double_half_pos = "@wip"
 double_int_min_range = "@wip"
-double_truncate = "@wip"
-double_truncate_neg = "@wip"
-
-[conversions.uint]
-double_half = "@wip"
-double_truncate = "@wip"
-
 [dynamic.any]
 literal = "@wip"
 
