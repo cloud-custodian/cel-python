@@ -190,7 +190,7 @@ import datetime
 import logging
 import re
 from functools import reduce, wraps
-from math import fsum
+from math import fsum, trunc
 from typing import (
     Any,
     Callable,
@@ -545,7 +545,7 @@ class IntType(int):
     ValueError: overflow
 
     >>> IntType(DoubleType(1.9))
-    IntType(2)
+    IntType(1)
     >>> IntType(DoubleType(-123.456))
     IntType(-123)
     """
@@ -562,7 +562,7 @@ class IntType(int):
             # Used by protobuf.
             return super().__new__(cls, cast(int, source.get(StringType("value"))))
         elif isinstance(source, (float, DoubleType)):
-            convert = int64(round)
+            convert = int64(trunc)
         elif isinstance(source, TimestampType):
             convert = int64(lambda src: src.timestamp())
         elif isinstance(source, (str, StringType)) and source[:2] in {"0x", "0X"}:
@@ -729,7 +729,7 @@ class UintType(int):
         if isinstance(source, UintType):
             return source
         elif isinstance(source, (float, DoubleType)):
-            convert = uint64(round)
+            convert = uint64(trunc)
         elif isinstance(source, TimestampType):
             convert = uint64(lambda src: src.timestamp())
         elif isinstance(source, (str, StringType)) and source[:2] in {"0x", "0X"}:
