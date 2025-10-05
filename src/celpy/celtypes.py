@@ -841,6 +841,9 @@ class ListType(List[Value]):
         raise TypeError("no such overload")
 
     def __eq__(self, other: Any) -> bool:
+        if other is None:
+            return False
+
         if not isinstance(other, (list, ListType)):
             raise TypeError(f"no such overload: ListType == {type(other)}")
 
@@ -928,6 +931,9 @@ class MapType(Dict[Value, Value]):
         return super().__getitem__(key)
 
     def __eq__(self, other: Any) -> bool:
+        if other is None:
+            return False
+
         if not isinstance(other, (Mapping, MapType)):
             raise TypeError(f"no such overload: MapType == {type(other)}")
 
