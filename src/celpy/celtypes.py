@@ -398,6 +398,12 @@ class BoolType(int):
             return source
         elif isinstance(source, MessageType):
             return super().__new__(cls, cast(int, source.get(StringType("value"))))
+        elif isinstance(source, (str, StringType)):
+            if source in ("False", "f", "FALSE", "false"):
+                return super().__new__(cls, 0)
+            elif source in ("True", "t", "TRUE", "true"):
+                return super().__new__(cls, 1)
+            return super().__new__(cls, source)
         else:
             return super().__new__(cls, source)
 
