@@ -223,16 +223,6 @@ not_ne_int_uint = "@wip"
 not_ne_uint_double = "@wip"
 not_ne_uint_double_nan = "@wip"
 
-[conversions.bool]
-string_f = "@wip"
-string_false_lowercase = "@wip"
-string_false_pascalcase = "@wip"
-string_false_uppercase = "@wip"
-string_t = "@wip"
-string_true_lowercase = "@wip"
-string_true_pascalcase = "@wip"
-string_true_uppercase = "@wip"
-
 [conversions.identity]
 timestamp = "@wip"
 
