@@ -3415,7 +3415,7 @@ class Phase1Transpiler(lark.visitors.Visitor_Recursive):
                 ).transpiled.split(".")
             else:
                 raise CELSyntaxError(  # pragma: no cover
-                    "no bind variable in {property_name_token.value} macro",
+                    f"no bind variable in {property_name_token.value} macro",
                     line=tree.meta.line,
                     column=tree.meta.column,
                 )
