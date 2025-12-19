@@ -443,7 +443,7 @@ class BytesType(bytes):
                 cast(bytes, source.get(StringType("value"))),
             )
         elif isinstance(source, Iterable):
-            return super().__new__(cls, cast(Iterable[int], source))
+            return super().__new__(cls, source)
         else:
             raise TypeError(f"Invalid initial value type: {type(source)}")
 
