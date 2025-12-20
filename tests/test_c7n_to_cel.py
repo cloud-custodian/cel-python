@@ -459,18 +459,18 @@ def test_flow_logs_rewrite():
     clause_1 = {
         "enabled": "true", "type": "flow-logs", "destination-type": "s3",
     }
-    expected = 'size(resource.flow_logs()) != 0 && (resource.flow_logs().LogDestinationType == "s3")'
+    expected = 'size(resource.flow_logs()) != 0 && (resource.flow_logs().exists(x, x.LogDestinationType == "s3"))'
     assert C7N_Rewriter.type_flow_log_rewrite("vpc", clause_1) == expected
 
     clause_2 = {'type': 'flow-logs',  'enabled': True,
         'set-op': 'or', 'op': 'equal',  'traffic-type': 'all', 'status': 'active',
         'log-group': 'vpc-logs'}
-    expected = 'size(resource.flow_logs()) != 0 && (resource.flow_logs().LogGroupName == "vpc-logs" || resource.flow_logs().TrafficType == "ALL" || resource.flow_logs().FlowLogStatus == "active")'
+    expected = 'size(resource.flow_logs()) != 0 && (resource.flow_logs().exists(x, x.LogGroupName == "vpc-logs") || resource.flow_logs().exists(x, x.TrafficType == "ALL") || resource.flow_logs().exists(x, x.FlowLogStatus == "active"))'
     assert C7N_Rewriter.type_flow_log_rewrite("vpc", clause_2) == expected
 
     clause_3 = {'type': 'flow-logs',  'enabled': True,
         "log-format": "this", "destination": "that", "deliver-status": "the-other-thing"}
-    expected = 'size(resource.flow_logs()) != 0 && (resource.flow_logs().LogFormat == "this" || resource.flow_logs().LogDestination == "that" || resource.flow_logs().DeliverLogsStatus == "the-other-thing")'
+    expected = 'size(resource.flow_logs()) != 0 && (resource.flow_logs().exists(x, x.LogFormat == "this") || resource.flow_logs().exists(x, x.LogDestination == "that") || resource.flow_logs().exists(x, x.DeliverLogsStatus == "the-other-thing"))'
     assert C7N_Rewriter.type_flow_log_rewrite("vpc", clause_3) == expected
 
 

@@ -85,6 +85,7 @@ Scenario: and_ignore
 
     When CEL expression '{}.a && false' is evaluated
     Then eval_error is None
+    And value is celpy.celtypes.BoolType(source=False)
 
 Scenario: or_error
 
@@ -95,6 +96,7 @@ Scenario: or_ignore
 
     When CEL expression '{}.a || true' is evaluated
     Then eval_error is None
+    And value is celpy.celtypes.BoolType(source=True)
 
 Scenario: all_error
 
@@ -105,6 +107,7 @@ Scenario: all_ignore
 
     When CEL expression '[{"a": 1}, {}].all(v, v.a == 2)' is evaluated
     Then eval_error is None
+    And value is celpy.celtypes.BoolType(source=False)
 
 Scenario: exists_error
 
@@ -115,6 +118,7 @@ Scenario: exists_ignore
 
     When CEL expression '[{"a": 1}, {}].exists(v, v.a == 1)' is evaluated
     Then eval_error is None
+    And value is celpy.celtypes.BoolType(source=True)
 
 Scenario: exists_one_error
 

@@ -877,7 +877,6 @@ class C7N_Rewriter:
 
         Relies on :py:func:`celpy.c7nlib.flow_logs` to get flow_log details via the C7N Filter.
         """
-        op = c7n_filter.get("op", "equal")
         set_op = c7n_filter.get("set-up", "or")
         enabled = []
         if "enabled" in c7n_filter:
@@ -890,55 +889,37 @@ class C7N_Rewriter:
         if c7n_filter.get("log-group"):
             log_group = c7n_filter.get("log-group")
             clauses.append(
-                C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().LogGroupName", f"{C7N_Rewriter.q(log_group)}"
-                )
+                f"resource.flow_logs().exists(x, x.LogGroupName == {C7N_Rewriter.q(log_group)})"
             )
         if c7n_filter.get("log-format"):
             log_format = c7n_filter.get("log-format")
             clauses.append(
-                C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().LogFormat", f"{C7N_Rewriter.q(log_format)}"
-                )
+                f"resource.flow_logs().exists(x, x.LogFormat == {C7N_Rewriter.q(log_format)})"
             )
         if c7n_filter.get("traffic-type"):
             traffic_type = cast(str, c7n_filter.get("traffic-type"))
             clauses.append(
-                C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().TrafficType",
-                    f"{C7N_Rewriter.q(traffic_type.upper())}",
-                )
+                f"resource.flow_logs().exists(x, x.TrafficType == {C7N_Rewriter.q(traffic_type.upper())})"
             )
         if c7n_filter.get("destination-type"):
             destination_type = c7n_filter.get("destination-type")
             clauses.append(
-                C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().LogDestinationType",
-                    f"{C7N_Rewriter.q(destination_type)}",
-                )
+                f"resource.flow_logs().exists(x, x.LogDestinationType == {C7N_Rewriter.q(destination_type)})"
             )
         if c7n_filter.get("destination"):
             destination = c7n_filter.get("destination")
             clauses.append(
-                C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().LogDestination",
-                    f"{C7N_Rewriter.q(destination)}",
-                )
+                f"resource.flow_logs().exists(x, x.LogDestination == {C7N_Rewriter.q(destination)})"
             )
         if c7n_filter.get("status"):
             status = c7n_filter.get("status")
             clauses.append(
-                C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().FlowLogStatus", f"{C7N_Rewriter.q(status)}"
-                )
+                f"resource.flow_logs().exists(x, x.FlowLogStatus == {C7N_Rewriter.q(status)})"
             )
         if c7n_filter.get("deliver-status"):
             deliver_status = c7n_filter.get("deliver-status")
             clauses.append(
-                C7N_Rewriter.atomic_op_map[op].format(
-                    "resource.flow_logs().DeliverLogsStatus",
-                    f"{C7N_Rewriter.q(deliver_status)}",
-                )
+                f"resource.flow_logs().exists(x, x.DeliverLogsStatus == {C7N_Rewriter.q(deliver_status)})"
             )
 
         if len(clauses) > 0:

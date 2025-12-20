@@ -950,7 +950,7 @@ Examples: subnet False
 
 Scenario Outline: Some resource types (vpc, eni, and subnet) have flow-log settings.
     C7N can check a variety of attributes: destination, destination-type, enabled,
-    log-group, status, and traffic-type. Pragmatically, we see only enabled and desination-type
+    log-group, status, and traffic-type. Pragmatically, we see only enabled and destination-type
 
     Given policy text
         """
@@ -969,12 +969,12 @@ Scenario Outline: Some resource types (vpc, eni, and subnet) have flow-log setti
     And C7N.filter manager has get_model result of InstanceId
     And C7N.filter has flow_logs result with <flow-logs>
     When CEL filter is built and evaluated
+    Then CEL text is size(resource.flow_logs()) == 0 || ! (size(resource.flow_logs()) != 0 && (resource.flow_logs().exists(x, x.LogDestinationType == "s3")))
     Then result is <expected>
-    And CEL text is size(resource.flow_logs()) == 0 || ! (size(resource.flow_logs()) != 0 && (resource.flow_logs().LogDestinationType == "s3"))
 
-Examples: low-logs True
+Examples: flow-logs True
     | expected | document                                             | flow-logs |
-    | True     | {"InstanceId": "i-123456789", "ResourceType": "vpc"} | [{"ResourceId": "i-123456789", "More": "Details"}] |
+    | True     | {"InstanceId": "i-123456789", "ResourceType": "vpc"} | [{"ResourceId": "i-123456789", "LogDestinationType": "cloud-watch-logs"}] |
 
 
 ######################
