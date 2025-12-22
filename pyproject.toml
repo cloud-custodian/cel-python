@@ -26,7 +26,7 @@ classifiers = [
 authors = [
     { name = "S.Lott", email = "slott56@gmail.com" }
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 dependencies = [
     # 3.13 needs at least this version, which started publishing wheels for Python 3.13.
@@ -78,7 +78,7 @@ dev = [
 ]
 
 [tool.tox]
-envlist = ["py39", "py310", "py311", "py312", "py313", "lint", "tools"]
+envlist = ["py310", "py311", "py312", "py313", "lint", "tools"]
 minversion = "4.24.0"
 
 [tool.tox.env_run_base]
