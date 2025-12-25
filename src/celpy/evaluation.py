@@ -291,6 +291,11 @@ def boolean(
     def bool_function(
         a: celpy.celtypes.Value, b: celpy.celtypes.Value
     ) -> celpy.celtypes.BoolType:
+        if isinstance(a, CELEvalError):
+            return a
+        if isinstance(b, CELEvalError):
+            return b
+
         result_value = function(a, b)
         if result_value == NotImplemented:
             return cast(celpy.celtypes.BoolType, result_value)
@@ -323,7 +328,9 @@ def operator_in(item: Result, container: Result) -> Result:
 
     -   True. There was a item found. Exceptions may or may not have been found.
     -   False. No item found AND no exceptions.
-    -   CELEvalError. No item found AND at least one exception.
+    -   CELEvalError. Either:
+        - No item found AND at least one exception or
+        - The input item or container itself was already an error
 
     To an extent this is a little like the ``exists()`` macro.
     We can think of ``container.contains(item)`` as ``container.exists(r, r == item)``.
@@ -333,6 +340,11 @@ def operator_in(item: Result, container: Result) -> Result:
 
         ``reduce(logical_or, (item == c for c in container), BoolType(False))``
     """
+    if isinstance(item, CELEvalError):
+        return item
+    if isinstance(container, CELEvalError):
+        return container
+
     result_value: Result = celpy.celtypes.BoolType(False)
     for c in cast(Iterable[Result], container):
         try:
@@ -1547,6 +1559,9 @@ class Evaluator(lark.visitors.Interpreter[Result]):
 
         try:
             list_exprlist = cast(List[Result], exprlist or [])
+            for expr in list_exprlist:
+                if isinstance(expr, CELEvalError):
+                    return expr
             return function(*list_exprlist)
         except ValueError as ex:
             value = CELEvalError(

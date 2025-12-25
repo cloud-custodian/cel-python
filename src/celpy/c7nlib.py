@@ -997,12 +997,12 @@ def flow_logs(
     # TODO: Refactor into a function in ``CELFilter``. Should not be here.
     client = C7N.filter.manager.session_factory().client("ec2")
     logs = client.describe_flow_logs().get("FlowLogs", ())
-    m = C7N.filter.manager.get_model()
+    dimension = C7N.filter.manager.get_model().dimension
     resource_map: Dict[str, List[Dict[str, Any]]] = {}
     for fl in logs:
         resource_map.setdefault(fl["ResourceId"], []).append(fl)
-    if resource.get(m.id) in resource_map:
-        flogs = resource_map[cast(str, resource.get(m.id))]
+    if resource.get(dimension) in resource_map:
+        flogs = resource_map[cast(str, resource.get(dimension))]
         return json_to_cel(flogs)
     return json_to_cel([])
 

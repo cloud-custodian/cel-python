@@ -334,6 +334,8 @@ def logical_not(x: Value) -> Value:
     This could almost be `logical_or = evaluation.boolean(operator.not_)`,
     but the definition would expose Python's notion of "truthiness", which isn't appropriate for CEL.
     """
+    if isinstance(x, Exception):
+        return x
     if isinstance(x, BoolType):
         result_value = BoolType(not x)
     else:
