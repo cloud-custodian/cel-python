@@ -3059,6 +3059,8 @@ class Transpiler:
         self.base_activation = activation
         self.activation = self.base_activation
 
+        self.fn_packages = self._resolve_fn_packages()
+
         self.logger.debug("Transpiler activation: %r", self.activation)
         # self.logger.debug("functions: %r", self.functions)  # Refactor ``self.functions`` into an Activation
 
@@ -3090,7 +3092,7 @@ class Transpiler:
 
         # Global for the top-level ``CEL = result(base_activation, ...)`` statement.
         evaluation_globals = (
-            celpy.evaluation.result.__globals__
+            celpy.evaluation.result.__globals__ | self.fn_packages
         )  # the ``evaluation`` moodule
         evaluation_globals["base_activation"] = self.activation
         try:
@@ -3103,6 +3105,17 @@ class Transpiler:
             # A Python problem during ``exec()``
             self.logger.error("Internal error: %r", ex)
             raise CELEvalError("evaluation error", type(ex), ex.args)
+
+    def _resolve_fn_packages(self):
+        result = {}
+        for _, f in self.base_activation.functions.items():
+            package = f.__module__.split('.', 1)[0]
+            if package in result:
+                continue
+
+            result[package] = sys.modules[package]
+
+        return result
 
 
 class Phase1Transpiler(lark.visitors.Visitor_Recursive):
