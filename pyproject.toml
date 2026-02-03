@@ -40,6 +40,10 @@ dependencies = [
     "tomli >= 1.1.0 ; python_version < '3.11'",
 ]
 
+[project.urls]
+Source = "https://github.com/cloud-custodian/cel-python"
+Documentation = "https://cloud-custodian.github.io/cel-python/"
+
 [project.scripts]
 cel-python = "cel_python:main"
 
