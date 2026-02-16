@@ -3440,16 +3440,18 @@ class Phase1Transpiler(lark.visitors.Visitor_Recursive):
                 dict(
                     n=lambda tree: str(tree.expr_number),
                     macro=lambda tree: property_name_token.value,
-                    member=lambda tree: cast(
-                        TranspilerTree, tree.children[0]
-                    ).transpiled,
+                    member=lambda tree: (
+                        cast(TranspilerTree, tree.children[0]).transpiled
+                    ),
                     bind_variable=lambda tree: bind_variable,
-                    expr=lambda tree: cast(
-                        TranspilerTree,
-                        cast(TranspilerTree, tree.children[2]).children[1],
-                    ).transpiled
-                    if len(tree.children) == 3
-                    else "",
+                    expr=lambda tree: (
+                        cast(
+                            TranspilerTree,
+                            cast(TranspilerTree, tree.children[2]).children[1],
+                        ).transpiled
+                        if len(tree.children) == 3
+                        else ""
+                    ),
                 ),
             )
             tree.transpiled = f"ex_{tree.expr_number}(activation)"
@@ -3555,9 +3557,9 @@ class Phase1Transpiler(lark.visitors.Visitor_Recursive):
                     template,
                     dict(
                         n=lambda tree: str(tree.expr_number),
-                        exprlist=lambda tree: cast(
-                            TranspilerTree, tree.children[1]
-                        ).transpiled,
+                        exprlist=lambda tree: (
+                            cast(TranspilerTree, tree.children[1]).transpiled
+                        ),
                     ),
                 )
                 tree.transpiled = f"ex_{tree.expr_number}(activation)"

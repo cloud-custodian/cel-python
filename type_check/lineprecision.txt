@@ -6,7 +6,7 @@ celpy.adapter       163       34          3    9    111           6
 celpy.c7nlib       1663      344         16  152   1151           0
 celpy.celparser     411      137         68   23    183           0
 celpy.celtypes     1497      394         15  238    812          38
-celpy.evaluation   3874     1136        251  243   2226          18
+celpy.evaluation   3876     1134        251  243   2230          18
 gherkinize         1142      531         14   96    481          20
 test_gherkinize    5581     5014        135    4    428           0
 xlate                 0        0          0    0      0           0

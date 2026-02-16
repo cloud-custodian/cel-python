@@ -227,7 +227,7 @@ class C7N_Rewriter:
         if (
             isinstance(value, str)
             and value in ("true", "false")
-            or isinstance(value, bool)  # noqa: W503
+            or isinstance(value, bool)
         ):
             # Boolean cases
             # Rewrite == true, != true, == false, and != false
