@@ -18,6 +18,7 @@ name = "cel-python"
 version = "0.5.0"
 description = "Pure Python implementation of Google Common Expression Language"
 readme = "README.rst"
+license = "Apache-2.0"
 license-files = ["LICENSE"]
 classifiers = [
   "Development Status :: 4 - Beta",
