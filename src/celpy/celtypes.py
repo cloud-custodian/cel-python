@@ -1347,7 +1347,10 @@ class DurationType(datetime.timedelta):
                 raise ValueError("range error: {seconds}")
             return super().__new__(cls, seconds=seconds, microseconds=nanos // 1000)
         elif isinstance(seconds, str):
-            duration_pat = re.compile(r"^[-+]?([0-9]*(\.[0-9]*)?[a-z]+)+$")
+            valid_units = sorted(cls.scale.keys(), key=len, reverse=True)
+            units_pattern = r"(?:" + r"|".join(map(re.escape, valid_units)) + r")"
+
+            duration_pat = re.compile(rf"^[-+]?([0-9]*(\.[0-9]*)?{units_pattern})+$")
 
             duration_match = duration_pat.match(seconds)
             if not duration_match:
@@ -1369,7 +1372,7 @@ class DurationType(datetime.timedelta):
                 seconds = sign * fsum(
                     map(
                         lambda n_u: float(n_u.group(1)) * cls.scale[n_u.group(3)],
-                        re.finditer(r"([0-9]*(\.[0-9]*)?)([a-z]+)", seconds),
+                        re.finditer(rf"([0-9]*(\.[0-9]*)?)({units_pattern})", seconds),
                     )
                 )
             except KeyError:

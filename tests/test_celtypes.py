@@ -409,6 +409,17 @@ def test_duration_type():
     assert DurationType("-2m30s").getSeconds() == IntType(-150)
     with pytest.raises(ValueError):
         DurationType("-2w30z")
+    assert int(DurationType("1.5h").total_seconds()) == 5400
+    assert DurationType("300ms").getMilliseconds() == IntType(300)
+    assert DurationType("2ms").total_seconds() == 0.002
+    with pytest.raises(ValueError):
+        DurationType("300msec")
+    with pytest.raises(ValueError):
+        DurationType("2hours")
+    with pytest.raises(ValueError):
+        DurationType("15sec")
+    with pytest.raises(ValueError):
+        DurationType("2m30sx")
 
 
 def test_function_type():
