@@ -39,6 +39,7 @@ dependencies = [
     "pendulum>=3.2.0",
     "pyyaml>=6.0.3",
     "tomli >= 1.1.0 ; python_version < '3.11'",
+    "ipykernel>=7.2.0",
 ]
 
 [project.urls]
@@ -88,7 +89,7 @@ dev = [
 ]
 
 [tool.tox]
-envlist = ["py310", "py311", "py312", "py313", "lint", "tools"]
+envlist = ["py310", "py311", "py312", "py313", "py314", "lint", "tools"]
 minversion = "4.24.0"
 
 [tool.tox.env_run_base]

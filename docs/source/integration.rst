@@ -24,6 +24,9 @@ We'll look at integration of CEL into another application from four perspectives
 
 5.  Finally, `External API`_ will review some elements of the API that are part of the integration interface.
 
+The CEL compile and evaluation is designed to work inside a single thread.
+In an application where multiple, concurrent threads will be performing CEL evaluations, each thread requires a distinct copy of a stateful :py:class:`celpy.Environment` instance.
+
 Integration Essentials
 ======================
 
