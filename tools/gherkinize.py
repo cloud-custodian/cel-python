@@ -150,7 +150,7 @@ env = Environment(
 )
 template = env.get_template("gherkin.feature.jinja")
 logger = logging.getLogger("gherkinize")
-pool = descriptor_pool.Default()  # type: ignore [no-untyped-call]
+pool = descriptor_pool.Default()
 
 
 class Config:

@@ -59,7 +59,7 @@ These are the Go type definitions that are used by CEL:
 -   TypeType
 -   UintType
 
-The above types are handled directly byt CEL syntax.
+The above types are handled directly by CEL syntax.
 e.g., ``42`` vs. ``42u`` vs. ``"42"`` vs. ``b"42"`` vs. ``42.``.
 
 We provide matching Python class names for each of these types. The Python type names
