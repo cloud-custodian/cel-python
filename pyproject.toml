@@ -19,6 +19,7 @@ version = "0.5.1"
 description = "Pure Python implementation of Google Common Expression Language"
 readme = "README.rst"
 license-files = ["LICENSE"]
+license = "Apache-2.0"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python"
@@ -39,6 +40,12 @@ dependencies = [
     "pyyaml>=6.0.3",
     "tomli >= 1.1.0 ; python_version < '3.11'",
 ]
+
+[project.urls]
+Homepage = "https://cloud-custodian.github.io/cel-python/build/html/index.html"
+Documentation = "https://cloud-custodian.github.io/cel-python/build/html/index.html"
+Source = "https://github.com/cloud-custodian/cel-python"
+Issues = "https://github.com/cloud-custodian/cel-python/issues"
 
 [project.scripts]
 cel-python = "cel_python:main"
