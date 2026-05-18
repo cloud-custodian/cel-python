@@ -84,12 +84,12 @@ class Runner(abc.ABC):
     A :py:class:`Runner` will evaluate the AST in the context of a specific activation
     with the provided variable values.
 
-    The py:meth:`Runner.evaluate` method is used to evaluate a CEL expression with a new data context.
+    The :py:meth:`Runner.evaluate` method is used to evaluate a CEL expression with a new data context.
 
     As an implementation detail, note that
     each :py:class:`Runner` subclass definition includes
     the ``tree_node_class`` attribute.
-    This attribute defines the type for Tree nodes that must be created by the :py:mod:`lark` parser.
+    This attribute defines the type for ``Tree`` nodes that must be created by the :py:mod:`lark` parser.
     This class information provided to the :py:class:`Environment` to tailor the :py:mod:`lark` parser.
     The class named often includes specialized AST features
     needed by the :py:class:`Runner` subclss.
@@ -110,7 +110,7 @@ class Runner(abc.ABC):
     ) -> None:
         """
         Initialize this ``Runner`` with a given AST.
-        The Runner will have annotations take from the :py:class:`Environment`,
+        Get annotations from the :py:class:`Environment`,
         plus any unique functions defined here.
         """
         self.logger = logging.getLogger(f"celpy.{self.__class__.__name__}")
@@ -123,8 +123,8 @@ class Runner(abc.ABC):
 
     def new_activation(self) -> Activation:
         """
-        Builds a new, working :py:class:`Activation` using the :py:class:`Environment` as defaults.
-        A Context will later be layered onto this for evaluation.
+        Builds a new, working :py:class:`celpy.evaluation.Activation` using the :py:class:`Environment` as defaults.
+        A :py:class:`celpy.evaluation.Context` will later be layered onto this for evaluation.
 
         This is used internally during evaluation.
         """
@@ -265,9 +265,9 @@ class Environment:
     An application can also optimize or transform the AST.
 
     The :py:meth:`Environment.program` method
-    packages the AST into a :py:class:`Runnable` ready for evaluation.
+    packages the AST into a :py:class:`celpy.Runnable` ready for evaluation.
     At this time, external functions are bound to the CEL expression.
-    The  :py:class:`Runnable` can be evaluated repeatedly with multiple inputs, avoiding the overheads of compiling for each input value.
+    The  :py:class:`celpy.Runnable` can be evaluated repeatedly with multiple inputs, avoiding the overheads of compiling for each input value.
 
     ..  todo:: For a better fit with Go language expectations
 
@@ -287,14 +287,16 @@ class Environment:
 
         This also increases the default recursion limit to handle the defined minimums for CEL.
 
-        :param package: An optional package name used to resolve names in an Activation
+        :param package: An optional package name used to resolve names in an :py:class:`celpy.evaluation.Activation`
         :param annotations: Names with type annotations.
             There are two flavors of names provided here.
 
-            - Variable names based on :py:mod:``celtypes``
+            - Variable names based on :py:mod:`celtypes`
 
-            - Function names, using ``typing.Callable``.
-        :param runner_class: the class of Runner to use, either InterpretedRunner or CompiledRunner
+            - Function names, using :py:class:`typing.Callable`.
+        :param runner_class: the class of :py:class:`Runner` to use,
+            either :py:class:`InterpretedRunner` or :py:class:`CompiledRunner`.
+            The default is :py:class:`InterpretedRunner`.
         """
         sys.setrecursionlimit(2500)
         self.logger = logging.getLogger(f"celpy.{self.__class__.__name__}")

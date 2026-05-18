@@ -50,13 +50,13 @@ class CELJSONEncoder(json.JSONEncoder):
     def to_python(
         cel_object: celtypes.Value,
     ) -> Union[celtypes.Value, List[Any], Dict[Any, Any], bool]:
-        """Recursive walk through the CEL object, replacing BoolType with native bool instances.
+        """Recursive walk through the CEL object, replacing :py:class:`celpy.celtypes.BoolType` with native ``bool`` instances.
         This lets the :py:mod:`json` module correctly represent the obects
         with JSON ``true`` and ``false``.
 
-        This will also replace ListType and MapType with native ``list`` and ``dict``.
+        This will also replace :py:class:`celpy.celtypes.ListType` and :py:class:`celpy.celtypes.MapType` with native ``list`` and ``dict``.
         All other CEL objects will be left intact. This creates an intermediate hybrid
-        beast that's not quite a :py:class:`celtypes.Value` because a few things have been replaced.
+        beast that's not quite a :py:class:`celpy.celtypes.Value` because a few things have been replaced.
         """
         if isinstance(cel_object, celtypes.BoolType):
             return True if cel_object else False
@@ -72,7 +72,7 @@ class CELJSONEncoder(json.JSONEncoder):
 
     def encode(self, cel_object: celtypes.Value) -> str:
         """
-        Override built-in encode to create proper Python :py:class:`bool` objects.
+        Override built-in encode to create proper Python ``bool`` objects.
         """
         return super().encode(CELJSONEncoder.to_python(cel_object))
 
@@ -92,8 +92,8 @@ class CELJSONDecoder(json.JSONDecoder):
     An Encoder to import CEL objects from JSON to the extent possible.
 
     This does not handle non-JSON types in any form. Coercion from string
-    to TimestampType or DurationType or BytesType is handled by celtype
-    constructors.
+    to :py:class:`celpy.celtypes.TimestampType` or :py:class:`celpy.celtypes.DurationType` or :py:class:`celpy.celtypes.BytesType`
+    is handled by :py:mod:`celpy.celtypes` constructors.
     """
 
     def decode(self, source: str, _w: Any = None) -> Any:
