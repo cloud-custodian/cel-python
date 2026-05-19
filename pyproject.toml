@@ -39,7 +39,6 @@ dependencies = [
     "pendulum>=3.2.0",
     "pyyaml>=6.0.3",
     "tomli >= 1.1.0 ; python_version < '3.11'",
-    "ipykernel>=7.2.0",
 ]
 
 [project.urls]
@@ -86,6 +85,7 @@ dev = [
     "types-protobuf>=6.32.1",
     "types-pyyaml>=6.0.12",
     "types-toml>=0.10.8",
+    "ipykernel>=7.2.0",
 ]
 
 [tool.tox]

@@ -30,7 +30,8 @@ CEL_SPEC_PATH ?= $(HERE)../../../google/cel-spec
 CEL_SIMPLE_TESTDATA ?= $(CEL_SPEC_PATH)/tests/simple/testdata
 
 # This is most -- but not all -- the feature files.
-# Some are built manually. These are built from textproto files.
+# These are built from textproto files to assure conformance with CEL-SPEC.
+# Others in this directory are built manually.
 FEATURES = \
 	basic.feature \
 	bindings_ext.feature \
