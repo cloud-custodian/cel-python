@@ -269,6 +269,10 @@ class Environment:
     At this time, external functions are bound to the CEL expression.
     The  :py:class:`celpy.Runnable` can be evaluated repeatedly with multiple inputs, avoiding the overheads of compiling for each input value.
 
+    ..  note:: This cannot be shared by multiple threads.
+
+        Each thread must have an ``Environment`` instance.
+
     ..  todo:: For a better fit with Go language expectations
 
         -   A type adapters registry makes other native types available for CEL.

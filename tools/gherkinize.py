@@ -325,7 +325,7 @@ class Result:
         elif kind == "eval_error":
             return Result(kind, CELErrorSet(source.eval_error))
         elif kind is None:
-            return Result("none", None)
+            return Result("value", CELBool(True))
         else:
             raise NotImplementedError(f"Unable to interpret result kind {kind!r}")
 
@@ -996,6 +996,7 @@ class Scenario:
         source: simple_pb2.SimpleTest,
     ) -> None:
         logger.debug(f"Scenario {source.name}")
+        self.source = source
         self.name = source.name
         self.description = source.description
         self.tags = config.tags_for(feature.name, section.name, source.name)
@@ -1018,8 +1019,8 @@ class Scenario:
 
         self.when(f"CEL expression {source.expr!r} is evaluated")
 
-        result = Result.from_proto(source)
-        self.then(f"{result.kind} is {result}")
+        self.result = Result.from_proto(source)
+        self.then(f"{self.result.kind} is {self.result}")
 
     def given(self, precondition: str) -> Self:
         self.preconditions.append(precondition)

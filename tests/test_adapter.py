@@ -16,6 +16,7 @@
 """
 C7N Type Adapter Test Cases.
 """
+
 import datetime
 
 import celpy.adapter
@@ -28,7 +29,9 @@ def test_json_to_cel():
     assert str(celpy.adapter.json_to_cel(False)) == str(celpy.celtypes.BoolType(False))
     assert celpy.adapter.json_to_cel(2.5) == celpy.celtypes.DoubleType(2.5)
     assert celpy.adapter.json_to_cel(42) == celpy.celtypes.IntType(42)
-    assert celpy.adapter.json_to_cel("Hello, world!") == celpy.celtypes.StringType("Hello, world!")
+    assert celpy.adapter.json_to_cel("Hello, world!") == celpy.celtypes.StringType(
+        "Hello, world!"
+    )
     assert celpy.adapter.json_to_cel(None) is None
     assert celpy.adapter.json_to_cel(["Hello", "world!"]) == celpy.celtypes.ListType(
         [
@@ -36,7 +39,9 @@ def test_json_to_cel():
             celpy.celtypes.StringType("world!"),
         ]
     )
-    assert celpy.adapter.json_to_cel(tuple(["Hello", "world!"])) == celpy.celtypes.ListType(
+    assert celpy.adapter.json_to_cel(
+        tuple(["Hello", "world!"])
+    ) == celpy.celtypes.ListType(
         [
             celpy.celtypes.StringType("Hello"),
             celpy.celtypes.StringType("world!"),
@@ -44,14 +49,12 @@ def test_json_to_cel():
     )
     assert celpy.adapter.json_to_cel({"Hello": "world!"}) == celpy.celtypes.MapType(
         {
-            celpy.celtypes.StringType("Hello"):
-            celpy.celtypes.StringType("world!"),
+            celpy.celtypes.StringType("Hello"): celpy.celtypes.StringType("world!"),
         }
     )
-    assert (
-        celpy.adapter.json_to_cel(datetime.datetime(2020, 9, 10, 11, 12, 13, tzinfo=datetime.timezone.utc))
-          == celpy.celtypes.TimestampType("2020-09-10T11:12:13Z")
-    )
-    assert (
-        celpy.adapter.json_to_cel(datetime.timedelta(days=42)) == celpy.celtypes.DurationType("42d")
-    )
+    assert celpy.adapter.json_to_cel(
+        datetime.datetime(2020, 9, 10, 11, 12, 13, tzinfo=datetime.timezone.utc)
+    ) == celpy.celtypes.TimestampType("2020-09-10T11:12:13Z")
+    assert celpy.adapter.json_to_cel(
+        datetime.timedelta(days=42)
+    ) == celpy.celtypes.DurationType("42d")
