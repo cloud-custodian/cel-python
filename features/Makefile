@@ -70,26 +70,33 @@ SOURCES := $(patsubst %.feature,%.textproto,$(FEATURES))
 
 .DELETE_ON_ERROR:
 
-all : $(FEATURES)
+HELP_TEXT += "  all            creates all features\n"
+.PHONY: all
+all : $(FEATURES) git.log
 
-HELP_TEXT += "  %.textproto   copies the .textproto from the cel-spec directory\n"
+HELP_TEXT += "  git.log        creates a git.log file with the last 5 lines of the git log\n"
+git.log :
+	cd $(CEL_SPEC_PATH) && git log --format=oneline --abbrev-commit -n 5 --decorate=full > $(HERE)$@
+
+HELP_TEXT += "  %.textproto    copies the .textproto from the cel-spec directory\n"
 %.textproto : $(CEL_SIMPLE_TESTDATA)/%.textproto
 	cp $(CEL_SIMPLE_TESTDATA)/$@ $@
 
-HELP_TEXT += "  %.feature     generates Gherkin feature from %.textproto source\n"
+HELP_TEXT += "  %.feature      generates Gherkin feature from %.textproto source\n"
 %.feature : %.textproto
 	uv run $(TOOLS)/gherkinize.py -v $^ -o $@
 
-HELP_TEXT += "  clean         cleans generated feature files\n"
+HELP_TEXT += "  clean-features cleans generated feature files\n"
 .PHONY: clean-features
 clean-features:
 	rm $(FEATURES)
 
-HELP_TEXT += "  clean         cleans generated feature files and textproto sources\n"
+HELP_TEXT += "  clean          cleans generated feature files and textproto sources\n"
 .PHONY: clean
 clean:
-	rm $(FEATURES)
-	rm $(SOURCES)
+	-rm $(FEATURES)
+	-rm $(SOURCES)
+	-rm git.log
 
 .PHONY: conformance-feature-list
 conformance-feature-list:

@@ -170,25 +170,21 @@ Scenario: int/double_round_neg
     When CEL expression 'int(-123.456)' is evaluated
     Then value is celpy.celtypes.IntType(source=-123)
 
-@wip
 Scenario: int/double_truncate
 
     When CEL expression 'int(1.9)' is evaluated
     Then value is celpy.celtypes.IntType(source=1)
 
-@wip
 Scenario: int/double_truncate_neg
 
     When CEL expression 'int(-7.9)' is evaluated
     Then value is celpy.celtypes.IntType(source=-7)
 
-@wip
 Scenario: int/double_half_pos
 
     When CEL expression 'int(11.5)' is evaluated
     Then value is celpy.celtypes.IntType(source=11)
 
-@wip
 Scenario: int/double_half_neg
 
     When CEL expression 'int(-3.5)' is evaluated
@@ -451,13 +447,11 @@ Scenario: uint/double
     When CEL expression 'uint(3.14159265)' is evaluated
     Then value is celpy.celtypes.UintType(source=3)
 
-@wip
 Scenario: uint/double_truncate
 
     When CEL expression 'uint(1.9)' is evaluated
     Then value is celpy.celtypes.UintType(source=1)
 
-@wip
 Scenario: uint/double_half
 
     When CEL expression 'uint(25.5)' is evaluated
@@ -499,25 +493,21 @@ Scenario: bool/string_1
     When CEL expression "bool('1')" is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: bool/string_t
 
     When CEL expression "bool('t')" is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: bool/string_true_lowercase
 
     When CEL expression "bool('true')" is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: bool/string_true_uppercase
 
     When CEL expression "bool('TRUE')" is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: bool/string_true_pascalcase
 
     When CEL expression "bool('True')" is evaluated
@@ -528,25 +518,21 @@ Scenario: bool/string_0
     When CEL expression "bool('0')" is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: bool/string_f
 
     When CEL expression "bool('f')" is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: bool/string_false_lowercase
 
     When CEL expression "bool('false')" is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: bool/string_false_uppercase
 
     When CEL expression "bool('FALSE')" is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: bool/string_false_pascalcase
 
     When CEL expression "bool('False')" is evaluated

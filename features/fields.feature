@@ -276,8 +276,8 @@ Scenario: qualified_identifier_resolution/qualified_identifier_resolution_unchec
     Given disable_check parameter is True
     and type_env parameter "a.b.c" is celpy.celtypes.StringType
     and type_env parameter "a.b" is celpy.celtypes.MapType
-    and bindings parameter "a.b.c" is celpy.celtypes.StringType(source='yeah')
     and bindings parameter "a.b" is celpy.celtypes.MapType({'c': celpy.celtypes.StringType(source='oops')})
+    and bindings parameter "a.b.c" is celpy.celtypes.StringType(source='yeah')
     When CEL expression 'a.b.c' is evaluated
     Then value is celpy.celtypes.StringType(source='yeah')
 
@@ -303,8 +303,8 @@ Scenario: qualified_identifier_resolution/ident_with_longest_prefix_check
 
     Given type_env parameter "a.b.c" is celpy.celtypes.StringType
     and type_env parameter "a.b" is celpy.celtypes.MapType
-    and bindings parameter "a.b.c" is celpy.celtypes.StringType(source='yeah')
     and bindings parameter "a.b" is celpy.celtypes.MapType({'c': celpy.celtypes.StringType(source='oops')})
+    and bindings parameter "a.b.c" is celpy.celtypes.StringType(source='yeah')
     When CEL expression 'a.b.c' is evaluated
     Then value is celpy.celtypes.StringType(source='yeah')
 

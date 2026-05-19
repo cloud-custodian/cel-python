@@ -5,20 +5,30 @@ Tools to Create the Conformance Test Suite
 The conformance test files originate from the https://github.com/google/cel-spec repository.
 They are all Protobuf messages, serialized into ``textproto``, like this:
 
-    ..  code-block:: protobuf
+..  code-block:: protobuf
 
-          test {
-            name: "self_eval_int_zero"
-            expr: "0"
-            value: { int64_value: 0 }
-          }
+      test {
+        name: "self_eval_int_zero"
+        expr: "0"
+        value: { int64_value: 0 }
+      }
 
 The ``gherkinize.py`` script translates these into Gherkin scenarios.
+
+..  code-block:: gherkin
+
+    Scenario: self_eval_zeroish/self_eval_int_zero
+
+        When CEL expression '0' is evaluated
+        Then value is celpy.celtypes.IntType(source=0)
+
+The **behave** tool expands the various Gherkin steps into Python functions
+to arrange a fixture, take an action on the fixture, and assert the actual result is the expected value.
 
 Usage
 =====
 
-Gherkin generation is controlled by a Makefile in the ``features`` directory which provides
+Gherkin generation is controlled by a ``Makefile`` in the ``features`` directory which provides
 two commands:
 
 -   ``make all`` checks the cel-spec repository for ``.textproto`` files, copies them to the local
@@ -37,6 +47,12 @@ This parses a source ``.textproto`` file and generates an equivalent ``.feature`
 A good way to use this is to do a checkout from https://github.com/google/cel-spec into an adjacent
 directory. By default, the Makefile looks for ``<repo>/../../google/cel-spec`` but the location can
 be overridden with the ``CEL_SPEC_PATH`` environment variable.
+
+refresh_spec.py
+===============
+
+This script executes a number of **git** commands to pull the most recent
+tag for the google/cel-spec project.
 
 gherkinize.py
 =============
