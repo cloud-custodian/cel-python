@@ -58,7 +58,7 @@ instantiate the actual CEL types in ``src/celpy/celtypes.py`` — this code is u
 the Gherkin clauses.
 
 Finally, the classes representing features, sections, and scenarios are rendered to Gherkin tests
-using the ``gherkinize.feature.jinja`` template.
+using the ``gherkinize.feature`` template.
 
 Tests with unimplemented features (notably, enums) generate a warning but do not result in
 scenarios. Tests which do not currently pass are listed in ``tags.toml``. Presence in this file

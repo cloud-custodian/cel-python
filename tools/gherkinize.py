@@ -148,7 +148,7 @@ env = Environment(
     loader=FileSystemLoader(path.dirname(__file__)),
     trim_blocks=True,
 )
-template = env.get_template("gherkinize.feature.jinja")
+template = env.get_template("gherkinize.feature")
 logger = logging.getLogger("gherkinize")
 pool = descriptor_pool.Default()
 
