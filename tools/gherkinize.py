@@ -148,7 +148,7 @@ env = Environment(
     loader=FileSystemLoader(path.dirname(__file__)),
     trim_blocks=True,
 )
-template = env.get_template("gherkin.feature.jinja")
+template = env.get_template("gherkinize.feature.jinja")
 logger = logging.getLogger("gherkinize")
 pool = descriptor_pool.Default()
 
@@ -1134,7 +1134,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logging.getLogger().setLevel(options.log_level)
 
-    config = Config(f"{path.dirname(__file__)}/wip.toml")
+    config = Config(f"{path.dirname(__file__)}/tags.toml")
     feature = Feature.from_text_proto(config, options.source)
     feature.write_to_file(options.output)
 

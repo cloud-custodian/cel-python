@@ -58,12 +58,12 @@ instantiate the actual CEL types in ``src/celpy/celtypes.py`` — this code is u
 the Gherkin clauses.
 
 Finally, the classes representing features, sections, and scenarios are rendered to Gherkin tests
-using the ``gherkin.feature.jinja`` template.
+using the ``gherkinize.feature.jinja`` template.
 
 Tests with unimplemented features (notably, enums) generate a warning but do not result in
-scenarios. Tests which do not currently pass are listed in ``wip.txt`` in the format
-``<feature>:<section>:<scenario>``. Presence in this file results in a ``@wip`` tag being added to
-the scenario. In general, it's expected that scenarios will be removed from this list over time
-and once passing, scenarios should never be added back to this file.
+scenarios. Tests which do not currently pass are listed in ``tags.toml``. Presence in this file
+results in a ``@wip`` tag being added to the scenario. In general, it's expected that scenarios
+will be removed from this list over time and once passing, scenarios should never be added back to
+this file.
 
 Finally, the complete, generated ``.feature`` files are all tagged with ``@conformance``.
