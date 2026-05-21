@@ -29,6 +29,7 @@ import logging
 import logging.config
 import os
 from pathlib import Path
+import platform
 import re
 import stat as os_stat
 import sys
@@ -45,6 +46,8 @@ from celpy.celparser import CELParseError
 from celpy.evaluation import Annotation, CELEvalError, Result
 
 logger = logging.getLogger("celpy")
+
+_IS_WINDOWS = platform.system() == "Windows"
 
 
 # For argument parsing purposes.
@@ -236,10 +239,14 @@ def get_options(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 
 def stat(path: Union[Path, str]) -> Optional[celtypes.MapType]:
-    """This function is added to the CLI to permit file-system interrogation."""
+    """This function is added to the CLI to permit file-system interrogation.
+
+    On Windows, ``group_access`` and ``user_access`` are omitted because
+    ``os.getegid()`` and ``os.geteuid()`` are not available on that platform.
+    """
     try:
         status = Path(path).stat()
-        data = {
+        data: Dict[str, celtypes.Value] = {
             "st_atime": celtypes.TimestampType(
                 datetime.datetime.fromtimestamp(status.st_atime)
             ),
@@ -253,9 +260,13 @@ def stat(path: Union[Path, str]) -> Optional[celtypes.MapType]:
             "st_ino": celtypes.IntType(status.st_ino),
             "st_nlink": celtypes.IntType(status.st_nlink),
             "st_size": celtypes.IntType(status.st_size),
-            "group_access": celtypes.BoolType(status.st_gid == os.getegid()),
-            "user_access": celtypes.BoolType(status.st_uid == os.geteuid()),
         }
+
+        # group_access and user_access rely on os.getegid()/os.geteuid(),
+        # which are not available on Windows.
+        if not _IS_WINDOWS:
+            data["group_access"] = celtypes.BoolType(status.st_gid == os.getegid())  # type: ignore[attr-defined]
+            data["user_access"] = celtypes.BoolType(status.st_uid == os.geteuid())  # type: ignore[attr-defined]
 
         # From mode File type:
         # - block, character, directory, regular, symbolic link, named pipe, socket
