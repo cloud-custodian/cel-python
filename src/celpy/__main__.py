@@ -253,7 +253,7 @@ def stat(path: Union[Path, str]) -> Optional[celtypes.MapType]:
             "st_ino": celtypes.IntType(status.st_ino),
             "st_nlink": celtypes.IntType(status.st_nlink),
             "st_size": celtypes.IntType(status.st_size),
-                    }
+        }
         try:
             data["group_access"] = celtypes.BoolType(status.st_gid == os.getegid())
             data["user_access"] = celtypes.BoolType(status.st_uid == os.geteuid())
