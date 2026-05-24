@@ -253,8 +253,12 @@ def stat(path: Union[Path, str]) -> Optional[celtypes.MapType]:
             "st_ino": celtypes.IntType(status.st_ino),
             "st_nlink": celtypes.IntType(status.st_nlink),
             "st_size": celtypes.IntType(status.st_size),
-            "group_access": celtypes.BoolType(status.st_gid == os.getegid()),
-            "user_access": celtypes.BoolType(status.st_uid == os.geteuid()),
+                    }
+        try:
+            data["group_access"] = celtypes.BoolType(status.st_gid == os.getegid())
+            data["user_access"] = celtypes.BoolType(status.st_uid == os.geteuid())
+        except AttributeError:
+            pass
         }
 
         # From mode File type:
