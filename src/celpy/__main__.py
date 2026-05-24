@@ -259,7 +259,6 @@ def stat(path: Union[Path, str]) -> Optional[celtypes.MapType]:
             data["user_access"] = celtypes.BoolType(status.st_uid == os.geteuid())
         except AttributeError:
             pass
-        }
 
         # From mode File type:
         # - block, character, directory, regular, symbolic link, named pipe, socket
