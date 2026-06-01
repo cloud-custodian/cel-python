@@ -129,7 +129,7 @@ Scenario: literal_wellknown/struct
 
     Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_struct: {'one': 1, 'two': 2}}" is evaluated
-    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'one': celpy.celtypes.DoubleType(source=1.0), 'two': celpy.celtypes.DoubleType(source=2.0)}))
+    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'two': celpy.celtypes.DoubleType(source=2.0), 'one': celpy.celtypes.DoubleType(source=1.0)}))
 
 Scenario: literal_wellknown/value
 
@@ -454,6 +454,76 @@ Scenario: set_null/single_timestamp
 
     Given container is 'cel.expr.conformance.proto3'
     When CEL expression 'TestAllTypes{single_timestamp: null} == TestAllTypes{}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/repeated_field_timestamp_null_pruned
+
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{repeated_timestamp: [timestamp(1), null]}.repeated_timestamp == [timestamp(1)]' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/repeated_field_duration_null_pruned
+
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression "TestAllTypes{repeated_duration: [duration('1s'), null]}.repeated_duration == [duration('1s')]" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/repeated_field_wrapper_null_pruned
+
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{repeated_int32_wrapper: [1, null]}.repeated_int32_wrapper == [1]' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/repeated_field_anytype_null_retained
+
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{repeated_any: [1, null]}.repeated_any == [1, null]' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/repeated_field_jsontype_null_retained
+
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{repeated_value: [google.protobuf.Value{bool_value: true}, null]}.repeated_value == [true, null]' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/map_timestamp_null_pruned
+
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{map_bool_timestamp: {true: null, false: timestamp(1)}}.map_bool_timestamp == {false: timestamp(1)}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/map_duration_null_pruned
+
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression "TestAllTypes{map_bool_duration: {true: null, false: duration('1s')}}.map_bool_duration == {false: duration('1s')}" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/map_wrapper_null_pruned
+
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{map_bool_int32_wrapper: {true: null, false: 1}}.map_bool_int32_wrapper == {false: 1}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/map_anytype_null_retained
+
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{map_bool_any: {true: null, false: 1}}.map_bool_any == {true: null, false: 1}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/map_jsontype_null_retained
+
+    Given container is 'cel.expr.conformance.proto3'
+    When CEL expression 'TestAllTypes{map_bool_value: {true: null, false: google.protobuf.Value{bool_value: true}}}.map_bool_value == {true: null, false: true}' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
 @wip

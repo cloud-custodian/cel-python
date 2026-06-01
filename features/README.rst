@@ -5,8 +5,7 @@ Acceptance Test Suite
 We start with https://github.com/google/cel-spec/tree/master/tests/simple/testdata
 as the acceptance test suite.
 
-These files are captured as of commit 9f069b3e.
-This is from May 5, 2025, version 0.24.0.
+See the ``git.log`` file for the last 5 log entries in the ``google/cel-spec`` project.
 
 We parse the text serialization of protobuf files to create Gherkin test scenarios.
 
@@ -31,7 +30,14 @@ As an alternative, this can be done by running **behave** manually, using the ``
 
 ::
 
-    PYTHONPATH=src uv run behave features
+    PYTHONPATH=src uv run behave -Denv="py312" features
+
+::
+
+    PYTHONPATH=src uv run behave -Denv="py312" features/json_query.feature
+
+The value of ``env`` should match the default Python in your virtual environment.
+This is required to test the ``json_query.feature``.
 
 To run a subset of the features, pick a specific file.
 
@@ -39,9 +45,8 @@ To run a subset of the features, pick a specific file.
 
     PYTHONPATH=src uv run behave features/basic.feature
 
-To run the ``@wip`` tests, include ``--tags=wip``.
+To skip the Work-in-Process features, include ``--tags=~wip``.
 
-To skip the ``@wip`` tests, include ``tags=~wip``.
 
 Building the Conformance Test Features
 ======================================
@@ -51,17 +56,30 @@ See the ``tools/README.rst`` for more information on running this application.
 
 Here's the bigger picture workflow:
 
-1.  Create a ``google/cel-spec`` project parallel to this project's directory.
+1.  Create a ``../google/cel-spec`` project parallel to this project's directory.
     This should be based on https://github.com/google/cel-spec
 
     (Or, create it anywhere and set ``CEL_SPEC_PATH`` to refer to this directory.)
 
-2.  Find the tag for the most recent release (e.g. ``v0.24.0``)
+2.  Run the ``tools/refresh_spec.``py to find the most recent tag and pull the current files.
 
-3.  Do ``git pull tag v0.24.0`` to get the released version.
+5.  Run ``make`` to copy the ``.textproto`` files to this directory and create ``.feature`` files from them.
+    This will **also** create a ``git.log`` file with the last 5 log entries to help pinpoint
+    the commit on which the acceptance test suite is based.
 
-4.  Update this ``README.rst`` to reflect the version tag actually used.
+    Remove the ``.textproto`` and ``.feature`` files and rebuild them:
 
-5.  Run ``make`` to copy the ``.textproto`` files to this directory and create ``feature`` files from them.
+    ::
 
+        make clean all
 
+Changing the ``@wip`` tags in the feature files.
+
+The ``@wip`` tags are added by ``gherkinize.py`` based on a ``wip.toml`` configuration file.
+As features are added, update the ``wip.toml`` file and rebuild the ``.feature`` files, without touching the ``.textproto`` files.
+
+::
+
+    make clean-features all
+
+This will reset the tags in the ``.feature`` files.

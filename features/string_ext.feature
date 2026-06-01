@@ -21,7 +21,7 @@ Scenario: char_at/end_index
 Scenario: char_at/multiple
 
     When CEL expression "'©αT'.charAt(0) == '©' && '©αT'.charAt(1) == 'α' && '©αT'.charAt(2) == 'T'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # index_of -- 
@@ -42,154 +42,160 @@ Scenario: index_of/string_index
 Scenario: index_of/nomatch
 
     When CEL expression "'tacocat'.indexOf('none') == -1" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: index_of/empty_index
 
     When CEL expression "'tacocat'.indexOf('', 3) == 3" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: index_of/char_index
 
     When CEL expression "'tacocat'.indexOf('a', 3) == 5" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: index_of/string_index
 
     When CEL expression "'tacocat'.indexOf('at', 3) == 5" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: index_of/unicode_char
 
     When CEL expression "'ta©o©αT'.indexOf('©') == 2" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: index_of/unicode_char_index
 
     When CEL expression "'ta©o©αT'.indexOf('©', 3) == 4" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: index_of/unicode_string_index
 
     When CEL expression "'ta©o©αT'.indexOf('©αT', 3) == 4" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: index_of/unicode_string_nomatch_index
 
     When CEL expression "'ta©o©αT'.indexOf('©α', 5) == -1" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: index_of/char_index
 
     When CEL expression "'ijk'.indexOf('k') == 2" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: index_of/string_with_space_fullmatch
 
     When CEL expression "'hello wello'.indexOf('hello wello') == 0" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: index_of/string_with_space_index
 
     When CEL expression "'hello wello'.indexOf('ello', 6) == 7" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: index_of/string_nomatch_index
 
     When CEL expression "'hello wello'.indexOf('elbo room!!') == -1" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # last_index_of -- 
 
 @wip
-Scenario: last_index_of/empty
+Scenario: last_index_of/empty_string
+
+    When CEL expression "''.lastIndexOf('@@') == -1" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: last_index_of/empty_argument
 
     When CEL expression "'tacocat'.lastIndexOf('') == 7" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: last_index_of/string
 
     When CEL expression "'tacocat'.lastIndexOf('at') == 5" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: last_index_of/string_nomatch
 
     When CEL expression "'tacocat'.lastIndexOf('none') == -1" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: last_index_of/empty_index
 
     When CEL expression "'tacocat'.lastIndexOf('', 3) == 3" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: last_index_of/char_index
 
     When CEL expression "'tacocat'.lastIndexOf('a', 3) == 1" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: last_index_of/unicode_char
 
     When CEL expression "'ta©o©αT'.lastIndexOf('©') == 4" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: last_index_of/unicode_char_index
 
     When CEL expression "'ta©o©αT'.lastIndexOf('©', 3) == 2" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: last_index_of/unicode_string_index
 
     When CEL expression "'ta©o©αT'.lastIndexOf('©α', 4) == 4" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: last_index_of/string_with_space_string_index
 
     When CEL expression "'hello wello'.lastIndexOf('ello', 6) == 1" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: last_index_of/string_with_space_string_nomatch
 
     When CEL expression "'hello wello'.lastIndexOf('low') == -1" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: last_index_of/string_with_space_string_with_space_nomatch
 
     When CEL expression "'hello wello'.lastIndexOf('elbo room!!') == -1" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: last_index_of/string_with_space_fullmatch
 
     When CEL expression "'hello wello'.lastIndexOf('hello wello') == 0" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: last_index_of/repeated_string
 
     When CEL expression "'bananananana'.lastIndexOf('nana', 7) == 6" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # ascii_casing -- 
@@ -198,37 +204,37 @@ Scenario: last_index_of/repeated_string
 Scenario: ascii_casing/lowerascii
 
     When CEL expression "'TacoCat'.lowerAscii() == 'tacocat'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: ascii_casing/lowerascii_unicode
 
     When CEL expression "'TacoCÆt'.lowerAscii() == 'tacocÆt'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: ascii_casing/lowerascii_unicode_with_space
 
     When CEL expression "'TacoCÆt Xii'.lowerAscii() == 'tacocÆt xii'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: ascii_casing/upperascii
 
     When CEL expression "'tacoCat'.upperAscii() == 'TACOCAT'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: ascii_casing/upperascii_unicode
 
     When CEL expression "'tacoCαt'.upperAscii() == 'TACOCαT'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: ascii_casing/upperascii_unicode_with_space
 
     When CEL expression "'TacoCÆt Xii'.upperAscii() == 'TACOCÆT XII'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # replace -- 
@@ -237,25 +243,25 @@ Scenario: ascii_casing/upperascii_unicode_with_space
 Scenario: replace/no_placeholder
 
     When CEL expression "'12 days 12 hours'.replace('{0}', '2') == '12 days 12 hours'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: replace/basic
 
     When CEL expression "'{0} days {0} hours'.replace('{0}', '2') == '2 days 2 hours'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: replace/chained
 
     When CEL expression "'{0} days {0} hours'.replace('{0}', '2', 1).replace('{0}', '23') == '2 days 23 hours'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: replace/unicode
 
     When CEL expression "'1 ©αT taco'.replace('αT', 'o©α') == '1 ©o©α taco'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # split -- 
@@ -264,25 +270,25 @@ Scenario: replace/unicode
 Scenario: split/empty
 
     When CEL expression "'hello world'.split(' ') == ['hello', 'world']" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: split/zero_limit
 
     When CEL expression "'hello world events!'.split(' ', 0) == []" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: split/one_limit
 
     When CEL expression "'hello world events!'.split(' ', 1) == ['hello world events!']" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: split/unicode_negative_limit
 
     When CEL expression "'o©o©o©o'.split('©', -1) == ['o', 'o', 'o', 'o']" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # substring -- 
@@ -291,37 +297,37 @@ Scenario: split/unicode_negative_limit
 Scenario: substring/start
 
     When CEL expression "'tacocat'.substring(4) == 'cat'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: substring/start_with_max_length
 
     When CEL expression "'tacocat'.substring(7) == ''" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: substring/start_and_end
 
     When CEL expression "'tacocat'.substring(0, 4) == 'taco'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: substring/start_and_end_equal_value
 
     When CEL expression "'tacocat'.substring(4, 4) == ''" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: substring/unicode_start_and_end
 
     When CEL expression "'ta©o©αT'.substring(2, 6) == '©o©α'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: substring/unicode_start_and_end_equal_value
 
     When CEL expression "'ta©o©αT'.substring(7, 7) == ''" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # trim -- 
@@ -330,31 +336,31 @@ Scenario: substring/unicode_start_and_end_equal_value
 Scenario: trim/blank_spaces_escaped_chars
 
     When CEL expression "' \\f\\n\\r\\t\\vtext  '.trim() == 'text'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: trim/unicode_space_chars_1
 
     When CEL expression "'\\u0085\\u00a0\\u1680text'.trim() == 'text'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: trim/unicode_space_chars_2
 
     When CEL expression "'text\\u2000\\u2001\\u2002\\u2003\\u2004\\u2004\\u2006\\u2007\\u2008\\u2009'.trim() == 'text'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: trim/unicode_space_chars_3
 
     When CEL expression "'\\u200atext\\u2028\\u2029\\u202F\\u205F\\u3000'.trim() == 'text'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: trim/unicode_no_trim
 
     When CEL expression "'\\u180etext\\u200b\\u200c\\u200d\\u2060\\ufeff'.trim() == '\\u180etext\\u200b\\u200c\\u200d\\u2060\\ufeff'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # join -- 
@@ -363,25 +369,25 @@ Scenario: trim/unicode_no_trim
 Scenario: join/empty_separator
 
     When CEL expression "['x', 'y'].join() == 'xy'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: join/dash_separator
 
     When CEL expression "['x', 'y'].join('-') == 'x-y'" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: join/empty_string_empty_separator
 
     When CEL expression "[].join() == ''" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: join/empty_string_dash_separator
 
     When CEL expression "[].join('-') == ''" is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # quote -- 
@@ -390,109 +396,109 @@ Scenario: join/empty_string_dash_separator
 Scenario: quote/multiline
 
     When CEL expression 'strings.quote("first\\nsecond") == "\\"first\\\\nsecond\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/escaped
 
     When CEL expression 'strings.quote("bell\\a") == "\\"bell\\\\a\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/backspace
 
     When CEL expression 'strings.quote("\\bbackspace") == "\\"\\\\bbackspace\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/form_feed
 
     When CEL expression 'strings.quote("\\fform feed") == "\\"\\\\fform feed\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/carriage_return
 
     When CEL expression 'strings.quote("carriage \\r return") == "\\"carriage \\\\r return\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/horizontal_tab
 
     When CEL expression 'strings.quote("horizontal tab\\t") == "\\"horizontal tab\\\\t\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/vertical_tab
 
     When CEL expression 'strings.quote("vertical \\v tab") == "\\"vertical \\\\v tab\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/double_slash
 
     When CEL expression 'strings.quote("double \\\\\\\\ slash") == "\\"double \\\\\\\\\\\\\\\\ slash\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/two_escape_sequences
 
     When CEL expression 'strings.quote("two escape sequences \\\\a\\\\n") == "\\"two escape sequences \\\\\\\\a\\\\\\\\n\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/verbatim
 
     When CEL expression 'strings.quote("verbatim") == "\\"verbatim\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/ends_with
 
     When CEL expression 'strings.quote("ends with \\\\") == "\\"ends with \\\\\\\\\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/starts_with
 
     When CEL expression 'strings.quote("\\\\ starts with") == "\\"\\\\\\\\ starts with\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/printable_unicode
 
     When CEL expression 'strings.quote("printable unicode😀") == "\\"printable unicode😀\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/mid_string_quote
 
     When CEL expression 'strings.quote("mid string \\" quote") == "\\"mid string \\\\\\" quote\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/single_quote_with_double_quote
 
     When CEL expression 'strings.quote(\'single-quote with "double quote"\') == "\\"single-quote with \\\\\\"double quote\\\\\\"\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/size_unicode_char
 
     When CEL expression 'strings.quote("size(\'ÿ\')") == "\\"size(\'ÿ\')\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/size_unicode_string
 
     When CEL expression 'strings.quote("size(\'πέντε\')") == "\\"size(\'πέντε\')\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/unicode
 
     When CEL expression 'strings.quote("завтра") == "\\"завтра\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/unicode_code_points
@@ -504,7 +510,7 @@ Scenario: quote/unicode_code_points
 Scenario: quote/unicode_2
 
     When CEL expression 'strings.quote("ta©o©αT") == "\\"ta©o©αT\\""' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: quote/empty_quote
@@ -654,10 +660,34 @@ Scenario: format/default precision for fixed-point clause
     Then value is celpy.celtypes.StringType(source='2.718280')
 
 @wip
+Scenario: format/default precision for fixed-point clause with int
+
+    When CEL expression '"%f".format([2])' is evaluated
+    Then value is celpy.celtypes.StringType(source='2.000000')
+
+@wip
+Scenario: format/default precision for fixed-point clause with uint
+
+    When CEL expression '"%f".format([3u])' is evaluated
+    Then value is celpy.celtypes.StringType(source='3.000000')
+
+@wip
 Scenario: format/default precision for scientific notation
 
     When CEL expression '"%e".format([2.71828])' is evaluated
     Then value is celpy.celtypes.StringType(source='2.718280e+00')
+
+@wip
+Scenario: format/default precision for scientific notation with int
+
+    When CEL expression '"%e".format([2])' is evaluated
+    Then value is celpy.celtypes.StringType(source='2.000000e+00')
+
+@wip
+Scenario: format/default precision for scientific notation with uint
+
+    When CEL expression '"%e".format([3u])' is evaluated
+    Then value is celpy.celtypes.StringType(source='3.000000e+00')
 
 @wip
 Scenario: format/NaN support for scientific notation
@@ -918,6 +948,66 @@ Scenario: format/default precision for fixed-point clause in a string variable
     and bindings parameter "str_var" is celpy.celtypes.StringType(source='%f')
     When CEL expression 'str_var.format([2.71828])' is evaluated
     Then value is celpy.celtypes.StringType(source='2.718280')
+
+@wip
+Scenario: format/format_%f_insignificant_zeroes_removed
+
+    When CEL expression '"%.0f".format([123.000000])' is evaluated
+    Then value is celpy.celtypes.StringType(source='123')
+
+@wip
+Scenario: format/format_%f_positive_round_to_whole_number
+
+    When CEL expression '"%.0f".format([3.5001])' is evaluated
+    Then value is celpy.celtypes.StringType(source='4')
+
+@wip
+Scenario: format/format_%f_negative_truncate_to_whole_number
+
+    When CEL expression '"%.0f".format([3.4999])' is evaluated
+    Then value is celpy.celtypes.StringType(source='3')
+
+@wip
+Scenario: format/format_%f_halfway_round_up_to_nearest_even
+
+    When CEL expression '"%.0f".format([1.5])' is evaluated
+    Then value is celpy.celtypes.StringType(source='2')
+
+@wip
+Scenario: format/format_%f_halfway_truncate_to_nearest_even
+
+    When CEL expression '"%.0f".format([2.5])' is evaluated
+    Then value is celpy.celtypes.StringType(source='2')
+
+@wip
+Scenario: format/format_%f_positive_round_up
+
+    When CEL expression '"%.3f".format([123.4999])' is evaluated
+    Then value is celpy.celtypes.StringType(source='123.500')
+
+@wip
+Scenario: format/format_%f_positive_round_down
+
+    When CEL expression '"%.3f".format([123.4994])' is evaluated
+    Then value is celpy.celtypes.StringType(source='123.499')
+
+@wip
+Scenario: format/format_%f_negative_round_up
+
+    When CEL expression '"%.3f".format([-123.4999])' is evaluated
+    Then value is celpy.celtypes.StringType(source='-123.500')
+
+@wip
+Scenario: format/format_%f_negative_round_down
+
+    When CEL expression '"%.3f".format([-123.4994])' is evaluated
+    Then value is celpy.celtypes.StringType(source='-123.499')
+
+@wip
+Scenario: format/format_%f_zero_padding
+
+    When CEL expression '"%.5f".format([-1.2])' is evaluated
+    Then value is celpy.celtypes.StringType(source='-1.20000')
 
 
 # format_errors -- 
@@ -1252,4 +1342,25 @@ Scenario: type_errors/substring_binary_invalid_argument_2
     Given disable_check parameter is True
     When CEL expression "'tacocat'.substring(0, false) == ''" is evaluated
     Then eval_error is 'no such overload'
+
+
+# reverse -- Tests for (string).reverse(). Added in version 3.
+
+@wip
+Scenario: reverse/empty
+
+    When CEL expression "''.reverse() == ''" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: reverse/single_character
+
+    When CEL expression "'☺'.reverse() == '☺'" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: reverse/multiple
+
+    When CEL expression "'Ta©oCαt'.reverse() == 'tαCo©aT'" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
 

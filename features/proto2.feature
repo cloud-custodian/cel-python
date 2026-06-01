@@ -339,7 +339,7 @@ Scenario: empty_field/repeated_scalar
 @wip
 Scenario: empty_field/repeated_enum
 
-    Given container is 'cel.expr.conformance.proto3'
+    Given container is 'cel.expr.conformance.proto2'
     When CEL expression 'TestAllTypes{}.repeated_nested_enum' is evaluated
     Then value is []
 
@@ -561,6 +561,76 @@ Scenario: set_null/single_timestamp
     Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
+Scenario: set_null/repeated_field_timestamp_null_pruned
+
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{repeated_timestamp: [timestamp(1), null]}.repeated_timestamp == [timestamp(1)]' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/repeated_field_duration_null_pruned
+
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression "TestAllTypes{repeated_duration: [duration('1s'), null]}.repeated_duration == [duration('1s')]" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/repeated_field_wrapper_null_pruned
+
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{repeated_int32_wrapper: [1, null]}.repeated_int32_wrapper == [1]' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/repeated_field_anytype_null_retained
+
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{repeated_any: [1, null]}.repeated_any == [1, null]' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/repeated_field_jsontype_null_retained
+
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{repeated_value: [google.protobuf.Value{bool_value: true}, null]}.repeated_value == [true, null]' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/map_timestamp_null_pruned
+
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{map_bool_timestamp: {true: null, false: timestamp(1)}}.map_bool_timestamp == {false: timestamp(1)}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/map_duration_null_pruned
+
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression "TestAllTypes{map_bool_duration: {true: null, false: duration('1s')}}.map_bool_duration == {false: duration('1s')}" is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/map_wrapper_null_pruned
+
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{map_bool_int32_wrapper: {true: null, false: 1}}.map_bool_int32_wrapper == {false: 1}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/map_anytype_null_retained
+
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{map_bool_any: {true: null, false: 1}}.map_bool_any == {true: null, false: 1}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
+Scenario: set_null/map_jsontype_null_retained
+
+    Given container is 'cel.expr.conformance.proto2'
+    When CEL expression 'TestAllTypes{map_bool_value: {true: null, false: google.protobuf.Value{bool_value: true}}}.map_bool_value == {true: null, false: true}' is evaluated
+    Then value is celpy.celtypes.BoolType(source=True)
+
+@wip
 Scenario: set_null/single_scalar
 
     Given disable_check parameter is True
@@ -626,7 +696,7 @@ Scenario: extensions_has/package_scoped_int32
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(int32_ext=42)
     When CEL expression 'has(msg.`cel.expr.conformance.proto2.int32_ext`)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_has/package_scoped_nested_ext
@@ -634,7 +704,7 @@ Scenario: extensions_has/package_scoped_nested_ext
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(nested_ext=TestAllTypes())
     When CEL expression 'has(msg.`cel.expr.conformance.proto2.nested_ext`)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_has/package_scoped_test_all_types_ext
@@ -642,7 +712,7 @@ Scenario: extensions_has/package_scoped_test_all_types_ext
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(test_all_types_ext=TestAllTypes())
     When CEL expression 'has(msg.`cel.expr.conformance.proto2.test_all_types_ext`)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_has/package_scoped_test_all_types_nested_enum_ext
@@ -650,7 +720,7 @@ Scenario: extensions_has/package_scoped_test_all_types_nested_enum_ext
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(nested_enum_ext=1)
     When CEL expression 'has(msg.`cel.expr.conformance.proto2.nested_enum_ext`)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_has/package_scoped_repeated_test_all_types
@@ -658,7 +728,7 @@ Scenario: extensions_has/package_scoped_repeated_test_all_types
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(repeated_test_all_types=[TestAllTypes(single_int64=1), TestAllTypes(single_bool=True)])
     When CEL expression 'has(msg.`cel.expr.conformance.proto2.repeated_test_all_types`)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_has/message_scoped_int64
@@ -666,7 +736,7 @@ Scenario: extensions_has/message_scoped_int64
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(int64_ext=42)
     When CEL expression 'has(msg.`cel.expr.conformance.proto2.Proto2ExtensionScopedMessage.int64_ext`)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_has/message_scoped_nested_ext
@@ -674,7 +744,7 @@ Scenario: extensions_has/message_scoped_nested_ext
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(message_scoped_nested_ext=TestAllTypes())
     When CEL expression 'has(msg.`cel.expr.conformance.proto2.Proto2ExtensionScopedMessage.message_scoped_nested_ext`)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_has/message_scoped_nested_enum_ext
@@ -682,7 +752,7 @@ Scenario: extensions_has/message_scoped_nested_enum_ext
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(nested_enum_ext=1)
     When CEL expression 'has(msg.`cel.expr.conformance.proto2.Proto2ExtensionScopedMessage.nested_enum_ext`)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_has/message_scoped_repeated_test_all_types
@@ -690,7 +760,7 @@ Scenario: extensions_has/message_scoped_repeated_test_all_types
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(message_scoped_repeated_test_all_types=[TestAllTypes(single_int64=1), TestAllTypes(single_bool=True)])
     When CEL expression 'has(msg.`cel.expr.conformance.proto2.Proto2ExtensionScopedMessage.message_scoped_repeated_test_all_types`)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # extensions_get -- Tests for accessing proto2 extension fields.
@@ -701,7 +771,7 @@ Scenario: extensions_get/package_scoped_int32
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(int32_ext=42)
     When CEL expression 'msg.`cel.expr.conformance.proto2.int32_ext` == 42' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_get/package_scoped_nested_ext
@@ -709,7 +779,7 @@ Scenario: extensions_get/package_scoped_nested_ext
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(nested_ext=TestAllTypes())
     When CEL expression 'msg.`cel.expr.conformance.proto2.nested_ext` == cel.expr.conformance.proto2.TestAllTypes{}' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_get/package_scoped_test_all_types_ext
@@ -717,7 +787,7 @@ Scenario: extensions_get/package_scoped_test_all_types_ext
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(test_all_types_ext=TestAllTypes())
     When CEL expression 'msg.`cel.expr.conformance.proto2.test_all_types_ext` == cel.expr.conformance.proto2.TestAllTypes{}' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_get/package_scoped_test_all_types_nested_enum_ext
@@ -725,7 +795,7 @@ Scenario: extensions_get/package_scoped_test_all_types_nested_enum_ext
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(nested_enum_ext=1)
     When CEL expression 'msg.`cel.expr.conformance.proto2.nested_enum_ext` == cel.expr.conformance.proto2.TestAllTypes.NestedEnum.BAR' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_get/package_scoped_repeated_test_all_types
@@ -733,7 +803,7 @@ Scenario: extensions_get/package_scoped_repeated_test_all_types
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(repeated_test_all_types=[TestAllTypes(single_int64=1), TestAllTypes(single_bool=True)])
     When CEL expression 'msg.`cel.expr.conformance.proto2.repeated_test_all_types` == [cel.expr.conformance.proto2.TestAllTypes{single_int64: 1}, cel.expr.conformance.proto2.TestAllTypes{single_bool: true}]' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_get/message_scoped_int64
@@ -741,7 +811,7 @@ Scenario: extensions_get/message_scoped_int64
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(int64_ext=42)
     When CEL expression 'msg.`cel.expr.conformance.proto2.Proto2ExtensionScopedMessage.int64_ext` == 42' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_get/message_scoped_nested_ext
@@ -749,7 +819,7 @@ Scenario: extensions_get/message_scoped_nested_ext
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(message_scoped_nested_ext=TestAllTypes())
     When CEL expression 'msg.`cel.expr.conformance.proto2.Proto2ExtensionScopedMessage.message_scoped_nested_ext` == cel.expr.conformance.proto2.TestAllTypes{}' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_get/message_scoped_nested_enum_ext
@@ -757,7 +827,7 @@ Scenario: extensions_get/message_scoped_nested_enum_ext
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(nested_enum_ext=1)
     When CEL expression 'msg.`cel.expr.conformance.proto2.Proto2ExtensionScopedMessage.nested_enum_ext` == cel.expr.conformance.proto2.TestAllTypes.NestedEnum.BAR' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: extensions_get/message_scoped_repeated_test_all_types
@@ -765,5 +835,5 @@ Scenario: extensions_get/message_scoped_repeated_test_all_types
     Given type_env parameter "msg" is celpy.celtypes.MessageType
     and bindings parameter "msg" is TestAllTypes(message_scoped_repeated_test_all_types=[TestAllTypes(single_int64=1), TestAllTypes(single_bool=True)])
     When CEL expression 'msg.`cel.expr.conformance.proto2.Proto2ExtensionScopedMessage.message_scoped_repeated_test_all_types` == [cel.expr.conformance.proto2.TestAllTypes{single_int64: 1}, cel.expr.conformance.proto2.TestAllTypes{single_bool: true}]' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
