@@ -27,13 +27,13 @@ Scenario: greatest_int_result/binary_same_args
 Scenario: greatest_int_result/binary_with_decimal
 
     When CEL expression 'math.greatest(1, 1.0) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_int_result/binary_with_uint
 
     When CEL expression 'math.greatest(1, 1u) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_int_result/binary_first_arg_greater
@@ -75,67 +75,67 @@ Scenario: greatest_int_result/binary_second_arg_int_min
 Scenario: greatest_int_result/ternary_same_args
 
     When CEL expression 'math.greatest(1, 1, 1) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_int_result/ternary_with_decimal
 
     When CEL expression 'math.greatest(1, 1.0, 1.0) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_int_result/ternary_with_uint
 
     When CEL expression 'math.greatest(1, 1u, 1u) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_int_result/ternary_first_arg_greatest
 
     When CEL expression 'math.greatest(10, 1, 3) == 10' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_int_result/ternary_third_arg_greatest
 
     When CEL expression 'math.greatest(1, 3, 10) == 10' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_int_result/ternary_with_negatives
 
     When CEL expression 'math.greatest(-1, -2, -3) == -1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_int_result/ternary_int_max
 
     When CEL expression 'math.greatest(9223372036854775807, 1, 5) == 9223372036854775807' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_int_result/ternary_int_min
 
     When CEL expression 'math.greatest(-9223372036854775807, -1, -5) == -1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_int_result/quaternary_mixed
 
     When CEL expression 'math.greatest(5.4, 10, 3u, -5.0, 9223372036854775807) == 9223372036854775807' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_int_result/quaternary_mixed_array
 
     When CEL expression 'math.greatest([5.4, 10, 3u, -5.0, 3.5]) == 10' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_int_result/quaternary_mixed_dyn_array
 
     When CEL expression 'math.greatest([dyn(5.4), dyn(10), dyn(3u), dyn(-5.0), dyn(3.5)]) == 10' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # greatest_double_result -- 
@@ -162,13 +162,13 @@ Scenario: greatest_double_result/binary_same_args
 Scenario: greatest_double_result/binary_with_int
 
     When CEL expression 'math.greatest(1.0, 1) == 1.0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_double_result/binary_with_uint
 
     When CEL expression 'math.greatest(1.0, 1u) == 1.0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_double_result/binary_first_arg_greater
@@ -210,67 +210,67 @@ Scenario: greatest_double_result/binary_second_arg_double_min
 Scenario: greatest_double_result/ternary_same_args
 
     When CEL expression 'math.greatest(1.0, 1.0, 1.0) == 1.0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_double_result/ternary_with_int
 
     When CEL expression 'math.greatest(1.0, 1, 1) == 1.0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_double_result/ternary_with_uint
 
     When CEL expression 'math.greatest(1.0, 1u, 1u) == 1.0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_double_result/ternary_first_arg_greatest
 
     When CEL expression 'math.greatest(10.5, 1.5, 3.5) == 10.5' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_double_result/ternary_third_arg_greatest
 
     When CEL expression 'math.greatest(1.5, 3.5, 10.5) == 10.5' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_double_result/ternary_with_negatives
 
     When CEL expression 'math.greatest(-1.5, -2.5, -3.5) == -1.5' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_double_result/ternary_double_max
 
     When CEL expression 'math.greatest(1.797693e308, 1, 5) == 1.797693e308' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_double_result/ternary_double_min
 
     When CEL expression 'math.greatest(-1.797693e308, -1, -5) == -1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_double_result/quaternary_mixed
 
     When CEL expression 'math.greatest(5.4, 10, 3u, -5.0, 1.797693e308) == 1.797693e308' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_double_result/quaternary_mixed_array
 
     When CEL expression 'math.greatest([5.4, 10.5, 3u, -5.0, 3.5]) == 10.5' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_double_result/quaternary_mixed_dyn_array
 
     When CEL expression 'math.greatest([dyn(5.4), dyn(10.5), dyn(3u), dyn(-5.0), dyn(3.5)]) == 10.5' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # greatest_uint_result -- 
@@ -291,13 +291,13 @@ Scenario: greatest_uint_result/binary_same_args
 Scenario: greatest_uint_result/binary_with_decimal
 
     When CEL expression 'math.greatest(1u, 1.0) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_uint_result/binary_with_int
 
     When CEL expression 'math.greatest(1u, 1) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_uint_result/binary_first_arg_greater
@@ -327,55 +327,55 @@ Scenario: greatest_uint_result/binary_second_arg_uint_max
 Scenario: greatest_uint_result/ternary_same_args
 
     When CEL expression 'math.greatest(1u, 1u, 1u) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_uint_result/ternary_with_decimal
 
     When CEL expression 'math.greatest(1u, 1.0, 1.0) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_uint_result/ternary_with_int
 
     When CEL expression 'math.greatest(1u, 1, 1) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_uint_result/ternary_first_arg_greatest
 
     When CEL expression 'math.greatest(10u, 1u, 3u) == 10u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_uint_result/ternary_third_arg_greatest
 
     When CEL expression 'math.greatest(1u, 3u, 10u) == 10u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_uint_result/ternary_int_max
 
     When CEL expression 'math.greatest(18446744073709551615u, 1u, 5u) == 18446744073709551615u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_uint_result/quaternary_mixed
 
     When CEL expression 'math.greatest(5.4, 10, 3u, -5.0, 18446744073709551615u) == 18446744073709551615u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_uint_result/quaternary_mixed_array
 
     When CEL expression 'math.greatest([5.4, 10u, 3u, -5.0, 3.5]) == 10u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: greatest_uint_result/quaternary_mixed_dyn_array
 
     When CEL expression 'math.greatest([dyn(5.4), dyn(10u), dyn(3u), dyn(-5.0), dyn(3.5)]) == 10u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # least_int_result -- 
@@ -402,13 +402,13 @@ Scenario: least_int_result/binary_same_args
 Scenario: least_int_result/binary_with_decimal
 
     When CEL expression 'math.least(1, 1.0) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_int_result/binary_with_uint
 
     When CEL expression 'math.least(1, 1u) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_int_result/binary_first_arg_least
@@ -450,67 +450,67 @@ Scenario: least_int_result/binary_second_arg_int_min
 Scenario: least_int_result/ternary_same_args
 
     When CEL expression 'math.least(1, 1, 1) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_int_result/ternary_with_decimal
 
     When CEL expression 'math.least(1, 1.0, 1.0) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_int_result/ternary_with_uint
 
     When CEL expression 'math.least(1, 1u, 1u) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_int_result/ternary_first_arg_least
 
     When CEL expression 'math.least(0, 1, 3) == 0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_int_result/ternary_third_arg_least
 
     When CEL expression 'math.least(1, 3, 0) == 0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_int_result/ternary_with_negatives
 
     When CEL expression 'math.least(-1, -2, -3) == -3' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_int_result/ternary_int_max
 
     When CEL expression 'math.least(9223372036854775807, 1, 5) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_int_result/ternary_int_min
 
     When CEL expression 'math.least(-9223372036854775808, -1, -5) == -9223372036854775808' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_int_result/quaternary_mixed
 
     When CEL expression 'math.least(5.4, 10, 3u, -5.0, 9223372036854775807) == -5.0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_int_result/quaternary_mixed_array
 
     When CEL expression 'math.least([5.4, 10, 3u, -5.0, 3.5]) == -5.0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_int_result/quaternary_mixed_dyn_array
 
     When CEL expression 'math.least([dyn(5.4), dyn(10), dyn(3u), dyn(-5.0), dyn(3.5)]) == -5.0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # least_double_result -- 
@@ -537,13 +537,13 @@ Scenario: least_double_result/binary_same_args
 Scenario: least_double_result/binary_with_int
 
     When CEL expression 'math.least(1.0, 1) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_double_result/binary_with_uint
 
     When CEL expression 'math.least(1, 1u) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_double_result/binary_first_arg_least
@@ -585,67 +585,67 @@ Scenario: least_double_result/binary_second_arg_double_min
 Scenario: least_double_result/ternary_same_args
 
     When CEL expression 'math.least(1.5, 1.5, 1.5) == 1.5' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_double_result/ternary_with_int
 
     When CEL expression 'math.least(1.0, 1, 1) == 1.0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_double_result/ternary_with_uint
 
     When CEL expression 'math.least(1.0, 1u, 1u) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_double_result/ternary_first_arg_least
 
     When CEL expression 'math.least(0.5, 1.5, 3.5) == 0.5' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_double_result/ternary_third_arg_least
 
     When CEL expression 'math.least(1.5, 3.5, 0.5) == 0.5' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_double_result/ternary_with_negatives
 
     When CEL expression 'math.least(-1.5, -2.5, -3.5) == -3.5' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_double_result/ternary_double_max
 
     When CEL expression 'math.least(1.797693e308, 1, 5) == 1' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_double_result/ternary_double_min
 
     When CEL expression 'math.least(-1.797693e308, -1, -5) == -1.797693e308' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_double_result/quaternary_mixed
 
     When CEL expression 'math.least(5.4, 10, 3u, -5.0, 1.797693e308) == -5.0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_double_result/quaternary_mixed_array
 
     When CEL expression 'math.least([5.4, 10.5, 3u, -5.0, 3.5]) == -5.0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_double_result/quaternary_mixed_dyn_array
 
     When CEL expression 'math.least([dyn(5.4), dyn(10.5), dyn(3u), dyn(-5.0), dyn(3.5)]) == -5.0' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # least_uint_result -- 
@@ -666,13 +666,13 @@ Scenario: least_uint_result/binary_same_args
 Scenario: least_uint_result/binary_with_decimal
 
     When CEL expression 'math.least(1u, 1.0) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_uint_result/binary_with_int
 
     When CEL expression 'math.least(1u, 1) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_uint_result/binary_first_arg_least
@@ -702,55 +702,55 @@ Scenario: least_uint_result/binary_second_arg_uint_max
 Scenario: least_uint_result/ternary_same_args
 
     When CEL expression 'math.least(1u, 1u, 1u) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_uint_result/ternary_with_decimal
 
     When CEL expression 'math.least(1u, 1.0, 1.0) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_uint_result/ternary_with_int
 
     When CEL expression 'math.least(1u, 1, 1) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_uint_result/ternary_first_arg_least
 
     When CEL expression 'math.least(1u, 10u, 3u) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_uint_result/ternary_third_arg_least
 
     When CEL expression 'math.least(10u, 3u, 1u) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_uint_result/ternary_uint_max
 
     When CEL expression 'math.least(18446744073709551615u, 1u, 5u) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_uint_result/quaternary_mixed
 
     When CEL expression 'math.least(5.4, 10, 3u, 1u, 18446744073709551615u) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_uint_result/quaternary_mixed_array
 
     When CEL expression 'math.least([5.4, 10u, 3u, 1u, 3.5]) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: least_uint_result/quaternary_mixed_dyn_array
 
     When CEL expression 'math.least([dyn(5.4), dyn(10u), dyn(3u), dyn(1u), dyn(3.5)]) == 1u' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 
 # ceil -- 
@@ -829,7 +829,7 @@ Scenario: round/positive_up
 Scenario: round/nan
 
     When CEL expression 'math.isNaN(math.round(0.0/0.0))' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 Scenario: round/dyn_error
 
@@ -855,7 +855,7 @@ Scenario: trunc/positive
 Scenario: trunc/nan
 
     When CEL expression 'math.isNaN(math.trunc(0.0/0.0))' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 Scenario: trunc/dyn_error
 
@@ -963,13 +963,13 @@ Scenario: sign/dyn_error
 Scenario: isNaN/true
 
     When CEL expression 'math.isNaN(0.0/0.0)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: isNaN/false
 
     When CEL expression '!math.isNaN(1.0/0.0)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 Scenario: isNaN/dyn_error
 
@@ -983,13 +983,13 @@ Scenario: isNaN/dyn_error
 Scenario: isInf/true
 
     When CEL expression 'math.isInf(1.0/0.0)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: isInf/false
 
     When CEL expression '!math.isInf(0.0/0.0)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 Scenario: isInf/dyn_error
 
@@ -1003,19 +1003,19 @@ Scenario: isInf/dyn_error
 Scenario: isFinite/true
 
     When CEL expression 'math.isFinite(1.0/1.5)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: isFinite/false_nan
 
     When CEL expression '!math.isFinite(0.0/0.0)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 @wip
 Scenario: isFinite/false_inf
 
     When CEL expression '!math.isFinite(-1.0/0.0)' is evaluated
-    Then none is None
+    Then value is celpy.celtypes.BoolType(source=True)
 
 Scenario: isFinite/dyn_error
 

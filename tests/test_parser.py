@@ -26,6 +26,7 @@ TODO: Test *all* production rules separately here.
 
 TODO: Create a better, more useful tree-walker than the Tree.pretty() to examine the resulting AST.
 """
+
 from textwrap import dedent
 
 from lark import Tree
@@ -398,9 +399,9 @@ def test_error_text(parser):
     )
     assert lines.splitlines() == [
         "ERROR: <input>:1:7 nope*()/-+",
-        '      ^',
-        '',
-        '    | nope*()/-+',
+        "      ^",
+        "",
+        "    | nope*()/-+",
         "    | ......^",
     ]
 
@@ -417,11 +418,9 @@ def test_dump_ast(parser):
     ast2 = parser.parse(
         '!true in [1<2, 1<=2, 2>1, 2>=1, 3==3, 4!=1, size(x), now(), {"pi": 3.14}]'
     )
-    assert (
-        DumpAST.display(ast2) == (
-            '! true in  [1 <  2, 1 <=  2, 2 >  1, 2 >=  1, 3 ==  3, 4 !=  1, '
-            'size(x), now(), {"pi": 3.14}]'
-        )
+    assert DumpAST.display(ast2) == (
+        "! true in  [1 <  2, 1 <=  2, 2 >  1, 2 >=  1, 3 ==  3, 4 !=  1, "
+        'size(x), now(), {"pi": 3.14}]'
     )
     ast3 = parser.parse(
         ".name.name / .name() + .name(42) * name.name - name.one(1) % name.zero()"
@@ -447,5 +446,7 @@ def test_dump_issue_35():
 
 def test_tree_dump(parser):
     ast = parser.parse("-(3*4+5-1/2%3==1)?name[index]:f(1,2)||false&&true")
-    assert tree_dump(ast) == '- (3 *  4 +  5 -  1 /  2 %  3 ==  1) ? name[index] : f(1, 2) || false && true'
-
+    assert (
+        tree_dump(ast)
+        == "- (3 *  4 +  5 -  1 /  2 %  3 ==  1) ? name[index] : f(1, 2) || false && true"
+    )

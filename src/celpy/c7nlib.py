@@ -101,7 +101,7 @@ The core value features of C7N require a number of CEL extensions.
 The type: value_from features
 ==============================
 
-This relies on  ``value_from()`` and ``jmes_path_map()`` functions
+This relies on :py:func:`celpy.c7nlib.value_from` and :py:func:`celpy.c7nlib.jmes_path_map` functions
 
 In context, it looks like this::
 
@@ -109,7 +109,7 @@ In context, it looks like this::
     .jmes_path_map('exemptions.ec2.rehydration.["IamInstanceProfile.Arn"][].*[].*[]')
     .contains(resource["IamInstanceProfile"]["Arn"])
 
-The ``value_from()`` function reads values from a given URI.
+The :py:func:`celpy.c7nlib.value_from` function reads values from a given URI.
 
 -   A full URI for an S3 bucket.
 
@@ -118,10 +118,10 @@ The ``value_from()`` function reads values from a given URI.
 If a format is given, this is used, otherwise it's based on the
 suffix of the path.
 
-The ``jmes_path_map()`` function compiles and applies a JMESPath
+The :py:func:`celpy.c7nlib.jmes_path_map` function compiles and applies a JMESPath
 expression against each item in the collection to create a
 new collection.  To an extent, this repeats functionality
-from the ``map()`` macro.
+from the CEL ``map()`` macro.
 
 Additional Functions
 ====================
@@ -268,12 +268,12 @@ Name Resolution
 Note that names are **not** resolved via a lookup in the program object,
 an instance of the :py:class:`celpy.Runner` class. To keep these functions
 simple, the runner is not part of the run-time, and name resolution
-will appear to be "hard-wrired" among these functions.
+will appear to be "hard-wired" among these functions.
 
 This is rarely an issue, since most of these functions are independent.
-The :func:`value_from` function relies on :func:`text_from` and :func:`parse_text`.
+The :py:func:`celpy.c7nlib.value_from` function relies on :py:func:`celpy.c7nlib.text_from` and :py:func:`celpy.c7nlib.parse_text`.
 Changing either of these functions with an override won't modify the behavior
-of :func:`value_from`.
+of :py:func:`celpy.c7nlib.value_from`.
 """
 
 import csv
@@ -358,7 +358,7 @@ def key(source: celtypes.ListType, target: celtypes.StringType) -> celtypes.Valu
         resource["Tags"].filter(x, x["Key"] == "Name")[0]
 
     But the ``key()`` function doesn't raise an exception if the key is not found,
-    instead it returns None.
+    instead it returns ``None``.
 
     We might want to generalize this into a ``first()`` reduction macro.
     ``resource["Tags"].first(x, x["Key"] == "Name" ? x["Value"] : null, null)``

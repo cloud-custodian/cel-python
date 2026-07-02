@@ -350,13 +350,11 @@ Scenario: eq_literal/not_eq_dyn_int_null
     When CEL expression 'dyn(1) == null' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/not_eq_dyn_list_null
 
     When CEL expression 'dyn([]) == null' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/not_eq_dyn_map_null
 
     When CEL expression 'dyn({}) == null' is evaluated

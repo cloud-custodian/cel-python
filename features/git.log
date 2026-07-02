@@ -1,0 +1,5 @@
+40e3bde (HEAD -> refs/heads/master, refs/remotes/origin/master, refs/remotes/origin/HEAD) Workaround inconsistent \? in proto textformat (#512)
+cb51b41 (tag: refs/tags/v0.25.2) Add conformance test cases for null assignability around repeated fields and maps (#510)
+8e848ac Networking extension conformance tests (#507)
+8d28382 Add clarification on comprehension scoping rules. (#506)
+121e265 Add automated BCR publishing on release tags (#498)

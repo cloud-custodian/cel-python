@@ -148,9 +148,9 @@ env = Environment(
     loader=FileSystemLoader(path.dirname(__file__)),
     trim_blocks=True,
 )
-template = env.get_template("gherkin.feature.jinja")
+template = env.get_template("gherkinize.feature")
 logger = logging.getLogger("gherkinize")
-pool = descriptor_pool.Default()  # type: ignore [no-untyped-call]
+pool = descriptor_pool.Default()
 
 
 class Config:
@@ -325,7 +325,7 @@ class Result:
         elif kind == "eval_error":
             return Result(kind, CELErrorSet(source.eval_error))
         elif kind is None:
-            return Result("none", None)
+            return Result("value", CELBool(True))
         else:
             raise NotImplementedError(f"Unable to interpret result kind {kind!r}")
 
@@ -996,6 +996,7 @@ class Scenario:
         source: simple_pb2.SimpleTest,
     ) -> None:
         logger.debug(f"Scenario {source.name}")
+        self.source = source
         self.name = source.name
         self.description = source.description
         self.tags = config.tags_for(feature.name, section.name, source.name)
@@ -1018,8 +1019,8 @@ class Scenario:
 
         self.when(f"CEL expression {source.expr!r} is evaluated")
 
-        result = Result.from_proto(source)
-        self.then(f"{result.kind} is {result}")
+        self.result = Result.from_proto(source)
+        self.then(f"{self.result.kind} is {self.result}")
 
     def given(self, precondition: str) -> Self:
         self.preconditions.append(precondition)
@@ -1133,7 +1134,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logging.getLogger().setLevel(options.log_level)
 
-    config = Config(f"{path.dirname(__file__)}/wip.toml")
+    config = Config(f"{path.dirname(__file__)}/tags.toml")
     feature = Feature.from_text_proto(config, options.source)
     feature.write_to_file(options.output)
 

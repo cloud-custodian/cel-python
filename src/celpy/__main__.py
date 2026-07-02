@@ -92,7 +92,7 @@ def arg_type_value(text: str) -> Tuple[str, Annotation, celtypes.Value]:
     and the activation can include variables that are also part of the package.
     This is not supported via the CLI.
 
-    Types can be celtypes class names or TYPE_NAME or PROTOBUF_TYPE
+    Types can be celtypes class names or ``TYPE_NAME`` or ``PROTOBUF_TYPE``
 
     ::
 
@@ -105,7 +105,7 @@ def arg_type_value(text: str) -> Tuple[str, Annotation, celtypes.Value]:
         | "single_bool" | "single_string" | "single_bytes"
         | "single_duration" | "single_timestamp"
 
-    ..  todo:: type names can include `.` to support namespacing for protobuf support.
+    ..  todo:: type names can include `.` to support protobuf namespacing.
 
     :param text: Argument value
     :return: Tuple with name, annotation, and resulting object.
@@ -400,17 +400,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     """
     Given options from the command-line, execute the CEL expression.
 
-    With --null-input option, only --arg and expr matter.
+    With ``--null-input`` option, only ``--arg`` and ``expr`` matter.
 
-    Without --null-input, JSON documents are read from STDIN, following ndjson format.
+    Without ``--null-input``, JSON documents are read from STDIN, following ndjson format.
 
-    With the --slurp option, it reads one JSON from stdin, spread over multiple lines.
+    With the ``--slurp`` option, it reads one JSON from stdin, spread over multiple lines.
 
-    If "--json-package" is used, each JSON document becomes a package, and
+    If ``--json-package`` is used, each JSON document becomes a package, and
         top-level dictionary keys become valid ``.name`` expressions.
-        Otherwise, "--json-object" is the default, and each JSON document
-        is assigned to a variable. The default name is "jq" to allow expressions
-        that are similar to ``jq`` but with a "jq" prefix.
+        Otherwise, ``--json-object`` is the default, and each JSON document
+        is assigned to a variable. The default name is ``jq`` to allow expressions
+        that are similar to the **jq** expressions but with the "jq" prefix CEL would require.
     """
     options = get_options(argv)
     if options.verbose == 1:

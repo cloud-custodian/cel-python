@@ -888,7 +888,7 @@ Scenario: struct/field_assign_proto2
 
     Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_struct: {'un': 1.0, 'deux': 2.0}}" is evaluated
-    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'deux': celpy.celtypes.DoubleType(source=2.0), 'un': celpy.celtypes.DoubleType(source=1.0)}))
+    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'un': celpy.celtypes.DoubleType(source=1.0), 'deux': celpy.celtypes.DoubleType(source=2.0)}))
 
 Scenario: struct/field_assign_proto2_empty
 
@@ -927,7 +927,7 @@ Scenario: struct/field_assign_proto3
 
     Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_struct: {'un': 1.0, 'deux': 2.0}}" is evaluated
-    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'deux': celpy.celtypes.DoubleType(source=2.0), 'un': celpy.celtypes.DoubleType(source=1.0)}))
+    Then value is TestAllTypes(single_struct=celpy.celtypes.MapType({'un': celpy.celtypes.DoubleType(source=1.0), 'deux': celpy.celtypes.DoubleType(source=2.0)}))
 
 Scenario: struct/field_assign_proto3_empty
 
@@ -1290,7 +1290,7 @@ Scenario: value_struct/field_assign_proto2
 
     Given container is 'cel.expr.conformance.proto2'
     When CEL expression "TestAllTypes{single_value: {'un': 1.0, 'deux': 2.0}}" is evaluated
-    Then value is TestAllTypes(single_value=celpy.celtypes.MapType({'deux': celpy.celtypes.DoubleType(source=2.0), 'un': celpy.celtypes.DoubleType(source=1.0)}))
+    Then value is TestAllTypes(single_value=celpy.celtypes.MapType({'un': celpy.celtypes.DoubleType(source=1.0), 'deux': celpy.celtypes.DoubleType(source=2.0)}))
 
 Scenario: value_struct/field_assign_proto2_empty
 
@@ -1314,7 +1314,7 @@ Scenario: value_struct/field_assign_proto3
 
     Given container is 'cel.expr.conformance.proto3'
     When CEL expression "TestAllTypes{single_value: {'un': 1.0, 'deux': 2.0}}" is evaluated
-    Then value is TestAllTypes(single_value=celpy.celtypes.MapType({'deux': celpy.celtypes.DoubleType(source=2.0), 'un': celpy.celtypes.DoubleType(source=1.0)}))
+    Then value is TestAllTypes(single_value=celpy.celtypes.MapType({'un': celpy.celtypes.DoubleType(source=1.0), 'deux': celpy.celtypes.DoubleType(source=2.0)}))
 
 Scenario: value_struct/field_assign_proto3_empty
 

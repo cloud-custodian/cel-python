@@ -144,7 +144,7 @@ All the mixins currently part of more specialized filters need to be collected i
 In some cases, functionality must be extracted from existing filters to create mixins which can be shared
 by the  :py:class:`CELFilter` class.
 
-For example, t:py:class:`ImageAge` filter is a composite, built from :py:class:`AgeFilter` and :py:class:`InstanceImageBase`.
+For example, :py:class:`ImageAge` filter is a composite, built from :py:class:`AgeFilter` and :py:class:`InstanceImageBase`.
 In this case, the :py:class:`c7n.resources.ec2.InstanceImageBase` class gathers AMI image details.
 The :py:class:`CELFilter` needs to have the  :py:class:`InstanceImageBase` mixin available to gather
 the required data for the CEL operation.
@@ -306,9 +306,9 @@ C7N Cache
 Within C7N, related resource information is cached to avoid repeatedly looking it up.
 The CEL activation makes use of these caches through several global objects.
 
--   The ``Resource`` provided is a JSON-to-CEL mapping of the original C7N dictionary.
+-   The ``resource`` provided is a JSON-to-CEL mapping of the original C7N dictionary.
 
--   The ``C7NContext`` instance is used by The CEL functions in the :py:mod:`c7nlib` module to access c7n modules and classes.
+-   The :py:class:`c7nlib.C7NContext` instance is used by The CEL functions in the :py:mod:`c7nlib` module to access c7n modules and classes.
     This allows them to use C7N's caching and avoid extra describe operations.
     *All* cloud resource access must go through existing C7N ``CELFilter`` methods and resource caches.
 
