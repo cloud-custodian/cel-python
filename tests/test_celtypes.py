@@ -31,6 +31,11 @@ def test_bool_type():
     t, f = BoolType(True), BoolType(False)
     exc = CELEvalError(("summary", "details"))
 
+    assert all(BoolType(s) == t for s in ("True", "true", "TRUE", "t"))
+    assert all(BoolType(s) == f for s in ("False", "false", "FALSE", "f"))
+    assert BoolType("1") == t
+    assert BoolType("0") == f
+
     assert logical_condition(t, sentinel.true, sentinel.false) == sentinel.true
     assert logical_condition(f, sentinel.true, sentinel.false) == sentinel.false
     with pytest.raises(TypeError):
@@ -62,6 +67,7 @@ def test_bool_type():
     assert logical_not(f) == t
     with pytest.raises(TypeError):
         logical_not(StringType("nope"))
+    assert logical_not(exc) == exc
 
     assert repr(f) == "BoolType(False)"
     assert repr(t) == "BoolType(True)"
@@ -211,10 +217,12 @@ def test_list_type():
         [IntType(42), StringType("2.718281828459045**1.791759469228055"), IntType(7)]
     )
     assert l_1 == l_1
+    assert not l_1 == None
     with pytest.raises(TypeError):
         assert l_1 != l_2
     with pytest.raises(TypeError):
         assert not l_1 == l_2
+
     assert repr(l_1) == "ListType([IntType(42), IntType(6), IntType(7)])"
     with pytest.raises(TypeError):
         l_1 < l_2
@@ -264,6 +272,7 @@ def test_map_type():
     )
     assert m_1 == m_1
     assert m_1 == m_3
+    assert not m_1 == None
     assert not m_1 != m_1
     assert not m_single != m_single
     with pytest.raises(TypeError):

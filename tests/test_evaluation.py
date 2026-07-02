@@ -157,6 +157,10 @@ def test_boolean_decorator():
     result_3 = mock_operation(sentinel.not_implemented, sentinel.b)
     assert result_3 == NotImplemented
 
+    eval_error = CELEvalError()
+    assert mock_operation(eval_error, True) == eval_error
+    assert mock_operation(True, eval_error) == eval_error
+
 
 def test_operator_in():
     """
@@ -183,6 +187,9 @@ def test_operator_in():
     assert operator_in(celtypes.IntType(42), container_2)
     assert isinstance(operator_in(celtypes.IntType(-1), container_2), CELEvalError)
 
+    eval_error = CELEvalError()
+    assert operator_in(eval_error, container_1) == eval_error
+    assert operator_in(celtypes.IntType(42), eval_error) == eval_error
 
 @pytest.mark.skipif(
     "re2" not in celpy.evaluation.function_matches.__globals__, reason="Not using RE2"
@@ -441,8 +448,13 @@ def test_function_eval_1(monkeypatch):
     function_of_error_result = evaluator.function_eval(
         lark.Token("IDENT", "size"), error
     )
-    print(f"{function_of_error_result=}")
+    # print(f"{function_of_error_result=}")
     assert function_of_error_result == error
+
+    function_of_list_with_error_result = evaluator.function_eval(
+        lark.Token("IDENT", "size"), [error]
+    )
+    assert function_of_list_with_error_result == error
 
 
 def test_function_eval_2(monkeypatch):
