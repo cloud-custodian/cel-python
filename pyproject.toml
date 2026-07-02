@@ -57,6 +57,13 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/celpy"]
 
+# Attempts to get re2 to build for Python 3.15.
+[tool.hatch.envs.hatch-build.env-vars]
+# Need to set the Extension.include_dirs values for build_ext command inside bdist_wheel command.
+# These don't seem to work.
+GCC_INCLUDE_DIR = "/opt/local/include"
+HEADER_SEARCH_PATHS = "/opt/local/include"
+
 [tool.uv]
 required-version = ">=0.7"
 
@@ -88,6 +95,7 @@ dev = [
     "ipykernel>=7.2.0",
 ]
 
+# Python 3.15 support depends on Google RE2 offering pre-built binaries for MacOS.
 [tool.tox]
 envlist = ["py310", "py311", "py312", "py313", "py314", "lint", "tools"]
 minversion = "4.24.0"

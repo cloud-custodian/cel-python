@@ -1375,7 +1375,7 @@ class DurationType(datetime.timedelta):
                         re.finditer(rf"([0-9]*(\.[0-9]*)?)({units_pattern})", seconds),
                     )
                 )
-            except KeyError:
+            except KeyError:  # pragma: no cover
                 raise ValueError(f"Invalid duration {seconds!r}")
 
             if not (cls.MinSeconds <= seconds <= cls.MaxSeconds):
