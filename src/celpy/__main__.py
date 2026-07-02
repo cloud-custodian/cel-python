@@ -23,6 +23,7 @@ It also offers an interactive REPL.
 import argparse
 import ast
 import cmd
+from collections.abc import Callable
 import datetime
 import json
 import logging
@@ -32,7 +33,7 @@ from pathlib import Path
 import re
 import stat as os_stat
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 try:
     import tomllib  # type: ignore [import-not-found, unused-ignore]
@@ -282,23 +283,31 @@ def stat(path: Union[Path, str]) -> Optional[celtypes.MapType]:
         data["r"] = celtypes.BoolType(os.access(path, os.R_OK))
         data["w"] = celtypes.BoolType(os.access(path, os.W_OK))
         data["x"] = celtypes.BoolType(os.access(path, os.X_OK))
-        try:
-            extra = {
-                "st_birthtime": celtypes.TimestampType(
-                    datetime.datetime.fromtimestamp(
-                        status.st_birthtime  # type:ignore [attr-defined, unused-ignore]
-                    )
-                ),
-                "st_blksize": celtypes.IntType(status.st_blksize),
-                "st_blocks": celtypes.IntType(status.st_blocks),
-                "st_flags": celtypes.IntType(status.st_flags),  # type: ignore [attr-defined, unused-ignore]
-                "st_rdev": celtypes.IntType(status.st_rdev),
-                "st_gen": celtypes.IntType(status.st_gen),  # type: ignore [attr-defined, unused-ignore]
-                "group_access": celtypes.BoolType(status.st_gid == os.getegid()),
-                "user_access": celtypes.BoolType(status.st_uid == os.geteuid()),
-            }
-        except AttributeError:  # pragma: no cover
-            extra = {}
+
+        # Optional features; any mixture may be present.
+        extra_defs: dict[str, Callable[[Any], Any]] = {
+            "st_birthtime": lambda status: celtypes.TimestampType(
+                datetime.datetime.fromtimestamp(status.st_birthtime)
+            ),
+            "st_blksize": lambda status: celtypes.IntType(status.st_blksize),
+            "st_blocks": lambda status: celtypes.IntType(status.st_blocks),
+            "st_flags": lambda status: celtypes.IntType(status.st_flags),
+            "st_rdev": lambda status: celtypes.IntType(status.st_rdev),
+            "st_gen": lambda status: celtypes.IntType(status.st_gen),
+            "group_access": lambda status: celtypes.BoolType(
+                status.st_gid == os.getegid()
+            ),
+            "user_access": lambda status: celtypes.BoolType(
+                status.st_uid == os.geteuid()
+            ),
+        }
+        extra: dict[str, Any] = {}
+        for name, status_function in extra_defs.items():
+            try:
+                extra[name] = status_function(status)
+            except AttributeError:  # pragma: no cover
+                pass
+
         return celtypes.MapType(data | extra)
     except FileNotFoundError:
         return None
