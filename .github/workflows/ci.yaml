@@ -33,6 +33,8 @@ jobs:
             tox-target: py312
           - python-version: "3.13"
             tox-target: py313
+          - python-version: "3.14"
+            tox-target: py314
 
     steps:
       - uses: actions/checkout@v5
