@@ -1,7 +1,7 @@
 Name               Lines  Precise  Imprecise  Any  Empty  Unanalyzed
 --------------------------------------------------------------------
 celpy                357       79         12    4    262           0
-celpy.__main__       551      243         14   61    233           0
+celpy.__main__       560      242         16   65    237           0
 celpy.adapter        163       34          3    9    111           6
 celpy.c7nlib        1663      344         16  152   1151           0
 celpy.celparser      411      137         68   23    183           0
