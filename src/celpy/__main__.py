@@ -253,8 +253,6 @@ def stat(path: Union[Path, str]) -> Optional[celtypes.MapType]:
             "st_ino": celtypes.IntType(status.st_ino),
             "st_nlink": celtypes.IntType(status.st_nlink),
             "st_size": celtypes.IntType(status.st_size),
-            "group_access": celtypes.BoolType(status.st_gid == os.getegid()),
-            "user_access": celtypes.BoolType(status.st_uid == os.geteuid()),
         }
 
         # From mode File type:
@@ -275,7 +273,7 @@ def stat(path: Union[Path, str]) -> Optional[celtypes.MapType]:
             }.get(True, "?")
         )
 
-        # Special bits: uid, gid, sticky
+        # Convert special bits to booleans: uid, gid, sticky
         data["setuid"] = celtypes.BoolType((os_stat.S_ISUID & status.st_mode) != 0)
         data["setgid"] = celtypes.BoolType((os_stat.S_ISGID & status.st_mode) != 0)
         data["sticky"] = celtypes.BoolType((os_stat.S_ISVTX & status.st_mode) != 0)
@@ -296,6 +294,8 @@ def stat(path: Union[Path, str]) -> Optional[celtypes.MapType]:
                 "st_flags": celtypes.IntType(status.st_flags),  # type: ignore [attr-defined, unused-ignore]
                 "st_rdev": celtypes.IntType(status.st_rdev),
                 "st_gen": celtypes.IntType(status.st_gen),  # type: ignore [attr-defined, unused-ignore]
+                "group_access": celtypes.BoolType(status.st_gid == os.getegid()),
+                "user_access": celtypes.BoolType(status.st_uid == os.geteuid()),
             }
         except AttributeError:  # pragma: no cover
             extra = {}
