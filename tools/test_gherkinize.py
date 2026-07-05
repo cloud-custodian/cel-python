@@ -17,9 +17,21 @@
 Test the gherkinize.py tool to convert textproto to Gherkin.
 """
 
-from google.protobuf import any_pb2, struct_pb2
+from argparse import Namespace
+import datetime
+from pathlib import Path
+from textwrap import dedent
+
+from unittest.mock import Mock, sentinel, call
+import pytest
+
+from google.protobuf import any_pb2, struct_pb2, message
 from cel.expr.conformance.proto2 import test_all_types_pb2 as proto2_test_all_types
 from cel.expr.conformance.proto3 import test_all_types_pb2 as proto3_test_all_types
+from cel.expr.conformance.test import simple_pb2
+from cel.expr import value_pb2, checked_pb2, eval_pb2
+
+import gherkinize
 from gherkinize import (
     CELValue,
     CELBool,
@@ -34,8 +46,114 @@ from gherkinize import (
     CELString,
     CELUint,
     CELType,
+    CELExprValue,
+    CELPrimitive,
+    CELTimestamp,
+    CELStatus,
+    CELMessage,
+    AnyWrapper,
     Result,
+    Config,
+    Feature,
+    Section,
+    Scenario,
+    WriteGherkin,
+    WriteSummary,
+    main,
 )
+
+
+def test_config(tmp_path: Path) -> None:
+    source = dedent("""\
+      [bindings_ext.bind]
+      bind_nested = "@wip"
+      boolean_literal = [ "@wip" ]
+
+      [bindings_ext.bind.macro_exists]
+      tags = [ "@wip" ]
+    """)
+    config_path = tmp_path / "tags.toml"
+    config_path.write_text(source)
+
+    config = Config(config_path)
+    assert config.tags_for("bindings_ext", "bind", "bind_nested") == ["@wip"]
+    assert config.tags_for("bindings_ext", "bind", "boolean_literal") == ["@wip"]
+    assert config.tags_for("bindings_ext", "bind", "macro_exists") == ["@wip"]
+    assert config.tags_for("bindings_ext", "bind", "undefined") == []
+
+
+def test_config_errors_feature(tmp_path: Path) -> None:
+    config_path = tmp_path / "tags.toml"
+    config_path.write_text('feature = ["not", "a", "dict"]')
+    config = Config(config_path)
+    assert config.tags_for("feature", "section", "scenario") == []
+
+
+def test_config_errors_section(tmp_path: Path) -> None:
+    config_path = tmp_path / "tags.toml"
+    config_path.write_text('[feature]\nsection = ["not", "a", "dict"]')
+    config = Config(config_path)
+    assert config.tags_for("feature", "section", "scenario") == []
+
+
+def test_config_errors_scenario(tmp_path: Path) -> None:
+    config_path = tmp_path / "tags.toml"
+    config_path.write_text('[feature.section.scenario]\nnot_tags = ["ignore", "this"]')
+    config = Config(config_path)
+    assert config.tags_for("feature", "section", "scenario") == []
+
+
+def test_config_errors_non_tags(tmp_path: Path) -> None:
+    config_path = tmp_path / "tags.toml"
+    config_path.write_text('[feature.section.scenario]\nnot_tags = ["ignore", "this"]')
+    config = Config(config_path)
+    assert config.tags_for("feature", "section", "scenario") == []
+
+
+def test_config_errors_bad_tag_struct(tmp_path: Path) -> None:
+    config_path = tmp_path / "tags.toml"
+    config_path.write_text('[feature.section.scenario]\ntags = {"unexpected" = "dict"}')
+    config = Config(config_path)
+    assert config.tags_for("feature", "section", "scenario") == []
+
+
+def test_config_errors_bad_tag_type(tmp_path: Path) -> None:
+    config_path = tmp_path / "tags.toml"
+    config_path.write_text('[feature.section]\nscenario = "no leading @"')
+    config = Config(config_path)
+    assert config.tags_for("feature", "section", "scenario") == []
+
+
+def test_result() -> None:
+    r_1 = Result.from_text_proto_str("value:{int64_value:42}")
+    assert repr(r_1) == "celpy.celtypes.IntType(source=42)"
+    error = CELErrorSet.from_text_proto_str('errors:{message:"unbound function"}')
+    r_2 = Result("eval_error", error)
+    assert repr(r_2) == "'unbound function'"
+
+    test = Mock(
+        spec=simple_pb2.SimpleTest(),
+        WhichOneof=Mock(return_value="eval_error"),
+        eval_error="unbound function",
+    )
+    r_3 = Result.from_proto(test)
+    assert repr(r_3) == "'unbound function'"
+
+
+def test_celerrorset() -> None:
+    mock_status = Mock(spec=eval_pb2.Status, message="status message", code="code")
+    es_1 = CELErrorSet(mock_status)
+    assert repr(es_1) == "CELEvalError('status message')"
+
+    mock_celstatus = CELStatus("zero", 0)
+    es_2 = CELErrorSet([mock_celstatus])
+    assert repr(es_2) == "CELEvalError('zero')"
+
+    es_3 = CELErrorSet("status message")
+    assert repr(es_3) == "CELEvalError('status message')"
+
+    es_4 = CELErrorSet([CELStatus("zero", 0), CELStatus("one", 1)])
+    assert es_2 != es_4
 
 
 def test_given_bindings() -> None:
@@ -371,10 +489,113 @@ def test_given_bindings() -> None:
     ) == Result("value", CELDuration(seconds=123, nanos=123456789))
 
 
+def test_any_wrapper(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_type = Mock
+    mock_pool = Mock(FindMessageTypeByName=Mock(return_value=mock_type))
+    monkeypatch.setattr(gherkinize, "pool", mock_pool)
+    mock_value = Mock(
+        spec=value_pb2.Value,
+        DESCRIPTOR=value_pb2.Value.DESCRIPTOR,
+        WhichOneof=Mock(return_value="STRING"),
+        STRING="some_string",
+    )
+    mock_class = Mock(return_value=mock_value)
+    mock_message_factory = Mock(GetMessageClass=Mock(return_value=mock_class))
+    monkeypatch.setattr(gherkinize, "message_factory", mock_message_factory)
+    mock_any = Mock(spec=any_pb2.Any, Unpack=Mock(), type_url="example.com/some_type")
+    aw = AnyWrapper(mock_any)
+    assert repr(aw) == "celpy.celtypes.StringType(source='some_string')"
+    assert mock_class.mock_calls == [call()]
+    assert mock_any.Unpack.mock_calls == [call(mock_value)]
+
+
+def test_value() -> None:
+    v_1 = CELType(value_pb2.Value())
+    assert v_1.source == value_pb2.Value()
+    # v_2 = CELType(checked_pb2.Decl())
+    v_double = CELDouble(source=float("inf"))
+    assert repr(v_double) == "celpy.celtypes.DoubleType(source=float('inf'))"
+
+
+def test_celvalue() -> None:
+    with pytest.raises(TypeError):
+        CELValue.get_class_by_alias("unknown", error_on_none=True)
+
+
+def test_cel_expr_value() -> None:
+    mock_value = Mock(
+        spec=value_pb2.Value,
+        DESCRIPTOR=value_pb2.Value.DESCRIPTOR,
+        WhichOneof=Mock(return_value="STRING"),
+        STRING="some_string",
+    )
+    mock_expr_value = Mock(
+        spec=eval_pb2.ExprValue, WhichOneof=Mock(return_value="value"), value=mock_value
+    )
+    cev_1 = CELExprValue(mock_expr_value)
+    assert repr(cev_1) == "celpy.celtypes.StringType(source='some_string')"
+
+    mock_error = Mock(spec=eval_pb2.ErrorSet, errors=["some message"])
+    mock_expr_error = Mock(
+        spec=eval_pb2.ExprValue, WhichOneof=Mock(return_value="error"), error=mock_error
+    )
+    cev_2 = CELExprValue(mock_expr_error)
+    assert repr(cev_2) == "CELEvalError('some message')"
+
+    mock_expr_other = Mock(
+        spec=eval_pb2.ExprValue, WhichOneof=Mock(return_value="other"), other="What?"
+    )
+    with pytest.raises(TypeError):
+        CELExprValue(mock_expr_other)
+
+
+def test_cel_timestamp() -> None:
+    # 1783190251.497628
+    ts = CELTimestamp(1783190251, 497628000)
+    assert ts.value == datetime.datetime(
+        2026, 7, 4, 18, 37, 31, 497628, tzinfo=datetime.timezone.utc
+    )
+
+
+def test_cel_primitive() -> None:
+    cp_1 = CELPrimitive(None, "Some Value")
+    cp_2 = CELPrimitive(None, "Another Value")
+    assert len({cp_1, cp_2}) == 2  # Must be hashable.
+
+
+def test_cel_message() -> None:
+    mock_desc = Mock(is_repeated=True)
+    mock_desc.name = "name"
+    mock_value_1 = "value"
+    mock_message_1 = Mock(
+        spec=message.Message,
+        ListFields=Mock(return_value=[(mock_desc, [mock_value_1])]),
+    )
+    m_1 = CELMessage(mock_message_1, "MessageName")
+    assert repr(m_1) == "MessageName(name=['value'])"
+
+    mock_descriptor = Mock()
+    mock_descriptor.name = "submessage"
+    mock_value_2 = Mock(
+        spec=message.Message,
+        ListFields=Mock(return_value=[]),
+        DESCRIPTOR=mock_descriptor,
+    )
+    mock_message_2 = Mock(
+        spec=message.Message,
+        ListFields=Mock(return_value=[(mock_desc, [mock_value_2])]),
+    )
+    m_2 = CELMessage(mock_message_2, "MessageName")
+    assert repr(m_2) == "MessageName(name=[submessage()])"
+
+
 def test_then_values() -> None:
     assert CELValue.from_text_proto_str("int64_value:0") == CELInt(source=0)
     assert CELValue.from_text_proto_str("uint64_value:0") == CELUint(source=0)
     assert CELValue.from_text_proto_str("double_value:0") == CELDouble(source=0)
+    assert CELValue.from_text_proto_str("double_value:inf") == CELDouble(
+        source=float("inf")
+    )
     assert CELValue.from_text_proto_str('string_value:""') == CELString(source="")
     assert CELValue.from_text_proto_str('bytes_value:""') == CELBytes(source=b"")
     assert CELValue.from_text_proto_str("bool_value:false") == CELBool(source=False)
@@ -5524,6 +5745,38 @@ def test_then_values_2() -> None:
     assert CELValue.from_text_proto_str("int64_value:3730") == CELInt(source=3730)
 
 
+def test_type_values() -> None:
+    mock_ident = Mock(
+        spec=checked_pb2.Decl.IdentDecl,
+        type=Mock(WhichOneof=Mock(return_value="primitive"), primitive=6),
+    )
+    mock_decl_good = Mock(
+        spec=checked_pb2.Decl, WhichOneof=Mock(return_value="ident"), ident=mock_ident
+    )
+    ct = CELType(mock_decl_good)
+    assert repr(ct) == "celpy.celtypes.BytesType"
+
+    mock_decl_bad_1 = Mock(
+        spec=checked_pb2.Decl,
+        WhichOneof=Mock(return_value="something_else"),
+        ident=mock_ident,
+    )
+    with pytest.raises(NotImplementedError):
+        ct = CELType(mock_decl_bad_1)
+
+    mock_ident_other = Mock(
+        spec=checked_pb2.Decl.IdentDecl,
+        type=Mock(WhichOneof=Mock(return_value="other"), other=6),
+    )
+    mock_decl_other = Mock(
+        spec=checked_pb2.Decl,
+        WhichOneof=Mock(return_value="ident"),
+        ident=mock_ident_other,
+    )
+    with pytest.raises(TypeError):
+        ct = CELType(mock_decl_other)
+
+
 def test_type_env_values() -> None:
     assert CELType.from_text_proto_str(
         'type:{message_type:"google.protobuf.Int32Value"}'
@@ -5579,3 +5832,263 @@ def test_type_repr() -> None:
     assert repr(CELType("null_type")) == "NoneType"
     assert repr(CELType("string")) == "celpy.celtypes.StringType"
     assert repr(CELType("uint")) == "celpy.celtypes.UintType"
+
+
+@pytest.fixture
+def mock_result(monkeypatch: pytest.MonkeyPatch) -> Mock:
+    mock_result = Mock(spec=Result, kind=sentinel.RESULT_KIND, name="mock_result")
+    mock_result.__str__ = Mock(return_value="mock_result")  # type: ignore[method-assign]
+    mock_result_class = Mock(from_proto=Mock(return_value=mock_result))
+    monkeypatch.setattr(gherkinize, "Result", mock_result_class)
+    return mock_result
+
+
+@pytest.fixture
+def mock_config() -> Mock:
+    return Mock(spec=Config)
+
+
+@pytest.fixture
+def mock_feature() -> Mock:
+    mock_feature = Mock(spec=Feature)
+    mock_feature.name = sentinel.FEATURE_NAME
+    return mock_feature
+
+
+@pytest.fixture
+def mock_section() -> Mock:
+    mock_section = Mock(spec=Section)
+    mock_section.name = sentinel.SECTION_NAME
+    mock_section.description = sentinel.DESCRIPTION
+    return mock_section
+
+
+def test_scenario_1(
+    mock_config: Mock, mock_feature: Mock, mock_section: Mock, mock_result: Mock
+) -> None:
+    source = Mock(spec=simple_pb2.SimpleTest)
+    source.name = sentinel.SOURCE_NAME
+    source.disable_macros = False
+    source.disable_check = False
+    source.type_env = []
+    source.bindings = {}
+    source.container = None
+    source.description = sentinel.DESCRIPTION
+    source.expr = sentinel.EXPRESSION
+    s = Scenario(mock_config, mock_feature, mock_section, source)
+    assert s.preconditions == []
+    assert s.events == [
+        "CEL expression sentinel.EXPRESSION is evaluated",
+    ]
+    assert s.outcomes == [
+        "sentinel.RESULT_KIND is mock_result",
+    ]
+    assert s.steps == [
+        "When CEL expression sentinel.EXPRESSION is evaluated",
+        "Then sentinel.RESULT_KIND is mock_result",
+    ]
+
+
+def test_scenario_2(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_config: Mock,
+    mock_feature: Mock,
+    mock_section: Mock,
+    mock_result: Mock,
+) -> None:
+    mock_type_env = Mock()
+    mock_type_env.name = "some_name"
+    monkeypatch.setattr(gherkinize, "CELType", Mock(return_value=sentinel.CELType))
+    mock_binding = Mock()
+    monkeypatch.setattr(
+        gherkinize, "CELExprValue", Mock(return_value=sentinel.CELExprValue)
+    )
+
+    source = Mock(spec=simple_pb2.SimpleTest)
+    source.name = sentinel.SOURCE_NAME
+    source.disable_macros = True
+    source.disable_check = True
+    source.type_env = [mock_type_env]
+    source.bindings = {"binding_name": mock_binding}
+    source.container = "some_container"
+    source.description = sentinel.DESCRIPTION
+    source.expr = sentinel.EXPRESSION
+    s = Scenario(mock_config, mock_feature, mock_section, source)
+    assert s.preconditions == [
+        "disable_macros parameter is True",
+        "disable_check parameter is True",
+        'type_env parameter "some_name" is sentinel.CELType',
+        'bindings parameter "binding_name" is sentinel.CELExprValue',
+        "container is 'some_container'",
+    ]
+    assert s.events == [
+        "CEL expression sentinel.EXPRESSION is evaluated",
+    ]
+    assert s.outcomes == [
+        "sentinel.RESULT_KIND is mock_result",
+    ]
+    assert s.steps == [
+        "Given disable_macros parameter is True",
+        "and disable_check parameter is True",
+        'and type_env parameter "some_name" is sentinel.CELType',
+        'and bindings parameter "binding_name" is sentinel.CELExprValue',
+        "and container is 'some_container'",
+        "When CEL expression sentinel.EXPRESSION is evaluated",
+        "Then sentinel.RESULT_KIND is mock_result",
+    ]
+
+
+def test_section(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_config: Mock,
+    mock_feature: Mock,
+    mock_result: Mock,
+) -> None:
+    monkeypatch.setattr(gherkinize, "Scenario", Mock(return_value=sentinel.SCENARIO))
+    source = Mock(spec=simple_pb2.SimpleTest)
+    source.name = sentinel.SOURCE_NAME
+    source.description = sentinel.DESCRIPTION
+    source.test = [
+        Mock(
+            description=sentinel.TEST_DESCRIPTION,
+            disable_macros=False,
+            disable_check=False,
+            type_env=[],
+            bindings={},
+        )
+    ]
+
+    s = Section(mock_config, mock_feature, source)
+    assert s.scenarios == [
+        sentinel.SCENARIO,
+    ]
+
+
+def test_feature_1(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_config: Mock,
+    mock_section: Mock,
+    mock_result: Mock,
+) -> None:
+    monkeypatch.setattr(gherkinize, "Scenario", Mock(return_value=sentinel.SCENARIO))
+    source = Mock(spec=simple_pb2.SimpleTest)
+    source.name = sentinel.SOURCE_NAME
+    source.description = sentinel.DESCRIPTION
+    source.section = [mock_section]
+    mock_section.test = [
+        Mock(
+            description=sentinel.TEST_DESCRIPTION,
+            disable_macros=False,
+            disable_check=False,
+            type_env=[],
+            bindings={},
+        )
+    ]
+
+    f = Feature(mock_config, source)
+    assert len(f.sections) == 1
+    assert f.sections[0].scenarios == [sentinel.SCENARIO]
+
+
+def test_feature_parse(
+    monkeypatch: pytest.MonkeyPatch, mock_config: Mock, mock_section: Mock
+) -> None:
+    source = Mock(spec=simple_pb2.SimpleTestFile)
+    source.name = sentinel.SOURCE_NAME
+    source.description = sentinel.DESCRIPTION
+    source.section = [mock_section]
+    mock_section.test = [
+        Mock(
+            description=sentinel.TEST_DESCRIPTION,
+            disable_macros=False,
+            disable_check=False,
+            type_env=[],
+            bindings={},
+        )
+    ]
+
+    monkeypatch.setattr(
+        gherkinize, "simple_pb2", Mock(SimpleTestFile=Mock(return_value=source))
+    )
+    monkeypatch.setattr(gherkinize, "text_format", Mock(name="mock_text_format"))
+
+    f = Feature.from_text_proto(mock_config, "Some Text")
+    assert len(f.sections) == 1
+    assert f.sections[0].scenarios == []
+
+
+@pytest.fixture
+def empty_feature() -> Mock:
+    mock_scenario = Mock(
+        description="scenario", tags=["@wip"], steps=["Given", "When", "Then"]
+    )
+    mock_scenario.name = "mock_scenario"
+    mock_section = Mock(description="section", scenarios=[mock_scenario])
+    mock_section.name = "mock_section"
+    mock_feature = Mock(description="feature", sections=[mock_section])
+    mock_feature.name = "mock_feature"
+    return mock_feature
+
+
+def test_write_gherkin(tmp_path: Path, empty_feature: Mock) -> None:
+    output = tmp_path / "output.feature"
+    options = Namespace(output=output, summary=None)
+    wg = WriteGherkin(options)
+    wg.write_to_file(empty_feature)
+    assert output.read_text().splitlines() == [
+        "@conformance",
+        "Feature: mock_feature",
+        "         feature",
+        "",
+        "",
+        "# mock_section -- section",
+        "",
+        "@wip",
+        "Scenario: mock_section/mock_scenario",
+        "          scenario",
+        "",
+        "    Given",
+        "    When",
+        "    Then",
+        "",
+    ]
+
+
+def test_write_gherkin_stdout(
+    tmp_path: Path, empty_feature: Mock, capsys: pytest.CaptureFixture[str]
+) -> None:
+    options = Namespace(output=None)
+    wg = WriteGherkin(options)
+    wg.write_to_file(empty_feature)
+    out, err = capsys.readouterr()
+    assert out.splitlines()[:2] == [
+        "@conformance",
+        "Feature: mock_feature",
+    ]
+
+
+def test_write_summary(tmp_path: Path, empty_feature: Mock) -> None:
+    output = tmp_path / "output.csv"
+    options = Namespace(output=None, summary=output)
+    ws = WriteSummary(options)
+    ws.write_to_file(empty_feature)
+    assert output.read_text().splitlines() == [
+        "feature,section,scenario,tags",
+        "mock_feature,mock_section,mock_scenario,['@wip']",
+    ]
+
+
+def test_main(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, empty_feature: Mock
+) -> None:
+    monkeypatch.setattr(
+        gherkinize, "Feature", Mock(from_text_proto=Mock(return_value=empty_feature))
+    )
+    input = tmp_path / "some.textproto"
+    input.write_text("some text\n")
+    output = tmp_path / "output.feature"
+    main(["--output", str(output), str(input)])
+    assert output.read_text().splitlines()[:2] == [
+        "@conformance",
+        "Feature: mock_feature",
+    ]
