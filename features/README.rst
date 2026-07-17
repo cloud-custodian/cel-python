@@ -22,7 +22,9 @@ This can be done using **make** at the top level of the project.
 
     make test
 
-To test work-in-progress (WIP)::
+To test work-in-progress (WIP)
+
+::
 
     make test-wip
 
@@ -61,13 +63,13 @@ Here's the bigger picture workflow:
 
     (Or, create it anywhere and set ``CEL_SPEC_PATH`` to refer to this directory.)
 
-2.  Run the ``tools/refresh_spec.``py to find the most recent tag and pull the current files.
+2.  Run the ``tools/refresh_spec.py`` to find the most recent tag and pull the current files.
 
-5.  Run ``make`` to copy the ``.textproto`` files to this directory and create ``.feature`` files from them.
+3.  Run ``make`` to copy the ``.textproto`` files to this directory and create ``.feature`` files from them.
     This will **also** create a ``git.log`` file with the last 5 log entries to help pinpoint
     the commit on which the acceptance test suite is based.
 
-    Remove the ``.textproto`` and ``.feature`` files and rebuild them:
+In rare cases, it can help to remove the ``.textproto`` and ``.feature`` files and rebuild them:
 
     ::
 
@@ -75,11 +77,17 @@ Here's the bigger picture workflow:
 
 Changing the ``@wip`` tags in the feature files.
 
-The ``@wip`` tags are added by ``gherkinize.py`` based on a ``wip.toml`` configuration file.
+The @wip tags
+=============
+
+The ``@wip`` tags are added by ``gherkinize.py`` based on the ``wip.toml`` configuration file.
 As features are added, update the ``wip.toml`` file and rebuild the ``.feature`` files, without touching the ``.textproto`` files.
 
 ::
 
     make clean-features all
 
-This will reset the tags in the ``.feature`` files.
+This will reset the tags in the ``.feature`` files to reflect the current mix
+of supported features.
+
+The goal is to eliminate all test cases from the ``wip.toml`` configuration file.

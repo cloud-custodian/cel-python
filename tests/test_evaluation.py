@@ -191,6 +191,7 @@ def test_operator_in():
     assert operator_in(eval_error, container_1) == eval_error
     assert operator_in(celtypes.IntType(42), eval_error) == eval_error
 
+
 @pytest.mark.skipif(
     "re2" not in celpy.evaluation.function_matches.__globals__, reason="Not using RE2"
 )

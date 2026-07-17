@@ -62,7 +62,6 @@ def main() -> None:
     base = Path(
         os.environ.get("CEL_SPEC_PATH", Path.cwd().parent / "google" / "cel-spec")
     )
-    # tests = base / "tests" / "simple" / "testdata"
     tags_process = shell("git tag --list", cwd=base)
     major, minor, patch, max_tag = max(tag_filter(tags_process.stdout))
     print(f"Fetching tag {max_tag}")
@@ -72,5 +71,5 @@ def main() -> None:
     print(f"Last commit: {log_process.stdout}")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

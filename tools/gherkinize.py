@@ -109,16 +109,30 @@ The sections become comments in the ``.feature`` file, and the section name is u
 """
 
 import argparse
+import csv
 from datetime import datetime, timedelta, timezone
 from io import open
 import logging
-from os import path
 from pathlib import Path
 import sys
-from typing import Any, Literal, Optional, Union, overload
-from typing_extensions import Self
+
+if sys.version_info[:2] < (3, 11):
+    from typing import Any, Literal, Optional, Union, overload
+    from typing_extensions import Self
+    import toml
+
+    def read_toml(path: Path) -> dict[str, Any]:  # pragma: no cover
+        return toml.load(path)
+
+else:
+    from typing import Any, Literal, Optional, Union, overload, Self
+    import tomllib
+
+    def read_toml(path: Path) -> dict[str, Any]:
+        return tomllib.loads(path.read_text())
+
+
 from jinja2 import Environment, FileSystemLoader
-import toml
 
 # Note that the `noqa: F401` annotations are because these imports are needed so
 # that the descriptors end up in the default descriptor pool, but aren't used
@@ -144,11 +158,6 @@ from google.protobuf import (
     wrappers_pb2,
 )
 
-env = Environment(
-    loader=FileSystemLoader(path.dirname(__file__)),
-    trim_blocks=True,
-)
-template = env.get_template("gherkinize.feature")
 logger = logging.getLogger("gherkinize")
 pool = descriptor_pool.Default()
 
@@ -192,13 +201,9 @@ class Config:
     _Section = dict[str, "Config._Scenario"]
     _Feature = dict[str, "Config._Section"]
 
-    def __init__(self, path: str) -> None:
-        logger.debug(f"Reading from {repr(path)}...")
-        input = toml.load(path)
-
-        if not isinstance(input, dict):
-            logger.error(f"Could not read from {repr(path)}")
-            return None
+    def __init__(self, path: Path) -> None:
+        logger.debug(f"Reading from {path}...")
+        input = read_toml(path)
 
         features = [(k, Config._load_feature(k, v)) for k, v in input.items()]
         self.features: dict[str, "Config._Feature"] = {
@@ -241,7 +246,7 @@ class Config:
             tags = [tag] if tag is not None else []
         elif isinstance(input, list):
             tags = Config._load_tag_list(context, input)
-        elif "tags" in input:
+        elif isinstance(input, dict) and "tags" in input:
             tags = Config._load_tag_list(f"{context}.tags", input["tags"])
 
         if tags is None:
@@ -265,7 +270,8 @@ class Config:
 
     @staticmethod
     def _load_tag(context: str, input: Any) -> Union[str, None]:
-        if not isinstance(input, str):
+        # The only way this is called is with input of type str
+        if not isinstance(input, str):  # pragma: no cover
             logger.error(
                 f"[{context}]: Skipping invalid tag (must be a string): {repr(input)}"
             )
@@ -303,7 +309,9 @@ class Result:
         self.value = value
 
     def __eq__(self, other: Any) -> bool:
-        return isinstance(other, Result) and (self.kind, self.value) == (
+        if not isinstance(other, Result):
+            return NotImplemented  # pragma: no cover
+        return (self.kind, self.value) == (
             other.kind,
             other.value,
         )
@@ -326,7 +334,7 @@ class Result:
             return Result(kind, CELErrorSet(source.eval_error))
         elif kind is None:
             return Result("value", CELBool(True))
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(f"Unable to interpret result kind {kind!r}")
 
     @staticmethod
@@ -337,6 +345,7 @@ class Result:
 
 
 class CELValue:
+    # TODO: expose pool = descriptor_pool.Default() and message_factory
     type_name = "celpy.celtypes.CELType"
 
     def __init__(self, source: Optional[message.Message]) -> None:
@@ -378,7 +387,7 @@ class CELValue:
                 return match
 
         if error_on_none:
-            raise Exception(f"Unable to locate CEL value class for alias {alias!r}")
+            raise TypeError(f"Unable to locate CEL value class for alias {alias!r}")
         else:
             return None
 
@@ -442,13 +451,13 @@ class CELType(CELValue):
         elif isinstance(value, str):
             self._from_str(value)
             super().__init__(None)
-        else:
+        else:  # pragma: no cover
             if isinstance(value, message.Message):
-                raise Exception(
+                raise TypeError(
                     f"Unable to interpret type from {value.DESCRIPTOR.full_name} message"
                 )
             else:
-                raise Exception(f"Unable to interpret type from {repr(value)}")
+                raise TypeError(f"Unable to interpret type from {repr(value)}")
 
     @staticmethod
     def is_aliased(alias: str) -> bool:
@@ -497,7 +506,9 @@ class CELType(CELValue):
             "cel.expr.conformance.proto3.GlobalEnum",
             "cel.expr.conformance.proto3.TestAllTypes.NestedEnum",
         ]:
-            raise NotImplementedError(f'Type not supported: "{type_value}"')
+            raise NotImplementedError(
+                f'Type not supported: "{type_value}"'
+            )  # pragma: no cover
         else:
             self.name = "celpy.celtypes.MessageType"
 
@@ -511,7 +522,9 @@ class CELType(CELValue):
         return self.name
 
     def __eq__(self, other: Any) -> bool:
-        return isinstance(other, CELType) and self.name == other.name
+        if not isinstance(other, CELType):
+            return NotImplemented  # pragma: no cover
+        return self.name == other.name
 
 
 class CELExprValue:
@@ -524,7 +537,7 @@ class CELExprValue:
         elif expr_value_kind == "error":
             self.value = CELErrorSet(self.source.error)
         else:
-            raise Exception(
+            raise TypeError(
                 f'Unable to interpret CEL expression value kind "{expr_value_kind}"'
             )
 
@@ -538,7 +551,9 @@ class CELPrimitive(CELValue):
         super().__init__(source)
 
     def __eq__(self, other: Any) -> bool:
-        return isinstance(other, CELPrimitive) and (self.value == other.value)
+        if not isinstance(other, CELPrimitive):
+            return NotImplemented  # pragma: no cover
+        return bool(self.value == other.value)
 
     def __hash__(self) -> int:
         return hash(self.value)
@@ -691,7 +706,7 @@ class CELBytes(CELPrimitive):
 class CELEnum(CELPrimitive):
     type_name = "celpy.celtypes.Enum"
 
-    def __init__(self, _: Any) -> None:
+    def __init__(self, _: Any) -> None:  # pragma: no cover
         raise NotImplementedError("Enums not yet supported")
 
     @staticmethod
@@ -710,7 +725,11 @@ class CELNull(CELValue):
         return alias in ["null", "null_type", "null_value"]
 
     def __eq__(self, other: Any) -> bool:
-        return other is None or isinstance(other, CELNull)
+        if other is None:
+            return True
+        if not isinstance(other, CELNull):
+            return NotImplemented  # pragma: no cover
+        return True
 
     def __repr__(self) -> str:
         return "None"
@@ -735,16 +754,8 @@ class CELList(CELValue):
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, CELList):
-            return False
-
-        if len(self.values) != len(other.values):
-            return False
-
-        for s, o in zip(self.values, other.values):
-            if s != o:
-                return False
-
-        return True
+            return NotImplemented  # pragma: no cover
+        return self.values == other.values
 
     def __repr__(self) -> str:
         return f"[{', '.join(repr(v) for v in self.values)}]"
@@ -770,11 +781,13 @@ class CELMap(CELValue):
         elif isinstance(source, dict):
             self.value = source
             super().__init__(None)
-        else:
-            raise Exception(f"Cannot use {repr(source)} as map input")
+        else:  # pragma: no cover
+            raise TypeError(f"Cannot use {repr(source)} as map input")
 
     def __eq__(self, other: Any) -> bool:
-        return isinstance(other, CELMap) and self.value == other.value
+        if not isinstance(other, CELMap):
+            return NotImplemented  # pragma: no cover
+        return self.value == other.value
 
     def __repr__(self) -> str:
         return f"{self.type_name}({repr(self.value)})"
@@ -823,7 +836,9 @@ class CELDuration(CELValue):
         return alias in ["google.protobuf.Duration"]
 
     def __eq__(self, other: Any) -> bool:
-        return isinstance(other, CELDuration) and (self.seconds, self.nanos) == (
+        if not isinstance(other, CELDuration):
+            return NotImplemented  # pragma: no cover
+        return (self.seconds, self.nanos) == (
             other.seconds,
             other.nanos,
         )
@@ -874,7 +889,9 @@ class CELStatus(CELValue):
         return alias in ["cel.expr.Status"]
 
     def __eq__(self, other: Any) -> bool:
-        return isinstance(other, CELStatus) and (self.message, self.code) == (
+        if not isinstance(other, CELStatus):
+            return NotImplemented  # pragma: no cover
+        return (self.message, self.code) == (
             other.message,
             other.code,
         )
@@ -900,15 +917,12 @@ class CELErrorSet(CELValue):
             super().__init__(None)
         elif isinstance(message, list):
             for m in message:
-                if not isinstance(m, CELStatus):
-                    raise Exception(f"Cannot use {repr(m)} in place of status")
+                if not isinstance(m, CELStatus):  # pragma: no cover
+                    raise TypeError(f"Cannot use {repr(m)} in place of status")
                 self.errors.append(m)
             super().__init__(None)
-        elif isinstance(message, str):
-            self.errors.append(CELStatus(message))
-            super().__init__(None)
-        else:
-            raise Exception(f"Cannot use {repr(message)} as error set input")
+        else:  # pragma: no cover
+            raise TypeError(f"Cannot use {repr(message)} as error set input")
 
     @staticmethod
     def is_aliased(alias: str) -> bool:
@@ -922,16 +936,11 @@ class CELErrorSet(CELValue):
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, CELErrorSet):
-            return False
+            return NotImplemented  # pragma: no cover
 
         if len(self.errors) != len(other.errors):
             return False
-
-        for s, o in zip(self.errors, other.errors):
-            if s != o:
-                return False
-
-        return True
+        return all(s == o for s, o in zip(self.errors, other.errors))
 
     def __repr__(self) -> str:
         return f"{self.type_name}({', '.join(repr(e) for e in self.errors)})"
@@ -941,6 +950,8 @@ class CELErrorSet(CELValue):
 
 
 class ProtoAny:
+    # TODO: expose pool = descriptor_pool.Default() and message_factory
+
     def __init__(self, source: any_pb2.Any) -> None:
         self.source = source
         type_name = self.source.type_url.split("/")[-1]
@@ -981,7 +992,9 @@ class CELMessage(CELValue):
         self.literal = f"{name}({', '.join(fieldLiterals)})"
 
     def __eq__(self, other: Any) -> bool:
-        return isinstance(other, CELMessage) and self.source == other.source
+        if not isinstance(other, CELMessage):
+            return NotImplemented  # pragma: no cover
+        return self.source == other.source
 
     def __repr__(self) -> str:
         return self.literal
@@ -1061,7 +1074,7 @@ class Section:
         for test in source.test:
             try:
                 self.scenarios.append(Scenario(config, feature, self, test))
-            except NotImplementedError as e:
+            except NotImplementedError as e:  # pragma: no cover
                 logger.warning(f"Skipping scenario {test.name} because: {e}")
 
 
@@ -1072,32 +1085,70 @@ class Feature:
         self.sections = [Section(config, self, s) for s in source.section]
 
     @staticmethod
-    def from_text_proto(config: Config, path: Path) -> "Feature":
-        logger.debug(f"Reading from {path}...")
-        with open(path, encoding="utf_8") as file_handle:
-            text = (
-                file_handle.read()
-                .replace("google.api.expr.test.v1.", "cel.expr.conformance.")
-                .replace("protubuf", "protobuf")
-            )
-            file = simple_pb2.SimpleTestFile()
-            logger.debug(f"Parsing {path}...")
-            text_format.Parse(text, file)
-            return Feature(config, file)
+    def from_text_proto(config: Config, source_text: str) -> "Feature":
+        text = source_text.replace(
+            "google.api.expr.test.v1.", "cel.expr.conformance."
+        ).replace("protubuf", "protobuf")
+        file = simple_pb2.SimpleTestFile()
+        text_format.Parse(text, file)
+        return Feature(config, file)
 
-    def write_to_file(self, path: Optional[Path]) -> None:
+
+class WriteGherkin:
+    def __init__(self, options: argparse.Namespace) -> None:
+        self.env = Environment(
+            loader=FileSystemLoader(Path(__file__).parent),
+            trim_blocks=True,
+        )
+        self.template = self.env.get_template("gherkinize.feature")
+        self.output_path = options.output
+
+    def write_to_file(self, feature: Feature) -> None:
         logger.debug("Rendering to gherkin...")
-        gherkin = template.render(feature=self)
+        gherkin = self.template.render(feature=feature)
 
-        if path:
-            logger.debug(f"Writing to {path}...")
-            with open(path, "w", encoding="utf_8") as file_handle:
-                file_handle.write(gherkin)
+        if self.output_path:
+            logger.debug(f"Writing to {self.output_path}...")
+            with open(self.output_path, "w", encoding="utf_8") as output_file:
+                output_file.write(gherkin)
         else:
             print(gherkin)
 
 
-def get_options(argv: list[str] = sys.argv[1:]) -> argparse.Namespace:
+class WriteSummary:
+    """A .CSV-format table with feature, section, scenario, tags."""
+
+    def __init__(self, options: argparse.Namespace) -> None:
+        self.summary_path = options.summary
+
+    def write_to_file(self, feature: Feature) -> None:
+        table = [
+            {
+                "feature": feature.name,
+                "section": section.name,
+                "scenario": scenario.name,
+                "tags": scenario.tags,
+            }
+            for section in feature.sections
+            for scenario in section.scenarios
+        ]
+        if self.summary_path:
+            logger.debug(f"Summary to {self.summary_path}...")
+            with open(self.summary_path, "w") as summary_file:
+                writer = csv.DictWriter(
+                    summary_file, fieldnames=["feature", "section", "scenario", "tags"]
+                )
+                writer.writeheader()
+                writer.writerows(table)
+        else:
+            writer = csv.DictWriter(
+                sys.stdout, fieldnames=["feature", "section", "scenario", "tags"]
+            )
+            writer.writeheader()
+            writer.writerows(table)
+
+
+def get_options(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-v",
@@ -1119,6 +1170,13 @@ def get_options(argv: list[str] = sys.argv[1:]) -> argparse.Namespace:
         help="output file (default is stdout)",
     )
     parser.add_argument(
+        "--summary",
+        action="store",
+        type=Path,
+        default=None,
+        help="summary file (default is stdout)",
+    )
+    parser.add_argument(
         "source",
         action="store",
         nargs="?",
@@ -1129,15 +1187,19 @@ def get_options(argv: list[str] = sys.argv[1:]) -> argparse.Namespace:
     return options
 
 
-if __name__ == "__main__":
-    options = get_options()
+def main(argv: list[str] = sys.argv[1:]) -> None:
+    options = get_options(argv)
     logging.basicConfig(level=logging.INFO)
     logging.getLogger().setLevel(options.log_level)
 
-    config = Config(f"{path.dirname(__file__)}/tags.toml")
-    feature = Feature.from_text_proto(config, options.source)
-    feature.write_to_file(options.output)
+    config = Config(Path(__file__).parent / "tags.toml")
+    writer = WriteGherkin(options)
+    summarizer = WriteSummary(options)
+    logger.debug(f"Reading from {options.source}")
+    feature = Feature.from_text_proto(config, options.source.read_text())
+    writer.write_to_file(feature)
+    summarizer.write_to_file(feature)
 
 
-class NotImplementedError(Exception):
-    pass
+if __name__ == "__main__":
+    main()  # pragma: no cover
