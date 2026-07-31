@@ -211,6 +211,134 @@ def test_uint_type():
     assert UintType(MessageType({"value": UintType(42)})) == UintType(42)
 
 
+def test_heterogeneous_numeric_comparison_issue_114():
+    """https://github.com/cloud-custodian/cel-python/issues/114"""
+    assert DoubleType(4.0) < IntType(10)
+    assert IntType(10) > DoubleType(4.0)
+    assert not (IntType(10) < DoubleType(4.0))
+    assert not (DoubleType(4.0) > IntType(10))
+
+
+def test_heterogeneous_numeric_comparison_int_uint():
+    assert IntType(1) < UintType(2)
+    assert UintType(2) > IntType(1)
+    assert IntType(2) == UintType(2)
+    assert UintType(2) == IntType(2)
+    assert IntType(1) != UintType(2)
+    assert UintType(2) != IntType(1)
+    assert IntType(1) <= UintType(1)
+    assert UintType(1) <= IntType(1)
+    assert IntType(2) >= UintType(2)
+    assert UintType(2) >= IntType(2)
+    # A negative int is always less than any uint.
+    assert IntType(-1) < UintType(0)
+    assert UintType(0) > IntType(-1)
+    # A uint outside the int64 range is always greater than any int.
+    big_uint = UintType(2**64 - 1)
+    assert IntType(5) < big_uint
+    assert big_uint > IntType(5)
+
+
+def test_heterogeneous_numeric_comparison_int_double():
+    assert IntType(1) < DoubleType(1.5)
+    assert DoubleType(1.5) > IntType(1)
+    assert IntType(2) == DoubleType(2.0)
+    assert DoubleType(2.0) == IntType(2)
+    assert IntType(1) != DoubleType(1.5)
+    assert DoubleType(1.5) != IntType(1)
+    assert IntType(1) <= DoubleType(1.0)
+    assert DoubleType(1.0) <= IntType(1)
+    assert IntType(2) >= DoubleType(2.0)
+    assert DoubleType(2.0) >= IntType(2)
+
+
+def test_heterogeneous_numeric_comparison_uint_double():
+    assert UintType(1) < DoubleType(1.5)
+    assert DoubleType(1.5) > UintType(1)
+    assert UintType(2) == DoubleType(2.0)
+    assert DoubleType(2.0) == UintType(2)
+    assert UintType(1) != DoubleType(1.5)
+    assert DoubleType(1.5) != UintType(1)
+    assert UintType(1) <= DoubleType(1.0)
+    assert DoubleType(1.0) <= UintType(1)
+    assert UintType(2) >= DoubleType(2.0)
+    assert DoubleType(2.0) >= UintType(2)
+
+
+def test_heterogeneous_numeric_comparison_exact_beyond_2_53():
+    """A double cannot represent every integer above 2**53, so converting the
+    int side would make these (wrongly) equal."""
+    big_int = IntType(2**53 + 1)
+    boundary_double = DoubleType(float(2**53))
+    assert big_int != boundary_double
+    assert not (big_int == boundary_double)
+    assert big_int > boundary_double
+    assert not (big_int < boundary_double)
+    assert boundary_double < big_int
+    assert boundary_double != big_int
+    # Same check against uint.
+    big_uint = UintType(2**53 + 1)
+    assert big_uint > boundary_double
+    assert boundary_double < big_uint
+    assert big_uint != boundary_double
+
+
+def test_heterogeneous_numeric_comparison_nan():
+    nan = DoubleType(float("nan"))
+    for value in (IntType(5), UintType(5), DoubleType(5.0)):
+        assert not (nan == value)
+        assert not (value == nan)
+        assert nan != value
+        assert value != nan
+        assert not (nan < value)
+        assert not (value < nan)
+        assert not (nan <= value)
+        assert not (value <= nan)
+        assert not (nan > value)
+        assert not (value > nan)
+        assert not (nan >= value)
+        assert not (value >= nan)
+
+
+def test_heterogeneous_numeric_comparison_infinity():
+    inf = DoubleType(float("inf"))
+    neg_inf = DoubleType(float("-inf"))
+    for value in (IntType(5), UintType(5)):
+        assert inf > value
+        assert value < inf
+        assert neg_inf < value
+        assert value > neg_inf
+
+
+def test_heterogeneous_numeric_comparison_negative_zero():
+    assert DoubleType(-0.0) == IntType(0)
+    assert IntType(0) == DoubleType(-0.0)
+    assert DoubleType(-0.0) == UintType(0)
+    assert UintType(0) == DoubleType(-0.0)
+    assert not (DoubleType(-0.0) < IntType(0))
+    assert not (IntType(0) < DoubleType(-0.0))
+
+
+def test_heterogeneous_numeric_comparison_rejects_non_numeric_types():
+    """BoolType subclasses int, but is a distinct CEL type and stays rejected."""
+    with pytest.raises(TypeError):
+        IntType(1) == BoolType(True)
+    with pytest.raises(TypeError):
+        UintType(1) == BoolType(True)
+    with pytest.raises(TypeError):
+        DoubleType(1.0) == StringType("1.0")
+    with pytest.raises(TypeError):
+        IntType(1) < StringType("1")
+
+
+def test_heterogeneous_numeric_arithmetic_still_rejected():
+    """CEL relaxes comparison across numeric types, but not arithmetic."""
+    with pytest.raises(TypeError):
+        IntType(1) + DoubleType(2.0)
+    with pytest.raises(TypeError):
+        UintType(1) + DoubleType(2.0)
+
+
 def test_list_type():
     l_1 = ListType([IntType(42), IntType(6), IntType(7)])
     l_2 = ListType(

@@ -41,13 +41,11 @@ Scenario: map_fields/map_key_mixed_numbers_lossy_double_key
     When CEL expression '{1u: 1.0, 2: 2.0, 3u: 3.0}[3.1]' is evaluated
     Then eval_error is 'no such key'
 
-@wip
 Scenario: map_fields/map_key_mixed_numbers_uint_key
 
     When CEL expression '{1u: 1.0, 2: 2.0, 3u: 3.0}[2u]' is evaluated
     Then value is celpy.celtypes.DoubleType(source=2.0)
 
-@wip
 Scenario: map_fields/map_key_mixed_numbers_int_key
 
     When CEL expression '{1u: 1.0, 2: 2.0, 3u: 3.0}[1]' is evaluated
@@ -357,13 +355,11 @@ Scenario: in/absent
     When CEL expression "'spider' in {'ant': 6, 'fly': 6, 'centipede': 100}" is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: in/mixed_numbers_and_keys_present
 
     When CEL expression '3.0 in {1: 1, 2: 2, 3u: 3} && 2u in {1u: 1, 2: 2} && 1 in {1u: 1, 2: 2}' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: in/mixed_numbers_and_keys_absent
 
     When CEL expression '3.1 in {1: 1, 2: 2, 3u: 3}' is evaluated

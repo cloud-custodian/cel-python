@@ -208,7 +208,6 @@ Scenario: literal_wellknown/timestamp
     When CEL expression "TestAllTypes{single_timestamp: timestamp('2009-02-13T23:31:30Z')}" is evaluated
     Then value is TestAllTypes(single_timestamp=celpy.celtypes.TimestampType(datetime.datetime(2009, 2, 13, 23, 31, 30, tzinfo=datetime.timezone.utc)))
 
-@wip
 Scenario: literal_wellknown/struct
 
     Given container is 'cel.expr.conformance.proto2'
@@ -302,7 +301,6 @@ Scenario: empty_field/scalar_with_default
     When CEL expression 'TestAllTypes{}.single_int32' is evaluated
     Then value is celpy.celtypes.IntType(source=-32)
 
-@wip
 Scenario: empty_field/scalar_no_default
 
     Given container is 'cel.expr.conformance.proto2'

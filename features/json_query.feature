@@ -258,13 +258,14 @@ And   exit status is 0
 
 Scenario: JQ Conditionals and Comparisons: ==
     This requires a syntax change.
-    The semantics of == are different.  CEL does not do the required type coercions.
+    The semantics of == are different.  CEL does not coerce strings to numbers, however
+    it does compare int, uint, and double heterogeneously, per the CEL spec.
 Given JSON document '1'
 And   JSON document '1.0'
 And   JSON document '"1"'
 And   JSON document '"banana"'
 When  echo document | celpy --json-document=_ '_ == 1' is run
-Then  stdout is 'true\nnull\nnull\nnull\n'
+Then  stdout is 'true\ntrue\nnull\nnull\n'
 And   stderr is ''
 And   exit status is 0
 
@@ -284,6 +285,24 @@ Scenario: JQ Conditionals and Comparisons: <, <=, >, >=
 Given JSON document '2'
 When  echo document | celpy --json-document=_ '_ < 5' is run
 Then  stdout is 'true\n'
+And   stderr is ''
+And   exit status is 0
+
+
+Scenario: heterogeneous numeric comparison, double on the left
+    https://github.com/cloud-custodian/cel-python/issues/114
+When  celpy -n '4.0 < 10' is run
+Then  stdout is 'true\n'
+And   stderr is ''
+And   exit status is 0
+
+
+Scenario: heterogeneous numeric comparison, int on the left
+    https://github.com/cloud-custodian/cel-python/issues/114
+    Previously raised "found no matching overload" -- the type coercion was
+    only applied when the double was the left-hand operand.
+When  celpy -n '10 < 4.0' is run
+Then  stdout is 'false\n'
 And   stderr is ''
 And   exit status is 0
 
