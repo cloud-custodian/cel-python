@@ -152,37 +152,31 @@ Scenario: in/last
     When CEL expression '20u in [4u, 6u, 8u, 12u, 20u]' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: in/double_in_ints
 
     When CEL expression 'dyn(3.0) in [5, 4, 3, 2, 1]' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: in/uint_in_ints
 
     When CEL expression 'dyn(3u) in [5, 4, 3, 2, 1]' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: in/int_in_doubles
 
     When CEL expression 'dyn(3) in [5.0, 4.0, 3.0, 2.0, 1.0]' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: in/uint_in_doubles
 
     When CEL expression 'dyn(3u) in [5.0, 4.0, 3.0, 2.0, 1.0]' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: in/int_in_uints
 
     When CEL expression 'dyn(3) in [5u, 4u, 3u, 2u, 1u]' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: in/double_in_uints
 
     When CEL expression 'dyn(3.0) in [5u, 4u, 3u, 2u, 1u]' is evaluated

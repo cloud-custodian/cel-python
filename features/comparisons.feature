@@ -15,25 +15,21 @@ Scenario: eq_literal/not_eq_int
     When CEL expression '-1 == 1' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/eq_int_uint
 
     When CEL expression 'dyn(1) == 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/not_eq_int_uint
 
     When CEL expression 'dyn(2) == 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/eq_int_double
 
     When CEL expression 'dyn(1) == 1.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/not_eq_int_double
 
     When CEL expression 'dyn(2) == 1.0' is evaluated
@@ -49,25 +45,21 @@ Scenario: eq_literal/not_eq_uint
     When CEL expression '1u == 2u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/eq_uint_int
 
     When CEL expression 'dyn(1u) == 1' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/not_eq_uint_int
 
     When CEL expression 'dyn(2u) == 1' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/eq_uint_double
 
     When CEL expression 'dyn(1u) == 1.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/not_eq_uint_double
 
     When CEL expression 'dyn(2u) == 1.0' is evaluated
@@ -89,37 +81,31 @@ Scenario: eq_literal/not_eq_double_nan
     When CEL expression '0.0/0.0 == 0.0/0.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/not_eq_int_double_nan
 
     When CEL expression 'dyn(1) == 0.0/0.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/not_eq_uint_double_nan
 
     When CEL expression 'dyn(1u) == 0.0/0.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/eq_double_int
 
     When CEL expression 'dyn(1.0) == 1' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/not_eq_double_int
 
     When CEL expression 'dyn(2.0) == 1' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/eq_double_uint
 
     When CEL expression 'dyn(1.0) == 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/not_eq_double_uint
 
     When CEL expression 'dyn(2.0) == 1u' is evaluated
@@ -207,13 +193,11 @@ Scenario: eq_literal/eq_list_numbers
     When CEL expression '[1, 2, 3] == [1, 2, 3]' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/eq_list_mixed_type_numbers
 
     When CEL expression '[1.0, 2.0, 3] == [1u, 2, 3u]' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/not_eq_list_mixed_type_numbers
 
     When CEL expression '[1.0, 2.1] == [1u, 2]' is evaluated
@@ -266,7 +250,6 @@ Scenario: eq_literal/eq_map_double_value
     When CEL expression "{'k':1.0} == {'k':1e+0}" is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/eq_map_mixed_type_numbers
 
     When CEL expression '{1: 1.0, 2u: 3u} == {1u: 1, 2: 3.0}' is evaluated
@@ -297,14 +280,12 @@ Scenario: eq_literal/not_eq_map_false_vs_types
     When CEL expression "{'k1': 1, 'k2': 'dos', 'k3': 3} == {'k1': 1, 'k2': 2, 'k3': 4}" is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/eq_mixed_types
 
     Given disable_check parameter is True
     When CEL expression '1.0 == 1' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/eq_list_elem_mixed_types
 
     Given disable_check parameter is True
@@ -394,73 +375,61 @@ Scenario: eq_literal/not_eq_map_value_null
     When CEL expression "{1:'hello', 2:'world'} == {1:'goodbye', 2:null}" is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/eq_dyn_int_uint
 
     When CEL expression 'dyn(1) == 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/eq_dyn_int_double
 
     When CEL expression 'dyn(1) == 1.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/eq_dyn_uint_int
 
     When CEL expression 'dyn(1u) == 1' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/eq_dyn_uint_double
 
     When CEL expression 'dyn(1u) == 1.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/eq_dyn_double_int
 
     When CEL expression 'dyn(1.0) == 1' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/eq_dyn_double_uint
 
     When CEL expression 'dyn(1.0) == 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: eq_literal/not_eq_dyn_int_uint
 
     When CEL expression 'dyn(1) == 2u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/not_eq_dyn_int_double
 
     When CEL expression 'dyn(1) == 2.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/not_eq_dyn_uint_int
 
     When CEL expression 'dyn(1u) == 2' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/not_eq_dyn_uint_double
 
     When CEL expression 'dyn(1u) == 120' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/not_eq_dyn_double_int
 
     When CEL expression 'dyn(1.0) == 2' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: eq_literal/not_eq_dyn_double_uint
 
     When CEL expression 'dyn(1.0) == 2u' is evaluated
@@ -875,25 +844,21 @@ Scenario: ne_literal/not_ne_int
     When CEL expression '1 != 1' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: ne_literal/ne_int_double
 
     When CEL expression 'dyn(24) != 24.1' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: ne_literal/not_ne_int_double
 
     When CEL expression 'dyn(1) != 1.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: ne_literal/ne_int_uint
 
     When CEL expression 'dyn(24) != 42u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: ne_literal/not_ne_int_uint
 
     When CEL expression 'dyn(1) != 1u' is evaluated
@@ -909,13 +874,11 @@ Scenario: ne_literal/not_ne_uint
     When CEL expression '99u != 99u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: ne_literal/ne_uint_double
 
     When CEL expression 'dyn(1u) != 2.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: ne_literal/not_ne_uint_double
 
     When CEL expression 'dyn(99u) != 99.0' is evaluated
@@ -932,13 +895,11 @@ Scenario: ne_literal/not_ne_double_nan
     When CEL expression '0.0/0.0 != 0.0/0.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: ne_literal/not_ne_int_double_nan
 
     When CEL expression 'dyn(1) != 0.0/0.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: ne_literal/not_ne_uint_double_nan
 
     When CEL expression 'dyn(1u) != 0.0/0.0' is evaluated
@@ -949,25 +910,21 @@ Scenario: ne_literal/not_ne_double
     When CEL expression '1.0 != 1e+0' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: ne_literal/ne_double_int
 
     When CEL expression 'dyn(9000) != 9001.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: ne_literal/not_ne_double_int
 
     When CEL expression 'dyn(1) != 1e+0' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: ne_literal/ne_double_uint
 
     When CEL expression 'dyn(9000u) != 9001.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: ne_literal/not_ne_double_uint
 
     When CEL expression 'dyn(1u) != 1e+0' is evaluated
@@ -1070,7 +1027,6 @@ Scenario: ne_literal/not_ne_map_key_order
     When CEL expression "{'a':'b','c':'d'} != {'c':'d','a':'b'}" is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: ne_literal/ne_mixed_types
 
     Given disable_check parameter is True
@@ -1288,13 +1244,11 @@ Scenario: lt_literal/lt_mixed_types_error
     When CEL expression "'foo' < 1024" is evaluated
     Then eval_error is 'no such overload'
 
-@wip
 Scenario: lt_literal/lt_dyn_int_uint
 
     When CEL expression 'dyn(1) < 2u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: lt_literal/lt_dyn_int_double
 
     When CEL expression 'dyn(1) < 2.0' is evaluated
@@ -1320,13 +1274,11 @@ Scenario: lt_literal/lt_dyn_double_uint
     When CEL expression 'dyn(1.0) < 2u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: lt_literal/not_lt_dyn_int_uint
 
     When CEL expression 'dyn(1) < 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: lt_literal/not_lt_dyn_int_double
 
     When CEL expression 'dyn(1) < 1.0' is evaluated
@@ -1352,13 +1304,11 @@ Scenario: lt_literal/not_lt_dyn_double_uint
     When CEL expression 'dyn(1.0) < 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: lt_literal/lt_dyn_int_big_uint
 
     When CEL expression 'dyn(1) < 9223372036854775808u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: lt_literal/lt_dyn_small_int_uint
 
     When CEL expression 'dyn(-1) < 0u' is evaluated
@@ -1370,19 +1320,16 @@ Scenario: lt_literal/not_lt_dyn_int_big_lossy_double
     When CEL expression 'dyn(9223372036854775807) < 9223372036854775808.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: lt_literal/lt_dyn_int_big_lossy_double
 
     When CEL expression 'dyn(9223372036854775807) < 9223372036854777857.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: lt_literal/not_lt_dyn_int_small_double
 
     When CEL expression 'dyn(9223372036854775807) < -9223372036854777857.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: lt_literal/not_lt_dyn_int_small_lossy_double
 
     When CEL expression 'dyn(-9223372036854775808) < -9223372036854775809.0' is evaluated
@@ -1531,13 +1478,11 @@ Scenario: gt_literal/gt_mixed_types_error
     When CEL expression "'foo' > 1024" is evaluated
     Then eval_error is 'no such overload'
 
-@wip
 Scenario: gt_literal/gt_dyn_int_uint
 
     When CEL expression 'dyn(2) > 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: gt_literal/gt_dyn_int_double
 
     When CEL expression 'dyn(2) > 1.0' is evaluated
@@ -1563,13 +1508,11 @@ Scenario: gt_literal/gt_dyn_double_uint
     When CEL expression 'dyn(2.0) > 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: gt_literal/not_gt_dyn_int_uint
 
     When CEL expression 'dyn(1) > 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: gt_literal/not_gt_dyn_int_double
 
     When CEL expression 'dyn(1) > 1.0' is evaluated
@@ -1595,25 +1538,21 @@ Scenario: gt_literal/not_gt_dyn_double_uint
     When CEL expression 'dyn(1.0) > 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: gt_literal/not_gt_dyn_int_big_uint
 
     When CEL expression 'dyn(1) > 9223372036854775808u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: gt_literal/not_gt_dyn_small_int_uint
 
     When CEL expression 'dyn(-1) > 0u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: gt_literal/not_gt_dyn_int_big_double
 
     When CEL expression 'dyn(9223372036854775807) > 9223372036854775808.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: gt_literal/not_gt_dyn_int_small_lossy_double
           The conversion of the int to double is lossy and the numbers end up
           being equal
@@ -1621,7 +1560,6 @@ Scenario: gt_literal/not_gt_dyn_int_small_lossy_double
     When CEL expression 'dyn(-9223372036854775808) > -9223372036854775809.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: gt_literal/gt_dyn_int_small_lossy_double_greater
 
     When CEL expression 'dyn(-9223372036854775808) > -9223372036854777857.0' is evaluated
@@ -1796,13 +1734,11 @@ Scenario: lte_literal/lte_mixed_types_error
     When CEL expression "'foo' <= 1024" is evaluated
     Then eval_error is 'no such overload'
 
-@wip
 Scenario: lte_literal/lte_dyn_int_uint
 
     When CEL expression 'dyn(1) <= 2u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: lte_literal/lte_dyn_int_double
 
     When CEL expression 'dyn(1) <= 2.0' is evaluated
@@ -1828,13 +1764,11 @@ Scenario: lte_literal/lte_dyn_double_uint
     When CEL expression 'dyn(1.0) <= 2u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: lte_literal/not_lte_dyn_int_uint
 
     When CEL expression 'dyn(2) <= 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: lte_literal/not_lte_dyn_int_double
 
     When CEL expression 'dyn(2) <= 1.0' is evaluated
@@ -1860,25 +1794,21 @@ Scenario: lte_literal/not_lte_dyn_double_uint
     When CEL expression 'dyn(2.0) <= 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: lte_literal/lte_dyn_int_big_uint
 
     When CEL expression 'dyn(1) <= 9223372036854775808u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: lte_literal/lte_dyn_small_int_uint
 
     When CEL expression 'dyn(-1) <= 0u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: lte_literal/lte_dyn_int_big_double
 
     When CEL expression 'dyn(9223372036854775807) <= 9223372036854775808.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: lte_literal/lte_dyn_int_small_lossy_double
           The conversion of the int to double is lossy and the numbers end up
           being equal
@@ -1886,7 +1816,6 @@ Scenario: lte_literal/lte_dyn_int_small_lossy_double
     When CEL expression 'dyn(-9223372036854775808) <= -9223372036854775809.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: lte_literal/not_lte_dyn_int_small_lossy_double_less
 
     When CEL expression 'dyn(-9223372036854775808) <= -9223372036854777857.0' is evaluated
@@ -2071,13 +2000,11 @@ Scenario: gte_literal/gte_mixed_types_error
     When CEL expression "'foo' >= 1.0" is evaluated
     Then eval_error is 'no such overload'
 
-@wip
 Scenario: gte_literal/gte_dyn_int_uint
 
     When CEL expression 'dyn(2) >= 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: gte_literal/gte_dyn_int_double
 
     When CEL expression 'dyn(2) >= 1.0' is evaluated
@@ -2103,13 +2030,11 @@ Scenario: gte_literal/gte_dyn_double_uint
     When CEL expression 'dyn(2.0) >= 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: gte_literal/not_gte_dyn_int_uint
 
     When CEL expression 'dyn(0) >= 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: gte_literal/not_gte_dyn_int_double
 
     When CEL expression 'dyn(0) >= 1.0' is evaluated
@@ -2135,13 +2060,11 @@ Scenario: gte_literal/not_gte_dyn_double_uint
     When CEL expression 'dyn(0.0) >= 1u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: gte_literal/not_gte_dyn_int_big_uint
 
     When CEL expression 'dyn(1) >= 9223372036854775808u' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: gte_literal/not_gte_dyn_small_int_uint
 
     When CEL expression 'dyn(-1) >= 0u' is evaluated
@@ -2153,13 +2076,11 @@ Scenario: gte_literal/gte_dyn_int_big_lossy_double
     When CEL expression 'dyn(9223372036854775807) >= 9223372036854775808.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: gte_literal/not_gte_dyn_int_big_double
 
     When CEL expression 'dyn(9223372036854775807) >= 9223372036854777857.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=False)
 
-@wip
 Scenario: gte_literal/gte_dyn_int_small_lossy_double_equal
           The conversion of the int to double is lossy and the numbers end up
           being equal
@@ -2167,7 +2088,6 @@ Scenario: gte_literal/gte_dyn_int_small_lossy_double_equal
     When CEL expression 'dyn(-9223372036854775808) >= -9223372036854775809.0' is evaluated
     Then value is celpy.celtypes.BoolType(source=True)
 
-@wip
 Scenario: gte_literal/gte_dyn_int_small_lossy_double_greater
 
     When CEL expression 'dyn(-9223372036854775808) >= -9223372036854777857.0' is evaluated

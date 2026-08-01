@@ -188,6 +188,7 @@ For example, there may be the following sequence:
 
 import datetime
 import logging
+import operator
 import re
 from functools import reduce, wraps
 from math import fsum, trunc
@@ -250,18 +251,48 @@ CELType = Union[
 ]
 
 
+# Dispatch table for the heterogeneous numeric comparisons in type_matched().
+_COMPARISON_OPERATORS: Dict[str, Callable[[Any, Any], Any]] = {
+    "__eq__": operator.eq,
+    "__ne__": operator.ne,
+    "__lt__": operator.lt,
+    "__le__": operator.le,
+    "__gt__": operator.gt,
+    "__ge__": operator.ge,
+}
+
+
 def type_matched(method: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]:
-    """Decorates a method to assure the "other" value has the same type."""
+    """
+    Decorates a method to assure the "other" value has the same type.
+
+    IntType, UintType, and DoubleType are excepted: the CEL spec requires the
+    six comparison operators (but not arithmetic) to work across them in
+    any operand order. See the "Numeric Values" section of
+    https://github.com/google/cel-spec/blob/master/doc/langdef.md, and Issue
+    #114. BoolType subclasses int but is a distinct CEL type, so it is not
+    part of the exception.
+    """
 
     @wraps(method)
     def type_matching_method(self: Any, other: Any) -> Any:
-        if not (
-            issubclass(type(other), type(self)) or issubclass(type(self), type(other))
+        if issubclass(type(other), type(self)) or issubclass(type(self), type(other)):
+            return method(self, other)
+        if isinstance(self, (IntType, UintType, DoubleType)) and isinstance(
+            other, (IntType, UintType, DoubleType)
         ):
-            raise TypeError(
-                f"no such overload: {self!r} {type(self)} != {other!r} {type(other)}"
+            # Unwrap to the natural Python type, never int -> float: the native
+            # mixed comparison is exact where a cast loses precision past 2**53.
+            self_value: Union[int, float] = (
+                float(self) if isinstance(self, DoubleType) else int(self)
             )
-        return method(self, other)
+            other_value: Union[int, float] = (
+                float(other) if isinstance(other, DoubleType) else int(other)
+            )
+            return _COMPARISON_OPERATORS[method.__name__](self_value, other_value)
+        raise TypeError(
+            f"no such overload: {self!r} {type(self)} != {other!r} {type(other)}"
+        )
 
     return type_matching_method
 
