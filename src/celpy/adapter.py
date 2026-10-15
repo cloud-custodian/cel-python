@@ -43,23 +43,26 @@ class CELJSONEncoder(json.JSONEncoder):
 
     This is **not** a reversible transformation. Some things are coerced to strings
     without any more detailed type marker.
-    Specifically timestamps, durations, and bytes.
+    Specifically timestamps, durations, bytes, and integers outside the interoperable range.
     """
 
     @staticmethod
     def to_python(
         cel_object: celtypes.Value,
-    ) -> Union[celtypes.Value, List[Any], Dict[Any, Any], bool]:
+    ) -> Union[celtypes.Value, List[Any], Dict[Any, Any], bool, str]:
         """Recursive walk through the CEL object, replacing :py:class:`celpy.celtypes.BoolType` with native ``bool`` instances.
         This lets the :py:mod:`json` module correctly represent the obects
         with JSON ``true`` and ``false``.
 
         This will also replace :py:class:`celpy.celtypes.ListType` and :py:class:`celpy.celtypes.MapType` with native ``list`` and ``dict``.
+        CEL integers outside ``-(2**53 - 1)`` to ``2**53 - 1`` become decimal strings.
         All other CEL objects will be left intact. This creates an intermediate hybrid
         beast that's not quite a :py:class:`celpy.celtypes.Value` because a few things have been replaced.
         """
         if isinstance(cel_object, celtypes.BoolType):
             return True if cel_object else False
+        elif isinstance(cel_object, (celtypes.IntType, celtypes.UintType)):
+            return str(cel_object) if abs(cel_object) > 2**53 - 1 else cel_object
         elif isinstance(cel_object, celtypes.ListType):
             return [CELJSONEncoder.to_python(item) for item in cel_object]
         elif isinstance(cel_object, celtypes.MapType):
@@ -72,7 +75,7 @@ class CELJSONEncoder(json.JSONEncoder):
 
     def encode(self, cel_object: celtypes.Value) -> str:
         """
-        Override built-in encode to create proper Python ``bool`` objects.
+        Override built-in encode to convert booleans and large integers.
         """
         return super().encode(CELJSONEncoder.to_python(cel_object))
 

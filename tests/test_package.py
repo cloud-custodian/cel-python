@@ -96,6 +96,31 @@ def test_encoder():
     )
 
 
+@pytest.mark.parametrize(
+    "cel_value, expected",
+    [
+        (celpy.celtypes.IntType(-2**63), '"-9223372036854775808"'),
+        (celpy.celtypes.IntType(-(2**53 + 1)), '"-9007199254740993"'),
+        (celpy.celtypes.IntType(-2**53), '"-9007199254740992"'),
+        (celpy.celtypes.IntType(-(2**53 - 1)), "-9007199254740991"),
+        (celpy.celtypes.IntType(2**53 - 1), "9007199254740991"),
+        (celpy.celtypes.IntType(2**53), '"9007199254740992"'),
+        (celpy.celtypes.IntType(2**53 + 1), '"9007199254740993"'),
+        (celpy.celtypes.IntType(2**63 - 1), '"9223372036854775807"'),
+        (celpy.celtypes.UintType(2**53 - 1), "9007199254740991"),
+        (celpy.celtypes.UintType(2**53), '"9007199254740992"'),
+        (celpy.celtypes.UintType(2**53 + 1), '"9007199254740993"'),
+        (celpy.celtypes.UintType(2**64 - 1), '"18446744073709551615"'),
+    ],
+)
+def test_encoder_integer_range(cel_value, expected):
+    assert json.dumps(cel_value, cls=celpy.CELJSONEncoder) == expected
+    cel_obj = celpy.celtypes.MapType(
+        {celpy.celtypes.StringType("numbers"): celpy.celtypes.ListType([cel_value])}
+    )
+    assert json.dumps(cel_obj, cls=celpy.CELJSONEncoder) == f'{{"numbers": [{expected}]}}'
+
+
 def test_encoder_unknown():
     cel_obj = sentinel.no_json
     with pytest.raises(TypeError):
