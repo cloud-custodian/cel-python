@@ -346,7 +346,7 @@ def operator_in(item: Result, container: Result) -> Result:
         return container
 
     result_value: Result = celpy.celtypes.BoolType(False)
-    for c in cast(Iterable[Result], container):
+    for c in cast("Iterable[Result]", container):
         try:
             if c == item:
                 return celpy.celtypes.BoolType(True)
@@ -1301,7 +1301,7 @@ class Activation:
         logger.debug("resolve_variable(%r)", name)
         try:
             referent = self.identifiers.resolve_name(self.package, name)
-            return cast(Union[Result, NameContainer], referent.value)
+            return cast("Union[Result, NameContainer]", referent.value)
         except KeyError:
             return self.functions[name]
 
@@ -1329,12 +1329,12 @@ class Activation:
             referent = self.identifiers.resolve_name(self.package, name)
             logger.debug("get/__getattr__(%r) ==> %r", name, referent)
             if referent._value_set:
-                return cast(Union[Result, NameContainer], referent.value)
+                return cast("Union[Result, NameContainer]", referent.value)
             else:
                 if referent.container:
                     return referent.container
                 elif referent.annotation:
-                    return cast(Union[Result, NameContainer], referent.annotation)
+                    return cast("Union[Result, NameContainer]", referent.annotation)
                 else:
                     raise RuntimeError(f"Corrupt {self!r}")  # pragma: no cover
         except KeyError:
@@ -1558,7 +1558,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             return exprlist
 
         try:
-            list_exprlist = cast(List[Result], exprlist or [])
+            list_exprlist = cast("List[Result]", exprlist or [])
             for expr in list_exprlist:
                 if isinstance(expr, CELEvalError):
                     return expr
@@ -1615,7 +1615,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             return exprlist
 
         try:
-            list_exprlist = cast(List[Result], exprlist or [])
+            list_exprlist = cast("List[Result]", exprlist or [])
             return function(object, *list_exprlist)
         except ValueError as ex:
             value = CELEvalError(
@@ -1733,7 +1733,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
         elif len(tree.children) == 2:
             # func = self.functions["_||_"]   # Refactor ``self.functions`` into an Activation
             func = self.activation.resolve_function("_||_")
-            left, right = cast(Tuple[Result, Result], self.visit_children(tree))
+            left, right = cast("Tuple[Result, Result]", self.visit_children(tree))
             try:
                 return func(left, right)
             except TypeError as ex:
@@ -1767,7 +1767,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
         elif len(tree.children) == 2:
             # func = self.functions["_&&_"]    # Refactor ``self.functions`` into an Activation
             func = self.activation.resolve_function("_&&_")
-            left, right = cast(Tuple[Result, Result], self.visit_children(tree))
+            left, right = cast("Tuple[Result, Result]", self.visit_children(tree))
             try:
                 return func(left, right)
             except TypeError as ex:
@@ -1831,7 +1831,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             func = self.activation.resolve_function(op_name)
             # NOTE: values have the structure [[left], right]
             (left, *_), right = cast(
-                Tuple[List[Result], Result], self.visit_children(tree)
+                "Tuple[List[Result], Result]", self.visit_children(tree)
             )
             self.logger.debug("relation %r %s %r", left, op_name, right)
             try:
@@ -1887,7 +1887,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             func = self.activation.resolve_function(op_name)
             # NOTE: values have the structure [[left], right]
             (left, *_), right = cast(
-                Tuple[List[Result], Result], self.visit_children(tree)
+                "Tuple[List[Result], Result]", self.visit_children(tree)
             )
             self.logger.debug("addition %r %s %r", left, op_name, right)
             try:
@@ -1952,7 +1952,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             func = self.activation.resolve_function(op_name)
             # NOTE: values have the structure [[left], right]
             (left, *_), right = cast(
-                Tuple[List[Result], Result], self.visit_children(tree)
+                "Tuple[List[Result], Result]", self.visit_children(tree)
             )
             self.logger.debug("multiplication %r %s %r", left, op_name, right)
             try:
@@ -2340,7 +2340,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             if method_name_token.value == "map":
                 sub_expr = self.build_macro_eval(tree)
                 mapping = cast(
-                    Iterable[celpy.celtypes.Value], map(sub_expr, member_list)
+                    "Iterable[celpy.celtypes.Value]", map(sub_expr, member_list)
                 )
                 result_value = celpy.celtypes.ListType(mapping)
                 return result_value
@@ -2412,13 +2412,13 @@ class Evaluator(lark.visitors.Interpreter[Result]):
             # Evaluate member, method IDENT and (if present) exprlist and apply.
             if len(tree.children) == 2:
                 member, ident = cast(
-                    Tuple[Result, lark.Token], self.visit_children(tree)
+                    "Tuple[Result, lark.Token]", self.visit_children(tree)
                 )
                 result_value = self.method_eval(member, ident)
             else:
                 # assert len(tree.children) == 3
                 member, ident, expr_iter = cast(
-                    Tuple[Result, lark.Token, Iterable[Result]],
+                    "Tuple[Result, lark.Token, Iterable[Result]]",
                     self.visit_children(tree),
                 )
                 result_value = self.method_eval(member, ident, expr_iter)
@@ -2646,7 +2646,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
                 # Ordinary function() evaluation.
                 values = self.visit_children(exprlist)
                 return self.function_eval(
-                    name_token, cast(Iterable[celpy.celtypes.Value], values)
+                    name_token, cast("Iterable[celpy.celtypes.Value]", values)
                 )
 
         elif child.data == "ident":
@@ -2733,7 +2733,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
         except StopIteration:
             pass
         # There are no CELEvalError values in the result, so we can narrow the domain.
-        result_value = celpy.celtypes.ListType(cast(List[celpy.celtypes.Value], values))
+        result_value = celpy.celtypes.ListType(cast("List[celpy.celtypes.Value]", values))
         return result_value
 
     @trace
@@ -2781,7 +2781,7 @@ class Evaluator(lark.visitors.Interpreter[Result]):
 
         # Not sure if this cast is sensible. Should a CELEvalError propagate up from the
         # sub-expressions? See the error check in :py:func:`exprlist`.
-        keys_values = cast(List[celpy.celtypes.Value], self.visit_children(tree))
+        keys_values = cast("List[celpy.celtypes.Value]", self.visit_children(tree))
         pairs = zip(keys_values[0::2], keys_values[1::2])
         for key, value in pairs:
             if key in result_value:
@@ -2910,7 +2910,7 @@ def macro_exists(
     return celpy.celtypes.BoolType(
         reduce(
             cast(
-                Callable[[celpy.celtypes.BoolType, Result], celpy.celtypes.BoolType],
+                "Callable[[celpy.celtypes.BoolType, Result], celpy.celtypes.BoolType]",
                 celpy.celtypes.logical_or,
             ),
             (result(act, cel_expr) for act in activations),
@@ -2933,7 +2933,7 @@ def macro_all(
     return celpy.celtypes.BoolType(
         reduce(
             cast(
-                Callable[[celpy.celtypes.BoolType, Result], celpy.celtypes.BoolType],
+                "Callable[[celpy.celtypes.BoolType, Result], celpy.celtypes.BoolType]",
                 celpy.celtypes.logical_and,
             ),
             (result(act, cel_expr) for act in activations),
