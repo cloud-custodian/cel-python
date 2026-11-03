@@ -33,8 +33,9 @@ This module cherry-picks tests of CEL expressions separate from the evaluation m
 """
 
 import ast
+import sys
 from textwrap import dedent
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock, MagicMock, sentinel
 
 import lark
@@ -937,3 +938,29 @@ def test_core_transpile(
             assert computed == mock_protobuf.return_value
         else:
             assert computed == expected_value
+
+
+def test_transpile_function_from_other_module(monkeypatch):
+    """
+    A function from a module the ``evaluation`` module never imports (e.g., ``__main__``)
+    is resolved when the transpiled code is evaluated.
+    See https://github.com/cloud-custodian/cel-python/issues/145
+    """
+    user_module = ModuleType("cel_user_functions")
+    exec(
+        dedent("""\
+            import celpy.celtypes
+
+            def lower(text):
+                return celpy.celtypes.StringType(text.lower())
+        """),
+        user_module.__dict__,
+    )
+    monkeypatch.setitem(sys.modules, "cel_user_functions", user_module)
+
+    env = celpy.Environment(runner_class=celpy.CompiledRunner)
+    expr_ast = env.compile("device.lower() == 'tablet'")
+    program = env.program(expr_ast, functions={"lower": user_module.lower})
+    assert "cel_user_functions.lower(" in program.tp.source_text
+    result = program.evaluate({"device": celtypes.StringType("TABLET")})
+    assert result == celtypes.BoolType(True)

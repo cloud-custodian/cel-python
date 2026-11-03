@@ -3059,6 +3059,9 @@ class Transpiler:
         self.base_activation = activation
         self.activation = self.base_activation
 
+        # Top-level modules for the functions, so ``module.function`` names resolve.
+        self.fn_packages = self._resolve_fn_packages()
+
         self.logger.debug("Transpiler activation: %r", self.activation)
         # self.logger.debug("functions: %r", self.functions)  # Refactor ``self.functions`` into an Activation
 
@@ -3089,8 +3092,9 @@ class Transpiler:
         self.logger.debug("Activation: %r", self.activation)
 
         # Global for the top-level ``CEL = result(base_activation, ...)`` statement.
+        # Function packages (e.g., ``__main__``) are added; module names take precedence.
         evaluation_globals = (
-            celpy.evaluation.result.__globals__
+            self.fn_packages | celpy.evaluation.result.__globals__
         )  # the ``evaluation`` moodule
         evaluation_globals["base_activation"] = self.activation
         try:
@@ -3103,6 +3107,23 @@ class Transpiler:
             # A Python problem during ``exec()``
             self.logger.error("Internal error: %r", ex)
             raise CELEvalError("evaluation error", type(ex), ex.args)
+
+    def _resolve_fn_packages(self) -> dict[str, Any]:
+        """
+        Locate the top-level module for each function in the activation.
+
+        The transpiled code refers to a function as ``module.qualname``.
+        The top-level package of that module must be a global name during :py:meth:`evaluate`.
+        """
+        packages: dict[str, Any] = {}
+        for func in self.base_activation.functions.values():
+            module_name = {"_operator": "operator"}.get(
+                func.__module__, func.__module__
+            )
+            package = module_name.split(".", 1)[0]
+            if package not in packages and package in sys.modules:
+                packages[package] = sys.modules[package]
+        return packages
 
 
 class Phase1Transpiler(lark.visitors.Visitor_Recursive):
